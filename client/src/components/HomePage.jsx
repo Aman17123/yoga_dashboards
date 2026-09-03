@@ -48,11 +48,11 @@ export default function HomePage({ onLogin, onQuickLogin }) {
               </svg>
             </div>
             <div className="flex flex-col">
-              <span className="font-serif-editorial text-lg font-bold tracking-tight text-[#161918] leading-none">
-                Meridian
+              <span className="font-sans text-base sm:text-lg font-bold tracking-tight text-[#161918] leading-none">
+                Devbhoomi Infotech
               </span>
               <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mt-0.5">
-                Studio Practice Portal
+                Studio &amp; Practice Operations
               </span>
             </div>
           </div>
@@ -185,7 +185,7 @@ export default function HomePage({ onLogin, onQuickLogin }) {
       <footer className="border-t border-[#E4E1DB] bg-[#F8F7F4] py-6 px-5 sm:px-8">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-[#6B706E] gap-3">
           <div>
-            &copy; {new Date().getFullYear()} Meridian Yoga Studio Infrastructure. All rights reserved.
+            &copy; {new Date().getFullYear()} Devbhoomi Infotech Studio Infrastructure. All rights reserved.
           </div>
           <div className="flex items-center gap-4">
             <button
@@ -240,13 +240,13 @@ export default function HomePage({ onLogin, onQuickLogin }) {
                   <div>
                     <h4 className="font-bold text-[#161918] mb-1">1. Student Health Data Sovereignty</h4>
                     <p>
-                      Meridian provides dedicated infrastructure directly operated by your yoga instructor. Health intake disclosures—including spinal history, joint conditions, pregnancy status, and cardiovascular observations—are stored strictly within your instructor’s private studio instance and are never aggregated, commodified, or shared with commercial health brokers.
+                      Devbhoomi Infotech provides dedicated infrastructure directly operated by your yoga instructor. Health intake disclosures—including spinal history, joint conditions, pregnancy status, and cardiovascular observations—are stored strictly within your instructor’s private studio instance and are never aggregated, commodified, or shared with commercial health brokers.
                     </p>
                   </div>
                   <div>
                     <h4 className="font-bold text-[#161918] mb-1">2. Payment &amp; Banking Data Safeguards</h4>
                     <p>
-                      Because Meridian facilitates direct-to-bank settlements (such as UPI IDs and international wire transfers), no full credit card numbers or banking passwords are ever stored on or processed through intermediate cloud aggregators. All transaction confirmations are logged solely for tuition cycle accounting.
+                      Because Devbhoomi Infotech facilitates direct-to-bank settlements (such as UPI IDs and international wire transfers), no full credit card numbers or banking passwords are ever stored on or processed through intermediate cloud aggregators. All transaction confirmations are logged solely for tuition cycle accounting.
                     </p>
                   </div>
                   <div>

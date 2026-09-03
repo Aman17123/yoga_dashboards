@@ -27,39 +27,39 @@ export default function TimeBridge({ student, currentTime }) {
   return (
     <div className="flex items-center justify-between gap-2 sm:gap-4 w-full">
       {/* Instructor Side */}
-      <div className="flex flex-col items-center text-center w-[40%]">
-        <div className="text-[11.5px] font-bold uppercase tracking-wider text-[#F2994A] mb-2">
-          Instructor · IST
+      <div className="flex flex-col items-center text-center w-[40%] bg-[#F8F7F4] border border-[#E4E1DB] rounded-[6px] p-3 sm:p-4">
+        <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-2">
+          Studio Reference · IST
         </div>
         <AnalogClock tz="Asia/Kolkata" currentTime={currentTime} />
-        <div className="font-mono font-semibold text-base text-[#171A32]">
+        <div className="font-mono font-semibold text-base text-[#161918]">
           {digital12(istWall.h, istWall.m)}
         </div>
-        <div className="text-xs text-[#6B7089] mt-0.5">
+        <div className="font-mono text-[11px] text-[#6B706E] mt-0.5">
           {istDateStr}
         </div>
       </div>
 
       {/* Middle Connector */}
-      <div className="flex flex-col items-center justify-center gap-1.5 w-[20%] text-[#A3A8C3]">
-        <div className="w-5 h-5 sm:w-6 sm:h-6 text-[#A3A8C3]">
+      <div className="flex flex-col items-center justify-center gap-1.5 w-[20%] text-[#8E8A82]">
+        <div className="w-4 h-4 sm:w-5 sm:h-5 text-[#8E8A82]">
           <ArrowRightIcon className="w-full h-full" />
         </div>
-        <div className="text-[11.5px] text-[#6B7089] text-center font-semibold leading-tight">
+        <div className="font-mono text-[10.5px] text-[#6B706E] text-center font-medium leading-tight px-1">
           {offset}
         </div>
       </div>
 
       {/* Student Side */}
-      <div className="flex flex-col items-center text-center w-[40%]">
-        <div className="text-[11.5px] font-bold uppercase tracking-wider text-[#4C5FD5] mb-2">
+      <div className="flex flex-col items-center text-center w-[40%] bg-[#F8F7F4] border border-[#E4E1DB] rounded-[6px] p-3 sm:p-4">
+        <div className="font-mono text-[10px] uppercase tracking-wider text-[#161918] mb-2">
           {studentFirstName} · {student.country}
         </div>
         <AnalogClock tz={student.timezone || "Asia/Kolkata"} currentTime={currentTime} />
-        <div className="font-mono font-semibold text-base text-[#171A32]">
+        <div className="font-mono font-semibold text-base text-[#161918]">
           {digital12(studentWall.h, studentWall.m)}
         </div>
-        <div className="text-xs text-[#6B7089] mt-0.5">
+        <div className="font-mono text-[11px] text-[#6B706E] mt-0.5">
           {studentDateStr}
         </div>
       </div>

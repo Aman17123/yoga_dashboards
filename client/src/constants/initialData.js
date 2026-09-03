@@ -11,13 +11,13 @@ export const INSTRUCTOR_NAMES = [
 ];
 
 export const DEFAULT_PAYMENT_SETTINGS = {
-  upiId: "yourbusiness@upi",
-  payeeName: "Your Tutoring Business",
-  accountName: "Your Name",
-  accountNumber: "000000000000",
-  ifsc: "ABCD0123456",
-  bankName: "Your Bank",
-  adminWhatsApp: "+91 90000 00000",
+  upiId: "devbhoomi@upi",
+  payeeName: "Devbhoomi Infotech",
+  accountName: "Devbhoomi Infotech",
+  accountNumber: "987654321012",
+  ifsc: "HDFC0001234",
+  bankName: "HDFC Bank",
+  adminWhatsApp: "+91 98765 43210",
 };
 
 export const TIMEZONE_OPTIONS = [

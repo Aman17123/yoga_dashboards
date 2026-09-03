@@ -25,10 +25,10 @@ export default function FeeRing({
 
   const tier = feeTier(daysLeft);
   const tierLabel = {
-    overdue: "Overdue",
-    urgent: "Due very soon",
-    soon: "Due soon",
-    safe: "On track",
+    overdue: "Overdue Cycle",
+    urgent: "Due Immediately",
+    soon: "Due Within 7 Days",
+    safe: "Settled / On Track",
   }[tier];
 
   const centerText =
@@ -49,21 +49,21 @@ export default function FeeRing({
       ? "day left"
       : "days left";
 
-  const circumference = 2 * Math.PI * 52;
+  const circumference = 2 * Math.PI * 50;
   const dash = fracRemaining * circumference;
 
   const strokeColors = {
-    safe: "stroke-[#1E9E63]",
-    soon: "stroke-[#C87A12]",
-    urgent: "stroke-[#E1483C]",
-    overdue: "stroke-[#9A2B23]",
+    safe: "stroke-[#1D7344]",
+    soon: "stroke-[#8A6D3B]",
+    urgent: "stroke-[#B64E30]",
+    overdue: "stroke-[#B64E30]",
   };
 
   const badgeStyles = {
-    safe: "bg-[#DFF5EA] text-[#1E9E63]",
-    soon: "bg-[#FBEDD6] text-[#C87A12]",
-    urgent: "bg-[#FCE4E1] text-[#E1483C]",
-    overdue: "bg-[#F6DAD6] text-[#9A2B23]",
+    safe: "bg-[#EAF5EE] text-[#1D7344] border border-[#C6E6D3]",
+    soon: "bg-[#FAF2E6] text-[#8A6D3B] border border-[#ECD9BD]",
+    urgent: "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]",
+    overdue: "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]",
   };
 
   const handleMarkPaid = () => {
@@ -84,24 +84,24 @@ export default function FeeRing({
   const canUndo = !!(student.paymentHistory && student.paymentHistory.length);
 
   return (
-    <div className="flex items-center gap-4 sm:gap-5 w-full">
+    <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full">
       {/* Circular Progress Ring */}
-      <div className="relative w-24 h-24 sm:w-[110px] sm:h-[110px] flex-none">
+      <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex-none">
         <svg viewBox="0 0 120 120" className="w-full h-full">
           <circle
             cx="60"
             cy="60"
-            r="52"
+            r="50"
             fill="none"
-            stroke="#E3E6F2"
-            strokeWidth="10"
+            stroke="#E4E1DB"
+            strokeWidth="8"
           />
           <circle
             cx="60"
             cy="60"
-            r="52"
+            r="50"
             fill="none"
-            strokeWidth="10"
+            strokeWidth="8"
             strokeLinecap="round"
             className={`${strokeColors[tier]} transition-all duration-500 origin-[60px_60px] -rotate-90`}
             strokeDasharray={circumference.toFixed(1)}
@@ -109,34 +109,36 @@ export default function FeeRing({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="font-mono font-semibold text-xl sm:text-[22px] text-[#171A32]">
+          <div className="font-serif-editorial text-2xl font-bold text-[#161918] leading-tight">
             {centerText}
           </div>
-          <div className="text-[11px] text-[#6B7089]">
+          <div className="font-mono text-[9.5px] uppercase tracking-wider text-[#6B706E]">
             {subText}
           </div>
         </div>
       </div>
 
       {/* Details & Actions */}
-      <div className="flex flex-col gap-2 flex-1 min-w-0">
+      <div className="flex flex-col gap-2.5 flex-1 min-w-0 w-full">
         <div>
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${badgeStyles[tier]}`}>
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] font-medium ${badgeStyles[tier]}`}
+          >
             {tierLabel}
           </span>
         </div>
 
-        <div className="flex justify-between gap-2 text-[13px] text-[#6B7089]">
-          <span>Next due</span>
-          <strong className="text-[#171A32] font-mono font-semibold">
+        <div className="flex justify-between items-baseline gap-2 text-xs border-b border-[#E4E1DB]/60 pb-1.5">
+          <span className="text-[#6B706E]">Next cycle due</span>
+          <strong className="text-[#161918] font-mono font-medium">
             {formatDateHuman(due)}
           </strong>
         </div>
 
-        <div className="flex justify-between gap-2 text-[13px] text-[#6B7089]">
-          <span>Amount</span>
-          <strong className="text-[#171A32] font-mono font-semibold">
-            ₹{student.fee.toLocaleString("en-IN")}/mo
+        <div className="flex justify-between items-baseline gap-2 text-xs border-b border-[#E4E1DB]/60 pb-1.5">
+          <span className="text-[#6B706E]">Monthly tuition</span>
+          <strong className="text-[#161918] font-mono font-semibold">
+            ₹{student.fee.toLocaleString("en-IN")}
           </strong>
         </div>
 
@@ -145,20 +147,20 @@ export default function FeeRing({
             <button
               type="button"
               onClick={handleMarkPaid}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#171A32] hover:bg-black text-white text-xs font-bold py-2 px-2.5 transition-all shadow-xs active:scale-95"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[6px] bg-[#161918] hover:bg-[#2A2E2C] text-[#F8F7F4] text-xs font-semibold py-2 px-2.5 transition-colors cursor-pointer"
             >
               <CheckIcon className="w-3.5 h-3.5" />
-              <span>Mark paid</span>
+              <span>Record Settlement</span>
             </button>
             <button
               type="button"
               onClick={handleReset}
               disabled={!canUndo}
-              title={canUndo ? "Undo last payment update" : "Nothing to undo"}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#CDD2E8] bg-white hover:bg-[#EEF0FA] text-[#171A32] text-xs font-bold py-2 px-2.5 transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+              title={canUndo ? "Undo last payment update" : "No previous ledger entry to revert"}
+              className="inline-flex items-center justify-center gap-1.5 rounded-[6px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] text-[#161918] text-xs font-medium py-2 px-2.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
             >
               <UndoIcon className="w-3.5 h-3.5" />
-              <span>Reset</span>
+              <span>Undo</span>
             </button>
           </div>
         )}
@@ -167,10 +169,10 @@ export default function FeeRing({
           <button
             type="button"
             onClick={() => onPayNow && onPayNow(student)}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#171A32] hover:bg-black text-white text-xs font-bold py-2.5 px-3 transition-all shadow-xs mt-1 active:scale-95"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-[6px] bg-[#161918] hover:bg-[#2A2E2C] text-[#F8F7F4] text-xs font-semibold py-2.5 px-3 transition-colors mt-1 cursor-pointer"
           >
             <WalletIcon className="w-4 h-4" />
-            <span>Pay now</span>
+            <span>Pay Tuition Online</span>
           </button>
         )}
       </div>

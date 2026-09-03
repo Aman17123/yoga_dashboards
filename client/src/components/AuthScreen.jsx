@@ -36,7 +36,7 @@ export default function AuthScreen({ onLogin, onQuickLogin, onBackToHome }) {
             <SunIcon className="w-full h-full" />
           </div>
           <span className="font-bold text-2xl tracking-tight text-[#171A32]">
-            Meridian
+            Devbhoomi Infotech
           </span>
         </div>
 

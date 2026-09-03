@@ -12,7 +12,6 @@ import {
   formatDateHuman,
   parseDateOnly,
   getInitials,
-  avatarColor,
 } from "../utils/dateUtils";
 
 export default function EnquiriesView({
@@ -58,49 +57,49 @@ export default function EnquiriesView({
   }, [enquiries, searchQuery, statusFilter]);
 
   const statusLabels = {
-    pending: "Pending",
-    in_progress: "In progress",
-    accepted: "Accepted",
+    pending: "Pending Review",
+    in_progress: "In Communication",
+    accepted: "Enrolled & Active",
     declined: "Declined",
   };
 
   const statusTags = {
-    pending: "bg-[#E6E9FB] text-[#4C5FD5]",
-    in_progress: "bg-[#FBEDD6] text-[#C87A12]",
-    accepted: "bg-[#DFF5EA] text-[#1E9E63]",
-    declined: "bg-[#EEF0FA] text-[#A3A8C3]",
+    pending: "bg-[#FAF2E6] text-[#8A6D3B] border border-[#ECD9BD]",
+    in_progress: "bg-[#F4F2EB] text-[#161918] border border-[#DCD8D0]",
+    accepted: "bg-[#EAF5EE] text-[#1D7344] border border-[#C6E6D3]",
+    declined: "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]",
   };
 
   const statCards = [
     {
-      icon: <ChatIcon className="w-4 h-4 text-[#4C5FD5]" />,
-      label: "Total enquiries",
+      icon: <ChatIcon className="w-3.5 h-3.5" />,
+      label: "Total Inquiries",
       value: stats.total,
-      color: "text-[#171A32]",
+      color: "text-[#161918]",
     },
     {
-      icon: <ClockIcon className="w-4 h-4 text-[#C87A12]" />,
-      label: "Pending",
+      icon: <ClockIcon className="w-3.5 h-3.5" />,
+      label: "Pending Review",
       value: stats.pending,
-      color: stats.pending > 0 ? "text-[#C87A12]" : "text-[#171A32]",
+      color: stats.pending > 0 ? "text-[#8A6D3B]" : "text-[#161918]",
     },
     {
-      icon: <UsersIcon className="w-4 h-4 text-[#4C5FD5]" />,
-      label: "In progress",
+      icon: <UsersIcon className="w-3.5 h-3.5" />,
+      label: "In Communication",
       value: stats.inProgress,
-      color: "text-[#171A32]",
+      color: "text-[#161918]",
     },
     {
-      icon: <CheckIcon className="w-4 h-4 text-[#1E9E63]" />,
-      label: "Accepted",
+      icon: <CheckIcon className="w-3.5 h-3.5" />,
+      label: "Enrolled",
       value: stats.accepted,
-      color: "text-[#1E9E63]",
+      color: "text-[#1D7344]",
     },
     {
-      icon: <XIcon className="w-4 h-4 text-[#E1483C]" />,
+      icon: <XIcon className="w-3.5 h-3.5" />,
       label: "Declined",
       value: stats.declined,
-      color: "text-[#E1483C]",
+      color: "text-[#B64E30]",
     },
   ];
 
@@ -108,34 +107,34 @@ export default function EnquiriesView({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <div className="text-xs font-bold uppercase tracking-wider text-[#F2994A] mb-1">
-          Admin Console
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[6px] border border-[#DCD8D0] bg-[#F2EFE9] text-[#6B706E] font-mono text-[10.5px] uppercase tracking-wider mb-2">
+          <span>Inbound Studio Lead Queue</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-[#171A32]">
-          New enquiries
+        <h1 className="font-serif-editorial text-3xl sm:text-4xl font-normal text-[#161918] tracking-tight">
+          Prospective Student Applications
         </h1>
-        <p className="text-xs text-[#A3A8C3] mt-1">
-          Inbound leads from your website. Accept to directly enroll students with assigned instructors and schedules.
+        <p className="text-xs sm:text-sm text-[#444846] mt-1 max-w-2xl leading-relaxed">
+          Review candidate health disclosures, verify time alignment, and convert qualifying candidates into active student rosters with one click.
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {statCards.map((st, idx) => (
           <div
             key={idx}
-            className="bg-white border border-[#E3E6F2] rounded-2xl p-3.5 flex items-center gap-3 shadow-xs"
+            className="bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] p-3 flex flex-col justify-between"
           >
-            <div className="w-8 h-8 rounded-xl bg-[#EEF0FA] flex items-center justify-center flex-none">
-              {st.icon}
-            </div>
-            <div>
-              <div className={`font-mono font-bold text-lg leading-tight ${st.color}`}>
-                {st.value}
-              </div>
-              <div className="text-[11.5px] text-[#6B7089]">
+            <div className="flex items-center justify-between text-[#6B706E] mb-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider truncate">
                 {st.label}
-              </div>
+              </span>
+              <div className="text-[#6B706E] flex-none">{st.icon}</div>
+            </div>
+            <div
+              className={`font-serif-editorial text-2xl sm:text-[26px] font-bold leading-none ${st.color}`}
+            >
+              {st.value}
             </div>
           </div>
         ))}
@@ -143,75 +142,71 @@ export default function EnquiriesView({
 
       {/* Filter Bar */}
       <div className="flex flex-wrap gap-2.5 items-center">
-        <div className="flex items-center gap-2 bg-white border border-[#CDD2E8] rounded-xl px-3 flex-1 min-w-[220px]">
-          <SearchIcon className="w-4 h-4 text-[#A3A8C3]" />
+        <div className="flex items-center gap-2 bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-3 flex-1 min-w-[220px]">
+          <SearchIcon className="w-3.5 h-3.5 text-[#8E8A82]" />
           <input
             type="text"
-            placeholder="Search name, email, country…"
+            placeholder="Search prospective students by name, email, or country…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full py-2.5 text-sm bg-transparent outline-none text-[#171A32]"
+            className="w-full py-2 text-xs sm:text-sm bg-transparent outline-none text-[#161918] placeholder-[#8E8A82]"
           />
         </div>
 
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-white border border-[#CDD2E8] rounded-xl px-3 py-2.5 text-sm font-semibold text-[#171A32] outline-none"
+          className="bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-2.5 py-2 text-xs font-mono text-[#161918] outline-none cursor-pointer"
         >
-          <option value="all">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="in_progress">In progress</option>
-          <option value="accepted">Accepted</option>
+          <option value="all">All review statuses</option>
+          <option value="pending">Pending review</option>
+          <option value="in_progress">In communication</option>
+          <option value="accepted">Enrolled into studio</option>
           <option value="declined">Declined</option>
         </select>
       </div>
 
       {/* Enquiries Table */}
-      <div className="bg-white border border-[#E3E6F2] rounded-2xl overflow-hidden shadow-xs">
+      <div className="border border-[#E4E1DB] rounded-[6px] bg-[#FCFAF7] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="w-full text-left border-collapse min-w-[920px]">
             <thead>
-              <tr className="bg-[#EEF0FA] text-[#A3A8C3] text-[11.5px] uppercase tracking-wider font-bold border-b border-[#E3E6F2]">
-                <th className="py-3.5 px-4">Name</th>
-                <th className="py-3.5 px-4">Interested in</th>
-                <th className="py-3.5 px-4">Contact</th>
-                <th className="py-3.5 px-4">Country</th>
-                <th className="py-3.5 px-4">Submitted</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4">Actions</th>
+              <tr className="bg-[#F4F2EB] text-[#6B706E] font-mono text-[10px] uppercase tracking-wider border-b border-[#E4E1DB]">
+                <th className="py-3 px-4">Applicant</th>
+                <th className="py-3 px-4">Cohort Preference</th>
+                <th className="py-3 px-4">Contact Details</th>
+                <th className="py-3 px-4">Country</th>
+                <th className="py-3 px-4">Received Date</th>
+                <th className="py-3 px-4">Review State</th>
+                <th className="py-3 px-4">Administrative Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E3E6F2] text-sm">
+            <tbody className="divide-y divide-[#E4E1DB]/70 text-xs">
               {filteredEnquiries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#6B7089]">
-                    No enquiries match this filter.
+                  <td colSpan={7} className="py-12 text-center text-[#6B706E] font-mono text-xs">
+                    No applicant inquiries match the active filter criteria.
                   </td>
                 </tr>
               ) : (
                 filteredEnquiries.map((q) => {
-                  const palette = avatarColor(q.id);
                   const typeLabel =
                     q.classTypeInterest === "group"
-                      ? "Group"
+                      ? "Group Cohort"
                       : q.classTypeInterest === "private"
-                      ? "Private"
-                      : "Any";
+                      ? "Private 1-on-1"
+                      : "Open / Either";
 
                   return (
                     <tr
                       key={q.id}
                       onClick={() => onViewEnquiry(q)}
-                      className="hover:bg-[#EEF0FA] transition-colors cursor-pointer"
+                      className="hover:bg-[#F4F2EB]/60 transition-colors cursor-pointer"
                     >
                       {/* Name */}
-                      <td className="py-3 px-4 font-semibold text-[#171A32]">
+                      <td className="py-3 px-4 font-semibold text-[#161918]">
                         <div className="flex items-center gap-2.5">
-                          <div
-                            className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs flex-none"
-                            style={{ backgroundColor: palette.bg, color: palette.fg }}
-                          >
+                          <div className="w-6 h-6 rounded-[4px] bg-[#161918] text-[#F8F7F4] font-mono text-[10px] flex items-center justify-center font-bold flex-none">
                             {getInitials(q.name)}
                           </div>
                           <span>{q.name}</span>
@@ -220,35 +215,35 @@ export default function EnquiriesView({
 
                       {/* Type */}
                       <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-[#EEF0FA] text-[#6B7089]">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] border border-[#DCD8D0] bg-[#F4F2EB] text-[#444846]">
                           {typeLabel}
                         </span>
                       </td>
 
                       {/* Contact */}
                       <td className="py-3 px-4">
-                        <div className="font-mono text-xs text-[#171A32]">
+                        <div className="font-mono text-xs text-[#161918]">
                           {q.phone}
                         </div>
-                        <div className="text-xs text-[#6B7089]">
+                        <div className="text-[11px] text-[#6B706E]">
                           {q.email}
                         </div>
                       </td>
 
                       {/* Country */}
-                      <td className="py-3 px-4 text-[#6B7089]">
+                      <td className="py-3 px-4 text-[#6B706E]">
                         {q.country}
                       </td>
 
                       {/* Submitted */}
-                      <td className="py-3 px-4 font-mono text-xs text-[#171A32]">
+                      <td className="py-3 px-4 font-mono text-xs text-[#444846]">
                         {formatDateHuman(parseDateOnly(q.submittedDate))}
                       </td>
 
                       {/* Status */}
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${statusTags[q.status]}`}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] font-medium ${statusTags[q.status]}`}
                         >
                           {statusLabels[q.status]}
                         </span>
@@ -260,15 +255,15 @@ export default function EnquiriesView({
                         onClick={(e) => e.stopPropagation()}
                       >
                         {q.status === "accepted" ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#1E9E63]">
+                          <span className="inline-flex items-center gap-1 font-mono text-xs text-[#1D7344] font-medium">
                             <CheckIcon className="w-3.5 h-3.5" />
-                            <span>Enrolled</span>
+                            <span>Enrolled Student</span>
                           </span>
                         ) : q.status === "declined" ? (
                           <button
                             type="button"
                             onClick={() => onUpdateEnquiryStatus(q.id, "pending")}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#CDD2E8] bg-white hover:bg-[#EEF0FA] text-xs font-bold text-[#171A32] transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] text-xs font-mono text-[#161918] transition-colors cursor-pointer"
                           >
                             <UndoIcon className="w-3 h-3" />
                             <span>Reopen</span>
@@ -279,23 +274,23 @@ export default function EnquiriesView({
                               type="button"
                               onClick={() => onUpdateEnquiryStatus(q.id, "in_progress")}
                               disabled={q.status === "in_progress"}
-                              className="px-2 py-1 rounded-lg border border-[#CDD2E8] bg-white hover:bg-[#EEF0FA] text-xs font-semibold text-[#171A32] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                              className="px-2 py-1 rounded-[4px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] text-xs font-mono text-[#161918] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                             >
-                              In progress
+                              Follow up
                             </button>
                             <button
                               type="button"
                               onClick={() => onUpdateEnquiryStatus(q.id, "declined")}
-                              className="px-2 py-1 rounded-lg bg-[#FCE4E1] hover:bg-[#E1483C] text-[#E1483C] hover:text-white text-xs font-semibold transition-all"
+                              className="px-2 py-1 rounded-[4px] border border-[#F2C5BE] bg-[#FBEAE8] hover:bg-[#B64E30] text-[#B64E30] hover:text-[#F8F7F4] text-xs font-mono transition-colors cursor-pointer"
                             >
                               Decline
                             </button>
                             <button
                               type="button"
                               onClick={() => onAcceptEnquiry(q)}
-                              className="px-2.5 py-1 rounded-lg bg-[#171A32] hover:bg-black text-white text-xs font-bold transition-all shadow-xs"
+                              className="px-2.5 py-1 rounded-[4px] bg-[#161918] hover:bg-[#2A2E2C] text-[#F8F7F4] text-xs font-semibold transition-colors cursor-pointer"
                             >
-                              Accept
+                              Enroll
                             </button>
                           </div>
                         )}

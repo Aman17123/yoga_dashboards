@@ -4,6 +4,7 @@ import HomePage from "./components/HomePage";
 import StudentDashboard from "./components/StudentDashboard";
 import AdminDashboard from "./components/AdminDashboard";
 import EnquiriesView from "./components/EnquiriesView";
+import NotificationCenter from "./components/NotificationCenter";
 import Toast from "./components/Toast";
 import {
   StudentDetailModal,
@@ -11,6 +12,7 @@ import {
   PayNowModal,
   PaymentSettingsModal,
   EnquiryDetailModal,
+  ReceiptModal,
 } from "./components/Modals";
 import {
   ADMIN_ACCOUNT,
@@ -22,7 +24,7 @@ import { generateAttendance, formatDateHuman, getCurrentDueDate } from "./utils/
 import { api } from "./services/api";
 
 export default function App() {
-  // Initialize with initial data, then hydrate from MongoDB
+  // Initialize with initial data, then hydrate from backend API
   const [students, setStudents] = useState(() => {
     return INITIAL_STUDENTS.map((s) => ({
       ...s,
@@ -38,6 +40,7 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeModal, setActiveModal] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
+  const [legalModalType, setLegalModalType] = useState(null);
 
   // Live 1-second clock
   useEffect(() => {
@@ -47,7 +50,7 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Hydrate data from real MongoDB database on mount
+  // Hydrate data from backend API on mount
   useEffect(() => {
     async function loadDatabaseData() {
       try {
@@ -95,13 +98,17 @@ export default function App() {
   // Close modals on Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === "Escape" && activeModal) {
-        setActiveModal(null);
+      if (e.key === "Escape") {
+        if (legalModalType) {
+          setLegalModalType(null);
+        } else if (activeModal) {
+          setActiveModal(null);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeModal]);
+  }, [activeModal, legalModalType]);
 
   // Auth Handlers
   const handleLogin = async (username, password) => {
@@ -157,7 +164,7 @@ export default function App() {
     setActiveModal(null);
   };
 
-  // Attendance Toggling (persists to MongoDB)
+  // Attendance Toggling (persists to backend API)
   const handleToggleAttendance = async (studentId, dateISO, status) => {
     setStudents((prev) =>
       prev.map((s) => {
@@ -174,7 +181,7 @@ export default function App() {
     }
   };
 
-  // Fee payment update (persists to MongoDB)
+  // Fee payment update (persists to backend API)
   const handleUpdatePayment = async (studentId, newLastPaymentDate, updatedHistory) => {
     try {
       const updatedStudent = await api.students.recordPayment(studentId, {
@@ -185,7 +192,7 @@ export default function App() {
         prev.map((s) => (s.id === studentId ? updatedStudent : s))
       );
       showToast(
-        `Payment recorded for ${updatedStudent.name}. Next due ${formatDateHuman(
+        `Ledger updated for ${updatedStudent.name}. Next settlement due ${formatDateHuman(
           getCurrentDueDate(updatedStudent)
         )}.`
       );
@@ -211,7 +218,7 @@ export default function App() {
     }
   };
 
-  // Add / Edit Student (persists to MongoDB)
+  // Add / Edit Student (persists to backend API)
   const handleSaveStudent = async (formData, existingId, linkedEnquiryId) => {
     const duplicate = students.find(
       (s) => s.username === formData.username && s.id !== existingId
@@ -227,7 +234,7 @@ export default function App() {
         setStudents((prev) =>
           prev.map((s) => (s.id === existingId ? updated : s))
         );
-        showToast(`${formData.name}'s details were updated in database.`);
+        showToast(`${formData.name}'s profile was updated.`);
       } else {
         const created = await api.students.create({
           ...formData,
@@ -244,11 +251,11 @@ export default function App() {
             )
           );
           showToast(
-            `${created.name} was enrolled in database. Username: "${created.username}" / Password: "${created.password}".`
+            `${created.name} was enrolled into studio roster.`
           );
         } else {
           showToast(
-            `${created.name} was saved to database. Username: "${created.username}" / Password: "${created.password}".`
+            `${created.name} was successfully enrolled.`
           );
         }
       }
@@ -264,7 +271,7 @@ export default function App() {
     try {
       await api.students.delete(studentId);
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
-      showToast(`${target ? target.name : "Student"} was removed from database.`);
+      showToast(`${target ? target.name : "Student"} was removed.`);
     } catch (err) {
       console.error("Database delete error:", err);
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
@@ -273,7 +280,7 @@ export default function App() {
     setActiveModal(null);
   };
 
-  // Enquiries (persists to MongoDB)
+  // Enquiries (persists to backend API)
   const handleUpdateEnquiryStatus = async (id, status) => {
     const target = enquiries.find((q) => q.id === id);
     setEnquiries((prev) =>
@@ -289,10 +296,10 @@ export default function App() {
     const verb =
       {
         pending: "reopened",
-        in_progress: "marked as in progress",
+        in_progress: "marked as in communication",
         declined: "declined",
       }[status] || status;
-    showToast(`${target ? target.name : "Enquiry"} was ${verb}.`);
+    showToast(`${target ? target.name : "Inquiry"} was ${verb}.`);
   };
 
   const handleAcceptEnquiry = (enquiry) => {
@@ -310,16 +317,16 @@ export default function App() {
     });
   };
 
-  // Payment settings (persists to MongoDB)
+  // Payment settings (persists to backend API)
   const handleSavePaymentSettings = async (newSettings) => {
     try {
       const saved = await api.settings.updatePayment(newSettings);
       setPaymentSettings(saved);
-      showToast("Payment details updated in database.");
+      showToast("Studio payment coordinates updated.");
     } catch (err) {
       console.error("Error updating payment settings:", err);
       setPaymentSettings(newSettings);
-      showToast("Payment details updated.");
+      showToast("Studio payment coordinates updated.");
     }
   };
 
@@ -344,7 +351,7 @@ export default function App() {
   ).length;
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#F6F7FB] text-[#171A32]">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA] text-[#121413] font-sans antialiased selection:bg-[#B64E30]/15 selection:text-[#B64E30]">
       {/* Sidebar Navigation */}
       <Sidebar
         session={session}
@@ -357,49 +364,119 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 min-w-0 p-4 sm:p-7 md:p-8 max-w-7xl">
-        {session.role === "student" && (
-          <StudentDashboard
-            student={currentStudent}
-            currentTime={currentTime}
-            onPayNow={(student) => setActiveModal({ type: "payNow", student })}
-            onToggleAttendance={handleToggleAttendance}
-          />
-        )}
+      <div className="flex-1 min-w-0 flex flex-col justify-between">
+        {/* Top Operational Bar with Real-Time Notification Bell */}
+        <header className="border-b border-[#E6E5E0] bg-[#FFFFFF] px-4 sm:px-8 py-3 flex items-center justify-between sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-xs text-[#6B706E]">
+              {session.role === "admin"
+                ? activeAdminTab === "students"
+                  ? "Console / Directory"
+                  : "Console / Inbound Leads"
+                : "Member / Practice Desk"}
+            </span>
+            <span className="text-[#E6E5E0]">|</span>
+            <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-[#1D7344]">
+              <span className="w-2 h-2 rounded-full bg-[#1D7344] animate-pulse" />
+              <span>Real-time Sync Active</span>
+            </div>
+          </div>
 
-        {session.role === "admin" && (
-          <>
-            {activeAdminTab === "students" && (
-              <AdminDashboard
-                students={students}
-                onViewStudent={(student) =>
-                  setActiveModal({ type: "studentDetail", student })
-                }
-                onEditStudent={(student) =>
-                  setActiveModal({ type: "addEditStudent", student })
-                }
-                onAddStudent={() =>
-                  setActiveModal({ type: "addEditStudent", student: null })
-                }
-                onOpenPaymentSettings={() =>
-                  setActiveModal({ type: "paymentSettings" })
-                }
-              />
-            )}
+          {/* Right Action: Notification Center Bell */}
+          <div className="flex items-center gap-3">
+            <NotificationCenter
+              students={students}
+              enquiries={enquiries}
+              session={session}
+              onSelectStudent={(student) =>
+                setActiveModal({ type: "studentDetail", student })
+              }
+              onSelectEnquiry={(enquiry) =>
+                setActiveModal({ type: "enquiryDetail", enquiry })
+              }
+              onPayNow={(student) =>
+                setActiveModal({ type: "payNow", student })
+              }
+            />
+          </div>
+        </header>
 
-            {activeAdminTab === "enquiries" && (
-              <EnquiriesView
-                enquiries={enquiries}
-                onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
-                onAcceptEnquiry={handleAcceptEnquiry}
-                onViewEnquiry={(enquiry) =>
-                  setActiveModal({ type: "enquiryDetail", enquiry })
-                }
-              />
-            )}
-          </>
-        )}
-      </main>
+        <main className="p-4 sm:p-7 md:p-8 max-w-7xl w-full mx-auto flex-1">
+          {session.role === "student" && (
+            <StudentDashboard
+              student={currentStudent}
+              currentTime={currentTime}
+              onPayNow={(student) => setActiveModal({ type: "payNow", student })}
+              onToggleAttendance={handleToggleAttendance}
+              onOpenReceipt={(student) => setActiveModal({ type: "receipt", student })}
+            />
+          )}
+
+          {session.role === "admin" && (
+            <>
+              {activeAdminTab === "students" && (
+                <AdminDashboard
+                  students={students}
+                  onViewStudent={(student) =>
+                    setActiveModal({ type: "studentDetail", student })
+                  }
+                  onEditStudent={(student) =>
+                    setActiveModal({ type: "addEditStudent", student })
+                  }
+                  onAddStudent={() =>
+                    setActiveModal({ type: "addEditStudent", student: null })
+                  }
+                  onOpenPaymentSettings={() =>
+                    setActiveModal({ type: "paymentSettings" })
+                  }
+                  onOpenReceipt={(student) =>
+                    setActiveModal({ type: "receipt", student })
+                  }
+                />
+              )}
+
+              {activeAdminTab === "enquiries" && (
+                <EnquiriesView
+                  enquiries={enquiries}
+                  onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
+                  onAcceptEnquiry={handleAcceptEnquiry}
+                  onViewEnquiry={(enquiry) =>
+                    setActiveModal({ type: "enquiryDetail", enquiry })
+                  }
+                />
+              )}
+            </>
+          )}
+        </main>
+
+        {/* Editorial Footer */}
+        <footer className="border-t border-[#E6E5E0] bg-[#FFFFFF] py-5 px-5 sm:px-8 mt-8">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-[#6B706E] gap-3">
+            <div>
+              &copy; {new Date().getFullYear()} Devbhoomi Infotech Studio Infrastructure. Authenticated Workspace.
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setLegalModalType("privacy")}
+                className="hover:text-[#121413] underline underline-offset-4 cursor-pointer"
+              >
+                Privacy Policy
+              </button>
+              <span>·</span>
+              <button
+                type="button"
+                onClick={() => setLegalModalType("terms")}
+                className="hover:text-[#121413] underline underline-offset-4 cursor-pointer"
+              >
+                Terms of Service
+              </button>
+              <span>·</span>
+              <span className="font-mono text-[11px]">UTC: {currentTime.toUTCString().slice(17, 22)}</span>
+            </div>
+          </div>
+        </footer>
+      </div>
 
       {/* Modals Container */}
       {activeModal?.type === "studentDetail" && (
@@ -411,6 +488,7 @@ export default function App() {
             setActiveModal({ type: "addEditStudent", student: s })
           }
           onUpdatePayment={handleUpdatePayment}
+          onOpenReceipt={(s) => setActiveModal({ type: "receipt", student: s })}
         />
       )}
 
@@ -431,6 +509,7 @@ export default function App() {
           paymentSettings={paymentSettings}
           onClose={() => setActiveModal(null)}
           onShowToast={showToast}
+          onOpenReceipt={(s) => setActiveModal({ type: "receipt", student: s })}
         />
       )}
 
@@ -449,6 +528,98 @@ export default function App() {
           onUpdateStatus={handleUpdateEnquiryStatus}
           onAcceptEnquiry={handleAcceptEnquiry}
         />
+      )}
+
+      {activeModal?.type === "receipt" && (
+        <ReceiptModal
+          student={activeModal.student}
+          paymentSettings={paymentSettings}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
+
+      {/* Legal Documentation Modal */}
+      {legalModalType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-[#000000]/60">
+          <div className="bg-[#FFFFFF] border border-[#E6E5E0] rounded-[6px] max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden text-[#121413]">
+            <div className="px-6 py-4 border-b border-[#E6E5E0] flex items-center justify-between bg-[#FBFBFA]">
+              <div>
+                <span className="font-mono text-[10px] uppercase tracking-wider text-[#B64E30]">
+                  Studio Governance Documentation
+                </span>
+                <h3 className="font-sans font-bold text-xl text-[#121413]">
+                  {legalModalType === "privacy" ? "Student Data & Privacy Policy" : "Studio Terms of Service & Liability Waiver"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLegalModalType(null)}
+                className="p-1 rounded-[4px] hover:bg-[#F0EFEA] text-[#444846] transition-colors cursor-pointer"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="6" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 text-xs sm:text-sm text-[#444846] leading-relaxed">
+              {legalModalType === "privacy" ? (
+                <>
+                  <div>
+                    <h4 className="font-bold text-[#121413] mb-1">1. Student Health Data Sovereignty</h4>
+                    <p>
+                      Devbhoomi Infotech provides dedicated infrastructure directly operated by your yoga instructor. Health intake disclosures—including spinal history, joint conditions, pregnancy status, and cardiovascular observations—are stored strictly within your instructor’s private studio instance and are never aggregated, commodified, or shared with commercial health brokers.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#121413] mb-1">2. Payment &amp; Banking Data Safeguards</h4>
+                    <p>
+                      Because Devbhoomi Infotech facilitates direct-to-bank settlements (such as UPI IDs and international wire transfers), no full credit card numbers or banking passwords are ever stored on or processed through intermediate cloud aggregators. All transaction confirmations are logged solely for tuition cycle accounting.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#121413] mb-1">3. Right to Rectification &amp; Deletion</h4>
+                    <p>
+                      Every registered student maintains the right to inspect their complete attendance logs and contact details upon request to their instructor. Upon cessation of practice, personal records may be archived or permanently purged upon written request.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <h4 className="font-bold text-[#121413] mb-1">1. Practice Safety &amp; Physical Liability Waiver</h4>
+                    <p>
+                      Yoga asana, pranayama, and mindful movement involve inherent physical demands. By participating in studio sessions, students acknowledge their responsibility to practice within personal physical boundaries, communicate injuries immediately to the teacher, and seek independent medical clearance when pregnant or managing chronic conditions.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#121413] mb-1">2. Cancellation &amp; Rescheduling Windows</h4>
+                    <p>
+                      Private 1-on-1 sessions require a minimum 24-hour advance rescheduling notice. Cancellations made inside 24 hours of the scheduled session time are counted as completed classes against the monthly cohort allowance.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-[#121413] mb-1">3. Tuition Cycles &amp; Clamped 30-Day Due Dates</h4>
+                    <p>
+                      Studio fees cover a 30-day practice cycle from the date of initial payment. Monthly tuition is non-refundable once the cycle commences. Due dates clamp to the end of the succeeding calendar month for consistent billing regularity.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-3 border-t border-[#E6E5E0] bg-[#FBFBFA] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setLegalModalType(null)}
+                className="px-4 py-1.5 rounded-[4px] bg-[#121413] text-[#FFFFFF] text-xs font-medium hover:bg-[#2A2E2C] cursor-pointer"
+              >
+                Close Legal Review
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast Notification */}
