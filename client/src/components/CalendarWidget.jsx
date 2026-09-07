@@ -21,12 +21,10 @@ export default function CalendarWidget({
 
   if (student.classType !== "private") {
     return (
-      <div className="bg-[#FCFAF7] border border-[#E4E1DB] rounded-[6px] p-5">
-        <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-2">
-          Practice Attendance
-        </div>
-        <p className="text-[#444846] text-xs sm:text-sm leading-relaxed">
-          Individual attendance logging is activated for private 1-on-1 cohorts. Group cohort attendance is maintained within the instructor's master ledger.
+      <div className="card">
+        <div className="card__label">Attendance</div>
+        <p className="cal-note text-[13.5px]" style={{ color: "var(--ink-soft)", lineHeight: 1.6 }}>
+          Attendance tracking is only available for private (1-to-1) classes right now. Group class attendance is tracked by the instructor directly.
         </p>
       </div>
     );
@@ -90,129 +88,141 @@ export default function CalendarWidget({
     year: "numeric",
   });
 
+  const handleCellClick = (day) => {
+    if (!day.canToggle || !onToggleAttendance) return;
+    const currentStatus = attendance[day.iso];
+    const newStatus = currentStatus === "present" ? "absent" : "present";
+    onToggleAttendance(student.id, day.iso, newStatus);
+  };
+
   return (
-    <div className="bg-[#FCFAF7] border border-[#E4E1DB] rounded-[6px] p-5 sm:p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#E4E1DB]">
+    <div className="card">
+      {/* Head */}
+      <div className="flex items-start justify-between gap-2.5 mb-1.5">
         <div>
-          <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-0.5">
-            Cohort Attendance Ledger
-          </div>
-          <h2 className="font-serif-editorial font-bold text-xl text-[#161918]">
+          <div className="card__label">Attendance</div>
+          <div className="font-bold text-lg" style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}>
             {monthName}
-          </h2>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handlePrevMonth}
             aria-label="Previous month"
-            className="w-7 h-7 rounded-[4px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] flex items-center justify-center text-[#161918] transition-colors cursor-pointer"
+            className="w-[30px] h-[30px] rounded-lg border flex items-center justify-center transition-colors cursor-pointer"
+            style={{ background: "var(--bg-alt)", borderColor: "var(--border)", color: "var(--ink-soft)" }}
           >
             <ChevronLeftIcon className="w-3.5 h-3.5" />
           </button>
           <button
             type="button"
             onClick={handleToday}
-            className="px-2.5 h-7 rounded-[4px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] text-xs font-mono text-[#161918] transition-colors cursor-pointer"
+            className="h-[30px] px-2.5 rounded-lg border text-xs font-bold transition-colors cursor-pointer"
+            style={{ background: "var(--bg-alt)", borderColor: "var(--border)", color: "var(--ink-soft)" }}
           >
-            Current
+            Today
           </button>
           <button
             type="button"
             onClick={handleNextMonth}
             aria-label="Next month"
-            className="w-7 h-7 rounded-[4px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] flex items-center justify-center text-[#161918] transition-colors cursor-pointer"
+            className="w-[30px] h-[30px] rounded-lg border flex items-center justify-center transition-colors cursor-pointer"
+            style={{ background: "var(--bg-alt)", borderColor: "var(--border)", color: "var(--ink-soft)" }}
           >
             <ChevronRightIcon className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Legend & Instructions */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-[#6B706E] mb-3">
-        <div className="flex items-center gap-4">
-          <span className="inline-flex items-center">
-            <span className="w-2 h-2 rounded-[2px] bg-[#1D7344] mr-1.5" />
-            Attended ({presentCount})
-          </span>
-          <span className="inline-flex items-center">
-            <span className="w-2 h-2 rounded-[2px] bg-[#B64E30] mr-1.5" />
-            Missed ({absentCount})
-          </span>
-        </div>
-        {editable && (
-          <span className="text-[11px] text-[#8E8A82]">
-            Click past dates to toggle status
-          </span>
-        )}
+      {/* Legend */}
+      <div className="flex gap-4 text-xs my-2.5 flex-wrap" style={{ color: "var(--ink-soft)" }}>
+        <span className="inline-flex items-center">
+          <span className="w-2 h-2 rounded-full inline-block mr-1.5" style={{ background: "var(--success)" }} />
+          Attended
+        </span>
+        <span className="inline-flex items-center">
+          <span className="w-2 h-2 rounded-full inline-block mr-1.5" style={{ background: "var(--danger)" }} />
+          Missed
+        </span>
       </div>
 
-      {/* Grid */}
-      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
+      {editable && (
+        <div className="text-xs mb-2.5" style={{ color: "var(--ink-faint)" }}>
+          Tap any day to mark yourself present or absent.
+        </div>
+      )}
+
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-1.5">
         {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((dow) => (
           <div
             key={dow}
-            className="font-mono text-[10px] text-[#8E8A82] text-center pb-1 uppercase tracking-wider"
+            className="text-[11px] font-bold text-center pb-1 uppercase"
+            style={{ color: "var(--ink-faint)" }}
           >
             {dow}
           </div>
         ))}
 
-        {days.map((item) => {
-          if (item.isEmpty) {
-            return <div key={item.key} className="aspect-square" />;
+        {days.map((day) => {
+          if (day.isEmpty) {
+            return <div key={day.key} className="aspect-square bg-transparent" />;
           }
 
-          let cellClass = "bg-[#F8F7F4] border-[#E4E1DB] text-[#444846]";
-          let mark = null;
+          const isPresent = day.status === "present";
+          const isAbsent = day.status === "absent";
 
-          if (item.status === "present") {
-            cellClass = "bg-[#EAF5EE] border-[#C6E6D3] text-[#1D7344]";
-            mark = <CheckIcon className="w-3 h-3 stroke-[2.2]" />;
-          } else if (item.status === "absent") {
-            cellClass = "bg-[#FBEAE8] border-[#F2C5BE] text-[#B64E30]";
-            mark = <XIcon className="w-3 h-3 stroke-[2.2]" />;
+          let cellBg = "var(--bg-alt)";
+          let numColor = "var(--ink-soft)";
+          let markColor = "transparent";
+
+          if (isPresent) {
+            cellBg = "var(--success-soft)";
+            numColor = "var(--success)";
+            markColor = "var(--success)";
+          } else if (isAbsent) {
+            cellBg = "var(--danger-soft)";
+            numColor = "var(--danger)";
+            markColor = "var(--danger)";
           }
-
-          const borderClass = item.isToday
-            ? "ring-1 ring-[#161918] font-bold"
-            : "";
-          const cursorClass = item.canToggle
-            ? "cursor-pointer hover:border-[#161918] transition-colors"
-            : "";
 
           return (
             <div
-              key={item.key}
-              onClick={() => {
-                if (item.canToggle && onToggleAttendance) {
-                  const current = item.status;
-                  const next = current === "present" ? "absent" : "present";
-                  onToggleAttendance(student.id, item.iso, next);
-                }
+              key={day.key}
+              onClick={() => handleCellClick(day)}
+              className={`relative aspect-square rounded-[10px] flex flex-col items-center justify-center gap-0.5 border transition-all ${
+                day.canToggle ? "cursor-pointer hover:ring-2 hover:ring-[#4C5FD5]" : ""
+              }`}
+              style={{
+                background: cellBg,
+                borderColor: day.isToday ? "var(--dusk)" : "transparent",
+                borderWidth: day.isToday ? "2px" : "1px",
               }}
-              className={`relative aspect-square rounded-[4px] flex flex-col items-center justify-center gap-0.5 border select-none ${cellClass} ${borderClass} ${cursorClass}`}
             >
-              <span className="font-mono text-[11px] leading-none">{item.dayNum}</span>
-              {mark && <span className="flex items-center justify-center">{mark}</span>}
+              <span className="text-[11.5px] font-semibold" style={{ color: numColor }}>
+                {day.dayNum}
+              </span>
+              <span className="w-[13px] h-[13px]" style={{ color: markColor }}>
+                {isPresent && <CheckIcon className="w-full h-full" />}
+                {isAbsent && <XIcon className="w-full h-full" />}
+              </span>
             </div>
           );
         })}
       </div>
 
       {/* Stats Summary */}
-      <div className="mt-4 pt-3 border-t border-[#E4E1DB] font-mono text-xs text-[#6B706E] flex flex-wrap justify-between items-center gap-2">
+      <div className="mt-3.5 text-[13px]" style={{ color: "var(--ink-soft)" }}>
         {totalMarked > 0 ? (
-          <div>
-            Attendance Rate: <strong className="text-[#161918] font-bold">{pct}%</strong> ({presentCount} of {totalMarked} scheduled sessions)
-          </div>
+          <>
+            <strong className="mono font-semibold" style={{ color: "var(--ink)" }}>{presentCount}</strong> attended ·{" "}
+            <strong className="mono font-semibold" style={{ color: "var(--ink)" }}>{absentCount}</strong> missed this month ·{" "}
+            <strong className="mono font-semibold" style={{ color: "var(--ink)" }}>{pct}%</strong> attendance
+          </>
         ) : (
-          <div>No attendance records logged for this month.</div>
+          "No classes recorded yet for this month."
         )}
-        <div className="text-[11px] text-[#8E8A82]">
-          Self-certified student log
-        </div>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import {
   UsersIcon,
   ClockIcon,
   CalendarIcon,
+  SunIcon,
 } from "./Icons";
 import {
   TIMEZONE_OPTIONS,
@@ -27,6 +28,7 @@ import {
   formatISTTime,
   convertISTTimeToZone,
   getInitials,
+  avatarColor,
   toWhatsAppDigits,
   addMonthsClamped,
   fmtISO,
@@ -36,19 +38,16 @@ import { generateReceiptPDF, printReceiptWindow } from "../utils/pdfGenerator";
 /* ================= MODAL SHELL ================= */
 function ModalBackdrop({ children, onClose }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div
-        className="fixed inset-0 bg-[#000000]/60 backdrop-blur-[2px] transition-opacity"
-        onClick={onClose}
-      />
-      <div className="relative bg-[#FFFFFF] border border-[#E6E5E0] rounded-[6px] w-full max-w-2xl sm:max-w-3xl p-5 sm:p-7 shadow-2xl z-10 my-auto max-h-[88vh] overflow-y-auto text-[#121413]">
+    <div className="modal">
+      <div className="modal__backdrop" onClick={onClose} />
+      <div className="modal__panel" role="dialog" aria-modal="true">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 w-7 h-7 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] flex items-center justify-center text-[#444846] transition-colors cursor-pointer"
+          className="modal__close"
         >
-          <XIcon className="w-3.5 h-3.5" />
+          <XIcon className="w-4 h-4" />
         </button>
         {children}
       </div>
@@ -69,114 +68,77 @@ export function StudentDetailModal({
 
   const localTime = convertISTTimeToZone(student.classTimeIST, student.timezone);
   const istTime = formatISTTime(student.classTimeIST);
-
-  const infoCards = [
-    {
-      icon: <UserIcon className="w-3.5 h-3.5 text-[#6B706E]" />,
-      label: "Instructor",
-      value: student.instructor,
-    },
-    {
-      icon: <ClockIcon className="w-3.5 h-3.5 text-[#6B706E]" />,
-      label: "Class Schedule",
-      value: (
-        <div>
-          <span>{istTime} IST</span>
-          <span className="block text-[11px] text-[#6B706E] font-normal">
-            Local: {localTime} ({student.country})
-          </span>
-        </div>
-      ),
-    },
-    {
-      icon: <CalendarIcon className="w-3.5 h-3.5 text-[#6B706E]" />,
-      label: "Duration",
-      value: student.duration,
-    },
-    {
-      icon: <WalletIcon className="w-3.5 h-3.5 text-[#6B706E]" />,
-      label: "Monthly Tuition",
-      value: `₹${student.fee.toLocaleString("en-IN")}`,
-    },
-    {
-      icon: <UsersIcon className="w-3.5 h-3.5 text-[#6B706E]" />,
-      label: "Cohort Group",
-      value:
-        student.classType === "group"
-          ? `Group · ${student.groupName || "Standard"}`
-          : "Private (1-on-1 Practice)",
-    },
-    {
-      icon: <CalendarIcon className="w-3.5 h-3.5 text-[#6B706E]" />,
-      label: "Enrollment Date",
-      value: formatDateHuman(parseDateOnly(student.joiningDate)),
-    },
-  ];
+  const palette = avatarColor(student.id);
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <div className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[4px] bg-[#121413] text-[#FFFFFF] flex items-center justify-center font-mono font-bold text-sm flex-none">
-              {getInitials(student.name)}
-            </div>
-            <div>
-              <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#121413] tracking-tight">
-                {student.name}
-              </h2>
-              <div className="flex items-center gap-2 mt-0.5 font-mono text-xs text-[#6B706E]">
-                <span>{student.country}</span>
-                <span>·</span>
-                <span>{student.phone}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {onOpenReceipt && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenReceipt(student);
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-xs font-mono text-[#121413] transition-colors cursor-pointer"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="16" y1="13" x2="8" y2="13" />
-                  <line x1="16" y1="17" x2="8" y2="17" />
-                </svg>
-                <span>Receipt</span>
-              </button>
-            )}
+      <div>
+        {/* Action Row */}
+        <div className="flex items-center justify-end gap-2 mb-3 pr-8">
+          {onOpenReceipt && (
             <button
               type="button"
               onClick={() => {
                 onClose();
-                onEditStudent(student);
+                onOpenReceipt(student);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-xs font-mono text-[#121413] transition-colors cursor-pointer"
+              className="btn btn--sm gap-1.5"
             >
-              <EditIcon className="w-3 h-3" />
-              <span>Edit Profile</span>
+              <WalletIcon className="w-3.5 h-3.5" />
+              <span>Receipt</span>
             </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onEditStudent(student);
+            }}
+            className="btn btn--sm gap-1.5"
+          >
+            <EditIcon className="w-3.5 h-3.5" />
+            <span>Edit details</span>
+          </button>
+        </div>
+
+        {/* Profile Strip */}
+        <div className="profile-strip">
+          <div
+            className="avatar"
+            style={{
+              backgroundColor: palette.bg,
+              color: palette.fg,
+            }}
+          >
+            {getInitials(student.name)}
+          </div>
+          <div>
+            <div className="profile-strip__name">{student.name}</div>
+            <div className="profile-strip__tags">
+              {student.classType === "group" ? (
+                <span className="tag tag--group">
+                  <UsersIcon className="w-3.5 h-3.5" />
+                  Group · {student.groupName || "Cohort"}
+                </span>
+              ) : (
+                <span className="tag tag--private">
+                  <UserIcon className="w-3.5 h-3.5" />
+                  Private · 1-to-1
+                </span>
+              )}
+              <span className="tag tag--muted">{student.country}</span>
+            </div>
           </div>
         </div>
 
-        {/* 2-Column Clocks & Fee */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-7 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-4">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-3">
-              Dual Timezone Alignment
-            </div>
+        {/* Grid-2: Clocks & Fee Ring */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.25fr_1fr] gap-[18px] mb-[18px]">
+          <div className="card">
+            <div className="card__label">Right now, both sides</div>
             <TimeBridge student={student} currentTime={currentTime} />
           </div>
-          <div className="md:col-span-5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-4">
-            <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-3">
-              Settlement Cycle
-            </div>
+          <div className="card">
+            <div className="card__label">Fee cycle</div>
             <FeeRing
               student={student}
               mode="admin"
@@ -186,28 +148,80 @@ export function StudentDetailModal({
         </div>
 
         {/* Info Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {infoCards.map((card, idx) => (
-            <div
-              key={idx}
-              className="bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-3 flex items-start gap-2.5"
-            >
-              <div className="w-7 h-7 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] flex items-center justify-center flex-none">
-                {card.icon}
-              </div>
-              <div>
-                <div className="font-mono text-[9.5px] uppercase tracking-wider text-[#6B706E]">
-                  {card.label}
-                </div>
-                <div className="font-medium text-xs text-[#121413] mt-0.5">
-                  {card.value}
-                </div>
+        <div className="infogrid">
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <UserIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Instructor</div>
+              <div className="infogrid__value">{student.instructor || "Assigned Teacher"}</div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <ClockIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Class time</div>
+              <div className="infogrid__value">
+                {istTime} IST
+                <span className="infogrid__sub">
+                  → {localTime} local ({student.country})
+                </span>
               </div>
             </div>
-          ))}
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <CalendarIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Duration</div>
+              <div className="infogrid__value">{student.duration || "1 Hour"}</div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <WalletIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Fees</div>
+              <div className="infogrid__value">₹{student.fee?.toLocaleString("en-IN")} / month</div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <UsersIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Class type</div>
+              <div className="infogrid__value">
+                {student.classType === "group"
+                  ? `Group · ${student.groupName || "Standard"}`
+                  : "Private (1-to-1)"}
+              </div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <CalendarIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Joined</div>
+              <div className="infogrid__value">
+                {formatDateHuman(parseDateOnly(student.joiningDate))}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Attendance (Read Only for Admin) */}
+        {/* Attendance (Read Only for Admin in view-modal) */}
         <CalendarWidget student={student} editable={false} />
       </div>
     </ModalBackdrop>
@@ -253,104 +267,117 @@ export function AddEditStudentModal({
         phone: prefill.phone || "",
         country: prefill.country || "",
         classType: prefill.classType || "private",
-        username: (prefill.name || "").toLowerCase().replace(/\s+/g, ".") || "",
-        password: "pass" + Math.floor(100 + Math.random() * 900),
       };
     }
     return base;
   });
 
+  const dayLabels = [
+    ["1", "Mon"],
+    ["2", "Tue"],
+    ["3", "Wed"],
+    ["4", "Thu"],
+    ["5", "Fri"],
+    ["6", "Sat"],
+    ["0", "Sun"],
+  ];
+
   const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "number" ? Number(value) : value,
-    }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleDayToggle = (dayNum) => {
+  const handleDayToggle = (dayVal) => {
+    const num = Number(dayVal);
     setFormData((prev) => {
       const current = prev.scheduleDays || [];
-      const updated = current.includes(dayNum)
-        ? current.filter((d) => d !== dayNum)
-        : [...current, dayNum];
+      const updated = current.includes(num)
+        ? current.filter((d) => d !== num)
+        : [...current, num];
       return { ...prev, scheduleDays: updated };
     });
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (formData.classType === "group" && (!formData.scheduleDays || formData.scheduleDays.length === 0)) {
-      alert("Please choose at least one class day for the group cohort.");
+    const isGroup = formData.classType === "group";
+    if (isGroup && (!formData.scheduleDays || formData.scheduleDays.length === 0)) {
+      alert("Please select at least one class day for the group cohort.");
       return;
     }
-    onSave(formData, student?.id, enquiryId);
+
+    const payload = {
+      ...formData,
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      country: formData.country.trim(),
+      instructor: formData.instructor.trim(),
+      fee: Number(formData.fee) || 0,
+      username: formData.username.trim(),
+      groupName: isGroup ? (formData.groupName.trim() || "Group") : null,
+      scheduleDays: isGroup ? formData.scheduleDays : [0, 1, 2, 3, 4, 5, 6],
+    };
+
+    onSave(payload, student?.id, enquiryId);
+    onClose();
   };
 
-  const dayLabels = [
-    [1, "Mon"],
-    [2, "Tue"],
-    [3, "Wed"],
-    [4, "Thu"],
-    [5, "Fri"],
-    [6, "Sat"],
-    [0, "Sun"],
-  ];
+  const heading = isNew
+    ? prefill
+      ? `Enroll ${formData.name || "student"}`
+      : "Add a new student"
+    : `Edit ${formData.name}`;
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#121413] tracking-tight">
-            {isNew
-              ? prefill
-                ? `Enroll ${formData.name || "Student"}`
-                : "Enroll New Practice Student"
-              : `Edit Practice Profile: ${student.name}`}
-          </h2>
-          {prefill && (
-            <p className="font-mono text-xs text-[#6B706E] mt-0.5">
-              Contact record hydrated from application — assign schedule &amp; credentials to complete enrollment.
-            </p>
-          )}
-        </div>
+      <div>
+        <h2 className="modal__title">{heading}</h2>
+        {prefill && (
+          <p className="view__note" style={{ margin: "-4px 0 14px" }}>
+            Name, contact info, and class type came from their enquiry — fill in the rest to enroll them.
+          </p>
+        )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Full Name</span>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5">
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Full name</span>
             <input
               type="text"
               name="name"
               required
               value={formData.name}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Email Address</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Email</span>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Phone / WhatsApp</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Phone</span>
             <input
               type="tel"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
             <span>Country</span>
             <input
               type="text"
@@ -358,17 +385,19 @@ export function AddEditStudentModal({
               required
               value={formData.country}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Student Timezone</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Student timezone</span>
             <select
               name="timezone"
               value={formData.timezone}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413] cursor-pointer"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer"
+              style={{ borderColor: "var(--border-strong)" }}
             >
               {TIMEZONE_OPTIONS.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -378,41 +407,45 @@ export function AddEditStudentModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Cohort Type</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Class type</span>
             <select
               name="classType"
               value={formData.classType}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413] cursor-pointer"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer"
+              style={{ borderColor: "var(--border-strong)" }}
             >
-              <option value="private">Private (1-on-1)</option>
-              <option value="group">Group Cohort</option>
+              <option value="private">Private (1-to-1)</option>
+              <option value="group">Group</option>
             </select>
           </label>
 
           {formData.classType === "group" && (
-            <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-              <span>Group Name</span>
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+              <span>Group name</span>
               <input
                 type="text"
                 name="groupName"
-                value={formData.groupName || ""}
+                value={formData.groupName}
                 onChange={handleChange}
-                placeholder="e.g. Morning Pranayama Cohort"
-                className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+                placeholder="e.g. Group A"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+                style={{ borderColor: "var(--border-strong)" }}
               />
             </label>
           )}
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Assigned Instructor</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Instructor</span>
             <select
               name="instructor"
               value={formData.instructor}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413] cursor-pointer"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer"
+              style={{ borderColor: "var(--border-strong)" }}
             >
+              <option value="">Choose instructor…</option>
               {INSTRUCTOR_NAMES.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -421,25 +454,27 @@ export function AddEditStudentModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Class Time (IST)</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Class time (IST)</span>
             <input
               type="time"
               name="classTimeIST"
               required
               value={formData.classTimeIST}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
             <span>Duration</span>
             <select
               name="duration"
               value={formData.duration}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans font-medium text-[#121413] focus:outline-none focus:border-[#121413] cursor-pointer"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer"
+              style={{ borderColor: "var(--border-strong)" }}
             >
               {["30 Min", "45 Min", "1 Hour", "1.5 Hour"].map((d) => (
                 <option key={d} value={d}>
@@ -449,8 +484,8 @@ export function AddEditStudentModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Monthly Tuition (₹)</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Fee (₹ / month)</span>
             <input
               type="number"
               name="fee"
@@ -458,128 +493,144 @@ export function AddEditStudentModal({
               required
               value={formData.fee}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Enrollment Date</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Joining date</span>
             <input
               type="date"
               name="joiningDate"
               required
               value={formData.joiningDate}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Last Payment Date</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Last payment date</span>
             <input
               type="date"
               name="lastPaymentDate"
               required
               value={formData.lastPaymentDate}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono font-medium text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
-        </div>
 
-        {/* Days picker for Group */}
-        {formData.classType === "group" && (
-          <div className="pt-2">
-            <span className="font-mono text-xs uppercase tracking-wider text-[#6B706E] block mb-2">
-              Weekly Cohort Days
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {dayLabels.map(([v, l]) => (
-                <button
-                  type="button"
-                  key={v}
-                  onClick={() => handleDayToggle(v)}
-                  className={`px-3 py-1 rounded-[4px] font-mono text-xs font-medium transition-colors cursor-pointer ${
-                    (formData.scheduleDays || []).includes(v)
-                      ? "bg-[#121413] text-[#FFFFFF]"
-                      : "border border-[#E6E5E0] bg-[#FFFFFF] text-[#6B706E] hover:bg-[#F0EFEA]"
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
+          {/* Group Class Days or Private Note */}
+          {formData.classType === "group" ? (
+            <div className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+              <span>Class days (group meets on)</span>
+              <div className="flex gap-1.5 flex-wrap">
+                {dayLabels.map(([v, l]) => (
+                  <label
+                    key={v}
+                    className="flex items-center gap-1.5 border rounded-full px-2.5 py-1 text-xs font-semibold cursor-pointer"
+                    style={{
+                      background: "var(--bg-alt)",
+                      borderColor: "var(--border)",
+                      color: "var(--ink-soft)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      value={v}
+                      checked={(formData.scheduleDays || []).includes(Number(v))}
+                      onChange={() => handleDayToggle(v)}
+                      className="accent-[#4C5FD5]"
+                    />
+                    <span>{l}</span>
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Credentials */}
-        <div className="pt-3 border-t border-[#E6E5E0]">
-          <div className="font-mono text-[10.5px] uppercase tracking-wider text-[#6B706E] mb-2.5">
-            Student Portal Credentials
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-              <span>Username</span>
-              <input
-                type="text"
-                name="username"
-                required
-                value={formData.username}
-                onChange={handleChange}
-                className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono text-[#121413] focus:outline-none focus:border-[#121413]"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-              <span>Password</span>
-              <input
-                type="text"
-                name="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono text-[#121413] focus:outline-none focus:border-[#121413]"
-              />
-            </label>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-[#E6E5E0]">
-          {!isNew && onDelete ? (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm(`Permanently remove ${student.name}'s account and records?`)) {
-                  onDelete(student.id);
-                  onClose();
-                }
-              }}
-              className="px-3 py-1.5 rounded-[4px] border border-[#F2C5BE] bg-[#FBEAE8] hover:bg-[#B64E30] text-[#B64E30] hover:text-[#FFFFFF] font-mono text-xs transition-colors cursor-pointer"
-            >
-              Purge Record
-            </button>
           ) : (
-            <div />
+            <p
+              className="col-span-1 sm:col-span-2 text-xs leading-relaxed"
+              style={{ color: "var(--ink-soft)" }}
+            >
+              Private classes are flexible — the student can attend and mark attendance on any day, so there's no fixed weekly schedule to set here.
+            </p>
           )}
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-2 rounded-[6px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-[#121413] text-xs font-medium transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-[6px] bg-[#121413] hover:bg-[#2A2E2C] text-[#FFFFFF] text-xs font-semibold transition-colors cursor-pointer"
-            >
-              {isNew ? "Complete Enrollment" : "Save Record Changes"}
-            </button>
+          {/* Login Credentials Divider */}
+          <div
+            className="col-span-1 sm:col-span-2 text-[11.5px] font-bold uppercase tracking-wider border-t pt-3.5 mt-1"
+            style={{ color: "var(--dawn)", borderColor: "var(--border)" }}
+          >
+            Login credentials
           </div>
-        </div>
-      </form>
+
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Username</span>
+            <input
+              type="text"
+              name="username"
+              required
+              value={formData.username}
+              onChange={handleChange}
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Password</span>
+            <input
+              type="text"
+              name="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
+            />
+          </label>
+
+          {/* Form Actions */}
+          <div className="col-span-1 sm:col-span-2 flex items-center justify-between gap-2.5 mt-1.5">
+            {!isNew ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Remove ${student.name} and their login? This can't be undone.`)) {
+                    onDelete(student.id);
+                    onClose();
+                  }
+                }}
+                className="btn btn--danger"
+              >
+                Delete student
+              </button>
+            ) : (
+              <span />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn btn--primary"
+              >
+                {isNew ? "Create login & save" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
     </ModalBackdrop>
   );
 }
@@ -592,7 +643,7 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
   const amount = student.fee;
   const p = paymentSettings;
 
-  const upiNote = encodeURIComponent(`Devbhoomi Infotech - ${student.name}`);
+  const upiNote = encodeURIComponent(`yogaonlive - ${student.name}`);
   const upiUri = `upi://pay?pa=${encodeURIComponent(p.upiId)}&pn=${encodeURIComponent(
     p.payeeName
   )}&am=${amount}&cu=INR&tn=${upiNote}`;
@@ -601,9 +652,9 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
   )}`;
   const waDigits = toWhatsAppDigits(p.adminWhatsApp);
   const waMsg = encodeURIComponent(
-    `Namaste, this is ${student.name}. I have completed my class tuition settlement of ₹${amount.toLocaleString(
+    `Hi, this is ${student.name}. I've just paid my class fee of ₹${amount.toLocaleString(
       "en-IN"
-    )}. Kindly confirm upon receipt. Thank you!`
+    )}. Please confirm when you get a chance. Thank you!`
   );
   const dueLine =
     dl < 0
@@ -614,135 +665,143 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    if (onShowToast) onShowToast("Copied to clipboard.");
+    if (onShowToast) onShowToast("Copied.");
   };
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <div className="space-y-5">
-        <div className="flex items-start justify-between pr-8">
-          <div>
-            <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#121413] tracking-tight">
-              Practice Tuition Settlement
-            </h2>
-            <p className="font-mono text-xs text-[#6B706E] mt-0.5">
-              ₹{amount.toLocaleString("en-IN")} · {dueLine}
-            </p>
+      <div>
+        <h2 className="modal__title">Pay your class fee</h2>
+        <p className="view__note" style={{ margin: "-2px 0 16px" }}>
+          ₹{amount.toLocaleString("en-IN")} · {dueLine}
+        </p>
+
+        {/* Scan & Pay QR */}
+        <div className="mb-4">
+          <div className="card__label">Scan &amp; pay with any UPI app</div>
+          <div className="flex justify-center my-2.5">
+            <img
+              src={qrSrc}
+              alt={`UPI QR code for ${p.upiId}`}
+              className="w-[180px] h-[180px] rounded-xl border bg-white p-1"
+              style={{ borderColor: "var(--border)" }}
+            />
           </div>
-          {onOpenReceipt && (
+          <div
+            className="flex items-center gap-2.5 rounded-[var(--radius-sm)] p-[10px_12px] mb-2.5"
+            style={{ background: "var(--bg-alt)" }}
+          >
+            <span className="text-xs font-bold flex-none" style={{ color: "var(--ink-soft)" }}>
+              UPI ID
+            </span>
+            <code className="mono flex-1 text-sm break-all" style={{ color: "var(--ink)" }}>
+              {p.upiId}
+            </code>
+            <button
+              type="button"
+              onClick={() => copyToClipboard(p.upiId)}
+              aria-label="Copy UPI ID"
+              className="icon-btn"
+            >
+              <CopyIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <a
+            href={upiUri}
+            className="btn btn--primary w-full gap-2"
+          >
+            <WalletIcon className="w-4 h-4" />
+            <span>Open in a UPI app</span>
+          </a>
+        </div>
+
+        {/* Bank Transfer Details */}
+        <div className="mb-4">
+          <div className="card__label">Or bank transfer</div>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 rounded-[var(--radius-sm)] p-3.5"
+            style={{ background: "var(--bg-alt)" }}
+          >
+            <div>
+              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+                Account name
+              </span>
+              <strong className="text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+                {p.accountName}
+              </strong>
+            </div>
+            <div>
+              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+                Account number
+              </span>
+              <strong className="mono text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+                {p.accountNumber}
+              </strong>
+            </div>
+            <div>
+              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+                IFSC
+              </span>
+              <strong className="mono text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+                {p.ifsc}
+              </strong>
+            </div>
+            <div>
+              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+                Bank
+              </span>
+              <strong className="text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+                {p.bankName}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="mb-3">
+          {waDigits ? (
+            <a
+              href={`https://wa.me/${waDigits}?text=${waMsg}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn--primary w-full gap-2"
+            >
+              <ChatIcon className="w-4 h-4" />
+              <span>I've paid — notify on WhatsApp</span>
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (onShowToast) onShowToast("Thanks! Your instructor will confirm the payment shortly.");
+                onClose();
+              }}
+              className="btn btn--primary w-full gap-2"
+            >
+              <CheckIcon className="w-4 h-4" />
+              <span>I've completed the payment</span>
+            </button>
+          )}
+        </div>
+
+        {onOpenReceipt && (
+          <div className="flex justify-center mb-2">
             <button
               type="button"
               onClick={() => {
                 onClose();
                 onOpenReceipt(student);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-xs font-mono text-[#121413] cursor-pointer"
+              className="btn btn--sm gap-1.5"
             >
-              <span>View Receipt</span>
-            </button>
-          )}
-        </div>
-
-        {/* UPI QR & Deep Link */}
-        <div className="bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-4 space-y-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E]">
-            Direct UPI Settlement
-          </div>
-          <div className="flex justify-center my-2">
-            <img
-              src={qrSrc}
-              alt="UPI QR Code"
-              className="w-40 h-40 rounded-[4px] border border-[#E6E5E0] p-1 bg-white"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-2 bg-[#FFFFFF] border border-[#E6E5E0] rounded-[4px] px-3 py-2">
-            <span className="font-mono text-[10.5px] uppercase tracking-wider text-[#6B706E]">
-              Studio UPI ID
-            </span>
-            <code className="font-mono text-xs font-bold text-[#121413] truncate">
-              {p.upiId}
-            </code>
-            <button
-              type="button"
-              onClick={() => copyToClipboard(p.upiId)}
-              className="p-1 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-[#121413] transition-colors cursor-pointer"
-            >
-              <CopyIcon className="w-3.5 h-3.5" />
+              <WalletIcon className="w-3.5 h-3.5" />
+              <span>View Past Payment Voucher</span>
             </button>
           </div>
+        )}
 
-          <a
-            href={upiUri}
-            className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-[6px] bg-[#121413] hover:bg-[#2A2E2C] text-[#FFFFFF] text-xs font-semibold transition-colors"
-          >
-            <WalletIcon className="w-4 h-4" />
-            <span>Launch Installed UPI App</span>
-          </a>
-        </div>
-
-        {/* Bank Transfer */}
-        <div className="bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-4 space-y-3">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E]">
-            Direct Wire / NEFT / IMPS
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#FFFFFF] border border-[#E6E5E0] rounded-[4px] p-3 text-xs">
-            <div>
-              <span className="font-mono text-[10px] text-[#6B706E] uppercase tracking-wider block mb-0.5">
-                Account Holder
-              </span>
-              <strong className="text-[#121413] font-medium">{p.accountName}</strong>
-            </div>
-            <div>
-              <span className="font-mono text-[10px] text-[#6B706E] uppercase tracking-wider block mb-0.5">
-                Account Number
-              </span>
-              <strong className="font-mono text-[#121413] font-bold">{p.accountNumber}</strong>
-            </div>
-            <div>
-              <span className="font-mono text-[10px] text-[#6B706E] uppercase tracking-wider block mb-0.5">
-                IFSC Code
-              </span>
-              <strong className="font-mono text-[#121413] font-bold">{p.ifsc}</strong>
-            </div>
-            <div>
-              <span className="font-mono text-[10px] text-[#6B706E] uppercase tracking-wider block mb-0.5">
-                Bank Branch
-              </span>
-              <strong className="text-[#121413] font-medium">{p.bankName}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* Confirmation Button */}
-        <div>
-          {waDigits ? (
-            <a
-              href={`https://wa.me/${waDigits}?text=${waMsg}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-[6px] border border-[#C6E6D3] bg-[#EAF5EE] hover:bg-[#1D7344] text-[#1D7344] hover:text-[#FFFFFF] text-xs font-semibold transition-colors cursor-pointer"
-            >
-              <ChatIcon className="w-4 h-4" />
-              <span>Payment Transferred — Notify Instructor on WhatsApp</span>
-            </a>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                if (onShowToast) onShowToast("Settlement notification recorded. Your instructor will update your ledger.");
-                onClose();
-              }}
-              className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-[6px] bg-[#121413] hover:bg-[#2A2E2C] text-[#FFFFFF] text-xs font-semibold transition-colors cursor-pointer"
-            >
-              <CheckIcon className="w-4 h-4" />
-              <span>Confirm Settlement Submission</span>
-            </button>
-          )}
-        </div>
-
-        <p className="font-mono text-[11px] text-[#8E8A82] text-center">
-          Tuition reconciliations are confirmed directly by your instructor onto your practice ledger.
+        <p className="text-xs text-center" style={{ color: "var(--ink-soft)" }}>
+          Payments aren't verified automatically here — your instructor confirms it on their side once it's received.
         </p>
       </div>
     </ModalBackdrop>
@@ -751,7 +810,15 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
 
 /* ================= 4. PAYMENT SETTINGS MODAL ================= */
 export function PaymentSettingsModal({ settings, onClose, onSave }) {
-  const [formData, setFormData] = useState({ ...settings });
+  const [formData, setFormData] = useState({
+    upiId: settings?.upiId || "yogaonlive@upi",
+    payeeName: settings?.payeeName || "yogaonlive Studio",
+    accountName: settings?.accountName || "yogaonlive",
+    accountNumber: settings?.accountNumber || "000000000000",
+    ifsc: settings?.ifsc || "ABCD0123456",
+    bankName: settings?.bankName || "State Bank of India",
+    adminWhatsApp: settings?.adminWhatsApp || "+91 90000 00000",
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -766,113 +833,116 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#121413] tracking-tight">
-            Studio Payment Infrastructure
-          </h2>
-          <p className="font-mono text-xs text-[#6B706E] mt-0.5">
-            Banking coordinates displayed on student payment vouchers, QR codes, and automated WhatsApp receipts.
-          </p>
-        </div>
+      <div>
+        <h2 className="modal__title">Payment details</h2>
+        <p className="view__note" style={{ margin: "-4px 0 14px" }}>
+          Shown to students on their "Pay now" screen, and used to build the WhatsApp "I've paid" message.
+        </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E] sm:col-span-2">
-            <span>Primary UPI ID</span>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>UPI ID</span>
             <input
               type="text"
               name="upiId"
               required
               value={formData.upiId}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E] sm:col-span-2">
-            <span>Payee Name (Displayed to Students)</span>
+          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Payee name (shown to students)</span>
             <input
               type="text"
               name="payeeName"
               required
               value={formData.payeeName}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Bank Account Holder</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Bank account name</span>
             <input
               type="text"
               name="accountName"
               value={formData.accountName}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Account Number</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Account number</span>
             <input
               type="text"
               name="accountNumber"
               value={formData.accountNumber}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>IFSC Code</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>IFSC code</span>
             <input
               type="text"
               name="ifsc"
               value={formData.ifsc}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E]">
-            <span>Bank Name &amp; Branch</span>
+          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Bank name</span>
             <input
               type="text"
               name="bankName"
               value={formData.bankName}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-sans text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-mono uppercase tracking-wider text-[#6B706E] sm:col-span-2">
-            <span>Teacher WhatsApp (with Country Code e.g. +91)</span>
+          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <span>Your WhatsApp number (for "I've paid" pings)</span>
             <input
               type="tel"
               name="adminWhatsApp"
               value={formData.adminWhatsApp}
               onChange={handleChange}
-              className="p-2.5 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] text-xs sm:text-sm font-mono text-[#121413] focus:outline-none focus:border-[#121413]"
+              className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
+              style={{ borderColor: "var(--border-strong)" }}
             />
           </label>
-        </div>
 
-        <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#E6E5E0]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3.5 py-2 rounded-[6px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-[#121413] text-xs font-medium transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-[6px] bg-[#121413] hover:bg-[#2A2E2C] text-[#FFFFFF] text-xs font-semibold transition-colors cursor-pointer"
-          >
-            Save Coordinates
-          </button>
-        </div>
-      </form>
+          <div className="col-span-1 sm:col-span-2 flex justify-end gap-2 mt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn--primary"
+            >
+              Save payment details
+            </button>
+          </div>
+        </form>
+      </div>
     </ModalBackdrop>
   );
 }
@@ -886,134 +956,163 @@ export function EnquiryDetailModal({
 }) {
   if (!enquiry) return null;
 
-  const statusTags = {
-    pending: "bg-[#FAF2E6] text-[#8A6D3B] border border-[#ECD9BD]",
-    in_progress: "bg-[#F0EFEA] text-[#121413] border border-[#E6E5E0]",
-    accepted: "bg-[#EAF5EE] text-[#1D7344] border border-[#C6E6D3]",
-    declined: "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]",
+  const palette = avatarColor(enquiry.id);
+  const typeLabel =
+    enquiry.classTypeInterest === "group"
+      ? "Group"
+      : enquiry.classTypeInterest === "private"
+      ? "Private"
+      : "No preference";
+
+  const ENQUIRY_STATUS_LABEL = {
+    pending: "Pending",
+    in_progress: "In progress",
+    accepted: "Accepted",
+    declined: "Declined",
   };
 
-  const statusLabels = {
-    pending: "Pending Review",
-    in_progress: "In Communication",
-    accepted: "Enrolled & Active",
-    declined: "Declined",
+  const ENQUIRY_STATUS_TAG = {
+    pending: "pending",
+    in_progress: "inprogress",
+    accepted: "safe",
+    declined: "declined",
   };
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-[4px] bg-[#121413] text-[#FFFFFF] flex items-center justify-center font-mono font-bold text-sm flex-none">
+      <div>
+        {/* Profile Strip */}
+        <div className="profile-strip">
+          <div
+            className="avatar"
+            style={{
+              backgroundColor: palette.bg,
+              color: palette.fg,
+            }}
+          >
             {getInitials(enquiry.name)}
           </div>
           <div>
-            <h2 className="font-sans font-bold text-xl sm:text-2xl text-[#121413] tracking-tight">
-              {enquiry.name}
-            </h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="font-mono text-xs text-[#6B706E]">
-                {enquiry.country}
-              </span>
-              <span className="text-xs text-[#8E8A82]">·</span>
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] font-medium ${
-                  statusTags[enquiry.status]
-                }`}
-              >
-                {statusLabels[enquiry.status]}
+            <div className="profile-strip__name">{enquiry.name}</div>
+            <div className="profile-strip__tags">
+              <span className="tag tag--muted">{typeLabel}</span>
+              <span className={`tag tag--${ENQUIRY_STATUS_TAG[enquiry.status]}`}>
+                {ENQUIRY_STATUS_LABEL[enquiry.status]}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Lead Details Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-4 text-xs">
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-0.5">
-              Gender
-            </span>
-            <strong className="text-[#121413] font-medium">{enquiry.gender || "—"}</strong>
+        {/* Infogrid */}
+        <div className="infogrid">
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <UserIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Gender</div>
+              <div className="infogrid__value">{enquiry.gender || "—"}</div>
+            </div>
           </div>
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-0.5">
-              Age
-            </span>
-            <strong className="text-[#121413] font-medium">{enquiry.age ? `${enquiry.age} yrs` : "—"}</strong>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <UserIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Age</div>
+              <div className="infogrid__value">{enquiry.age ? `${enquiry.age} yrs` : "—"}</div>
+            </div>
           </div>
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-0.5">
-              Height &amp; Weight
-            </span>
-            <strong className="text-[#121413] font-medium">{enquiry.heightWeight || "—"}</strong>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <UserIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Height &amp; weight</div>
+              <div className="infogrid__value">{enquiry.heightWeight || "—"}</div>
+            </div>
           </div>
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-0.5">
-              Preferred Timing (IST)
-            </span>
-            <strong className="text-[#121413] font-medium">{enquiry.preferredTimings || "—"}</strong>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <ClockIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Preferred timings (IST)</div>
+              <div className="infogrid__value">{enquiry.preferredTimings || "—"}</div>
+            </div>
           </div>
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-0.5">
-              Demo Trial Date
-            </span>
-            <strong className="text-[#121413] font-mono">
-              {enquiry.demoDate ? formatDateHuman(parseDateOnly(enquiry.demoDate)) : "—"}
-            </strong>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <CalendarIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Demo / trial session</div>
+              <div className="infogrid__value">
+                {enquiry.demoDate ? formatDateHuman(parseDateOnly(enquiry.demoDate)) : "—"}
+              </div>
+            </div>
           </div>
-          <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-0.5">
-              Instructor Preference
-            </span>
-            <strong className="text-[#121413] font-medium">{enquiry.instructorPreference || "Any"}</strong>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <UserIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Instructor preference</div>
+              <div className="infogrid__value">{enquiry.instructorPreference || "Any"}</div>
+            </div>
           </div>
         </div>
 
-        {/* Reason / Goals */}
-        <div className="bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-4">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-1">
-            Reason / Expectations
-          </div>
-          <p className="text-xs sm:text-sm text-[#121413] leading-relaxed">
-            {enquiry.reason || "General physical conditioning and mindfulness practice."}
+        {/* Reason / expectations Card */}
+        <div className="card mb-4">
+          <div className="card__label">Reason / expectations</div>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            {enquiry.reason || "—"}
           </p>
           {enquiry.otherInfo && (
-            <div className="mt-3 pt-3 border-t border-[#E6E5E0]">
-              <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-1">
-                Health Notes &amp; Physical Observations
-              </div>
-              <p className="text-xs text-[#444846] leading-relaxed">
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+              <div className="card__label">Other information</div>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
                 {enquiry.otherInfo}
               </p>
             </div>
           )}
         </div>
 
-        {/* Contact info */}
-        <div className="bg-[#FBFBFA] border border-[#E6E5E0] rounded-[6px] p-4 text-xs space-y-2">
-          <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-2">
-            Applicant Contact Coordinates
-          </div>
-          <div className="flex justify-between items-baseline border-b border-[#E6E5E0]/60 pb-1.5">
-            <span className="text-[#6B706E]">Telephone / WhatsApp:</span>
-            <strong className="font-mono text-[#121413]">{enquiry.phone}</strong>
-          </div>
-          <div className="flex justify-between items-baseline border-b border-[#E6E5E0]/60 pb-1.5">
-            <span className="text-[#6B706E]">Email:</span>
-            <strong className="font-mono text-[#121413]">{enquiry.email}</strong>
-          </div>
-          <div className="flex justify-between items-baseline">
-            <span className="text-[#6B706E]">Application Submitted:</span>
-            <strong className="font-mono text-[#121413]">
-              {formatDateHuman(parseDateOnly(enquiry.submittedDate))}
-            </strong>
+        {/* Contact Card */}
+        <div className="card mb-4">
+          <div className="card__label">Contact</div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span style={{ color: "var(--ink-soft)" }}>Phone</span>
+              <strong className="mono" style={{ color: "var(--ink)" }}>{enquiry.phone}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: "var(--ink-soft)" }}>Email</span>
+              <strong style={{ color: "var(--ink)" }}>{enquiry.email}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: "var(--ink-soft)" }}>Country</span>
+              <strong style={{ color: "var(--ink)" }}>{enquiry.country}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: "var(--ink-soft)" }}>Submitted</span>
+              <strong style={{ color: "var(--ink)" }}>
+                {enquiry.submittedDate ? formatDateHuman(parseDateOnly(enquiry.submittedDate)) : "—"}
+              </strong>
+            </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E5E0]">
+        {/* Actions Row */}
+        <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
           {enquiry.status === "accepted" ? (
-            <span className="inline-flex items-center gap-1.5 font-mono text-xs text-[#1D7344] font-medium">
+            <span className="tag tag--safe">
               <CheckIcon className="w-4 h-4" />
               <span>Enrolled Student Profile Created</span>
             </span>
@@ -1024,9 +1123,10 @@ export function EnquiryDetailModal({
                 onUpdateStatus(enquiry.id, "pending");
                 onClose();
               }}
-              className="px-3.5 py-1.5 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] font-mono text-xs text-[#121413] transition-colors cursor-pointer"
+              className="btn btn--sm gap-1"
             >
-              Reopen Inquiry
+              <UndoIcon className="w-3.5 h-3.5" />
+              <span>Reopen</span>
             </button>
           ) : (
             <>
@@ -1037,9 +1137,9 @@ export function EnquiryDetailModal({
                   onClose();
                 }}
                 disabled={enquiry.status === "in_progress"}
-                className="px-3 py-1.5 rounded-[4px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] font-mono text-xs text-[#121413] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className="btn btn--sm"
               >
-                Mark In Progress
+                In progress
               </button>
               <button
                 type="button"
@@ -1047,7 +1147,7 @@ export function EnquiryDetailModal({
                   onUpdateStatus(enquiry.id, "declined");
                   onClose();
                 }}
-                className="px-3 py-1.5 rounded-[4px] border border-[#F2C5BE] bg-[#FBEAE8] hover:bg-[#B64E30] text-[#B64E30] hover:text-[#FFFFFF] font-mono text-xs transition-colors cursor-pointer"
+                className="btn btn--sm btn--danger"
               >
                 Decline
               </button>
@@ -1057,9 +1157,9 @@ export function EnquiryDetailModal({
                   onClose();
                   onAcceptEnquiry(enquiry);
                 }}
-                className="px-4 py-1.5 rounded-[4px] bg-[#121413] hover:bg-[#2A2E2C] text-[#FFFFFF] font-mono text-xs font-semibold transition-colors cursor-pointer"
+                className="btn btn--sm btn--primary"
               >
-                Enroll Directly
+                Accept
               </button>
             </>
           )}
@@ -1075,7 +1175,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
 
   const due = getCurrentDueDate(student);
   const cycleStart = addMonthsClamped(due, -1);
-  const receiptNumber = `REC-${new Date().getFullYear()}-${String(student.id).padStart(4, "0")}`;
+  const receiptNumber = `YOL-${new Date().getFullYear()}-${String(student.id).padStart(4, "0")}`;
   const todayStr = formatDateHuman(new Date());
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -1097,114 +1197,117 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
 
   return (
     <ModalBackdrop onClose={onClose}>
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Printable Area */}
-        <div id="printable-receipt" className="border border-[#E6E5E0] rounded-[6px] p-6 sm:p-8 bg-[#FFFFFF] text-[#121413]">
+        <div id="printable-receipt" className="border rounded-[var(--radius-lg)] p-6 sm:p-8 bg-white" style={{ borderColor: "var(--border)" }}>
           {/* Masthead Header */}
-          <div className="flex items-start justify-between border-b border-[#E6E5E0] pb-6 mb-6">
+          <div className="flex items-start justify-between border-b pb-5 mb-5" style={{ borderColor: "var(--border)" }}>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 rounded-[4px] bg-[#121413] text-[#FFFFFF] flex items-center justify-center font-bold text-xs">
-                  D
-                </div>
-                <span className="font-sans font-bold text-lg text-[#121413] tracking-tight">
-                  Devbhoomi Infotech
+                <span className="w-6 h-6 flex-none" style={{ color: "var(--dawn)" }}>
+                  <SunIcon className="w-full h-full" />
+                </span>
+                <span
+                  className="font-bold text-xl tracking-tight"
+                  style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
+                >
+                  yogaonlive
                 </span>
               </div>
-              <p className="font-mono text-[11px] text-[#6B706E]">
+              <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
                 Studio Practice &amp; Client Learning Ledger
               </p>
-              <p className="font-mono text-[10.5px] text-[#8E8A82] mt-0.5">
-                GST / Service Tax Code: 07AAACD1234F1Z8
+              <p className="mono text-[11px] mt-0.5" style={{ color: "var(--ink-faint)" }}>
+                Tax / Registration: YOL-YOGA-2026-ONLINE
               </p>
             </div>
 
             <div className="text-right">
-              <span className="inline-block px-2.5 py-1 rounded-[4px] bg-[#EAF5EE] text-[#1D7344] border border-[#C6E6D3] font-mono text-xs font-bold uppercase tracking-wider mb-1.5">
+              <span className="tag tag--safe mb-1.5">
                 Settled &amp; Verified
               </span>
-              <div className="font-mono text-xs font-bold text-[#121413]">
+              <div className="mono text-xs font-bold" style={{ color: "var(--ink)" }}>
                 {receiptNumber}
               </div>
-              <div className="font-mono text-[11px] text-[#6B706E]">
+              <div className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
                 Issued: {todayStr}
               </div>
             </div>
           </div>
 
-          {/* Student & Cohort Coordinates */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b border-[#E6E5E0] pb-6 mb-6 text-xs">
+          {/* Coordinates */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b pb-5 mb-5 text-xs" style={{ borderColor: "var(--border)" }}>
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider block mb-1" style={{ color: "var(--ink-faint)" }}>
                 Student Name
               </span>
-              <strong className="font-sans text-sm font-bold text-[#121413] block">
+              <strong className="text-sm font-bold block" style={{ color: "var(--ink)" }}>
                 {student.name}
               </strong>
-              <span className="font-mono text-[#6B706E] text-[11px] block">
+              <span className="text-[11px] block" style={{ color: "var(--ink-soft)" }}>
                 {student.country}
               </span>
             </div>
 
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider block mb-1" style={{ color: "var(--ink-faint)" }}>
                 Enrolled Cohort
               </span>
-              <strong className="font-sans text-xs font-semibold text-[#121413] block">
+              <strong className="text-xs font-semibold block" style={{ color: "var(--ink)" }}>
                 {student.classType === "group"
-                  ? `Group Cohort (${student.groupName})`
-                  : "Private 1-on-1 Practice"}
+                  ? `Group (${student.groupName || "Standard"})`
+                  : "Private 1-to-1 Practice"}
               </strong>
-              <span className="font-mono text-[#6B706E] text-[11px] block">
+              <span className="text-[11px] block" style={{ color: "var(--ink-soft)" }}>
                 Instructor: {student.instructor}
               </span>
             </div>
 
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] block mb-1">
-                Billing Cycle Period
+              <span className="text-[10px] uppercase font-bold tracking-wider block mb-1" style={{ color: "var(--ink-faint)" }}>
+                Billing Cycle
               </span>
-              <strong className="font-mono text-xs font-medium text-[#121413] block">
+              <strong className="mono text-xs block" style={{ color: "var(--ink)" }}>
                 {formatDateHuman(cycleStart)}
               </strong>
-              <span className="font-mono text-[#6B706E] text-[11px] block">
+              <span className="mono text-[11px] block" style={{ color: "var(--ink-soft)" }}>
                 to {formatDateHuman(due)}
               </span>
             </div>
           </div>
 
-          {/* Itemized Line Items */}
-          <div className="mb-6">
+          {/* Line Items */}
+          <div className="mb-5">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-[#E6E5E0] font-mono text-[10px] uppercase tracking-wider text-[#6B706E]">
+                <tr className="border-b font-bold text-[10.5px] uppercase tracking-wider" style={{ borderColor: "var(--border)", color: "var(--ink-faint)" }}>
                   <th className="py-2">Description</th>
                   <th className="py-2 text-center">Frequency</th>
                   <th className="py-2 text-right">Amount</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E6E5E0]/60">
+              <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
                 <tr>
-                  <td className="py-3 font-medium text-[#121413]">
-                    Yoga Practice &amp; Asana Guidance Cohort Membership
-                    <span className="block text-[11px] text-[#6B706E] font-normal">
-                      Includes personalized live guidance, attendance ledgering, and timezone synchronization.
+                  <td className="py-3 font-medium" style={{ color: "var(--ink)" }}>
+                    yogaonlive Personalized Asana &amp; Yoga Guidance
+                    <span className="block text-[11px] font-normal" style={{ color: "var(--ink-soft)" }}>
+                      Live interactive practice, attendance ledgering, and timezone synchronization.
                     </span>
                   </td>
-                  <td className="py-3 text-center font-mono text-[#6B706E]">
+                  <td className="py-3 text-center mono" style={{ color: "var(--ink-soft)" }}>
                     30-Day Cycle
                   </td>
-                  <td className="py-3 text-right font-mono font-bold text-[#121413]">
+                  <td className="py-3 text-right mono font-bold" style={{ color: "var(--ink)" }}>
                     ₹{student.fee.toLocaleString("en-IN")}.00
                   </td>
                 </tr>
               </tbody>
               <tfoot>
-                <tr className="border-t border-[#E6E5E0]">
-                  <td colSpan={2} className="py-3 text-right font-mono font-bold text-xs uppercase tracking-wider text-[#121413]">
+                <tr className="border-t" style={{ borderColor: "var(--border)" }}>
+                  <td colSpan={2} className="py-3 text-right mono font-bold text-xs uppercase" style={{ color: "var(--ink)" }}>
                     Total Settlement Paid:
                   </td>
-                  <td className="py-3 text-right font-mono font-bold text-sm text-[#121413]">
+                  <td className="py-3 text-right mono font-bold text-sm" style={{ color: "var(--ink)" }}>
                     ₹{student.fee.toLocaleString("en-IN")}.00
                   </td>
                 </tr>
@@ -1212,64 +1315,54 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
             </table>
           </div>
 
-          {/* Settlement Details & Sign-off */}
-          <div className="bg-[#FBFBFA] border border-[#E6E5E0] rounded-[4px] p-4 text-[11px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          {/* Stamp */}
+          <div
+            className="rounded-[var(--radius-sm)] p-3.5 text-[11.5px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2"
+            style={{ background: "var(--bg-alt)" }}
+          >
             <div>
-              <div className="font-mono font-bold text-[#121413]">
+              <div className="mono font-bold" style={{ color: "var(--ink)" }}>
                 Payment Route: Direct Verified Settlement
               </div>
-              <div className="text-[#6B706E] mt-0.5">
-                Payee UPI ID: <span className="font-mono font-bold">{paymentSettings?.upiId || "devbhoomi@upi"}</span>
+              <div className="mt-0.5" style={{ color: "var(--ink-soft)" }}>
+                Payee UPI ID: <span className="mono font-bold">{paymentSettings?.upiId || "yogaonlive@upi"}</span>
               </div>
             </div>
-            <div className="text-right sm:text-right text-[#8E8A82] font-mono text-[10px]">
-              Devbhoomi Infotech Studio System Stamp
+            <div className="mono text-[10.5px] text-right" style={{ color: "var(--ink-faint)" }}>
+              yogaonlive Studio System Stamp
               <br />
               Digital Authorization Validated
             </div>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-          <div className="text-xs text-[#6B706E] font-mono self-start sm:self-auto">
-            Official PDF voucher for accounting, GST, or tuition expense records.
+          <div className="text-xs font-mono" style={{ color: "var(--ink-soft)" }}>
+            Official electronic receipt for tuition records.
           </div>
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 rounded-[6px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-[#121413] text-xs font-medium cursor-pointer"
+              className="btn"
             >
               Close
             </button>
-
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3.5 py-2 rounded-[6px] border border-[#E6E5E0] bg-[#FFFFFF] hover:bg-[#F0EFEA] text-[#121413] text-xs font-medium flex items-center gap-1.5 cursor-pointer"
-              title="Print receipt on paper or send to printer"
+              className="btn"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="6 9 6 2 18 2 18 9" />
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                <rect x="6" y="14" width="12" height="8" />
-              </svg>
-              <span>Print</span>
+              Print
             </button>
-
             <button
               type="button"
               onClick={handleDownloadPDF}
               disabled={isDownloading}
-              className="px-4 py-2 rounded-[6px] bg-[#121413] hover:bg-[#2A2E2C] text-[#FFFFFF] text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+              className="btn btn--primary"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              <span>{isDownloading ? "Generating PDF…" : "Download PDF File"}</span>
+              {isDownloading ? "Generating PDF…" : "Download PDF"}
             </button>
           </div>
         </div>

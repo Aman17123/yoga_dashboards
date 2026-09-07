@@ -34,6 +34,7 @@ export default function App() {
   });
 
   const [enquiries, setEnquiries] = useState(INITIAL_ENQUIRIES);
+  const [bookings, setBookings] = useState([]);
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_PAYMENT_SETTINGS);
   const [session, setSession] = useState(null); // { role: "admin" } or { role: "student", id: 1 }
   const [activeAdminTab, setActiveAdminTab] = useState("students");
@@ -54,7 +55,7 @@ export default function App() {
   useEffect(() => {
     async function loadDatabaseData() {
       try {
-        const [fetchedStudents, fetchedEnquiries, fetchedSettings] =
+        const [fetchedStudents, fetchedEnquiries, fetchedSettings, fetchedBookings] =
           await Promise.all([
             api.students.getAll().catch((err) => {
               console.warn("Could not fetch students from API:", err);
@@ -68,6 +69,10 @@ export default function App() {
               console.warn("Could not fetch settings from API:", err);
               return null;
             }),
+            api.bookings.getAll().catch((err) => {
+              console.warn("Could not fetch bookings from API:", err);
+              return null;
+            }),
           ]);
 
         if (Array.isArray(fetchedStudents) && fetchedStudents.length > 0) {
@@ -78,6 +83,9 @@ export default function App() {
         }
         if (fetchedSettings && fetchedSettings.upiId) {
           setPaymentSettings(fetchedSettings);
+        }
+        if (Array.isArray(fetchedBookings)) {
+          setBookings(fetchedBookings);
         }
       } catch (err) {
         console.warn("Error hydrating from backend API:", err);
@@ -330,7 +338,7 @@ export default function App() {
     }
   };
 
-  // If not logged in, display the Anti-Vibecoded Studio Login Home Page
+  // If not logged in, display the yogaonlive Home Page
   if (!session) {
     return (
       <HomePage
@@ -346,12 +354,12 @@ export default function App() {
       ? students.find((s) => s.id === session.id) || students[0]
       : null;
 
-  const pendingEnquiryCount = enquiries.filter(
-    (q) => q.status === "pending"
-  ).length;
+  const pendingEnquiryCount =
+    enquiries.filter((q) => q.status === "pending").length +
+    bookings.filter((b) => b.status === "pending").length;
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#FBFBFA] text-[#121413] font-sans antialiased selection:bg-[#B64E30]/15 selection:text-[#B64E30]">
+    <div className="shell min-h-screen flex flex-col md:flex-row bg-[var(--bg)] text-[var(--ink)] antialiased">
       {/* Sidebar Navigation */}
       <Sidebar
         session={session}
@@ -366,18 +374,18 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex-1 min-w-0 flex flex-col justify-between">
         {/* Top Operational Bar with Real-Time Notification Bell */}
-        <header className="border-b border-[#E6E5E0] bg-[#FFFFFF] px-4 sm:px-8 py-3 flex items-center justify-between sticky top-0 z-10">
+        <header className="border-b px-4 sm:px-8 py-3 flex items-center justify-between sticky top-0 z-10" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
           <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-[#6B706E]">
+            <span className="mono text-xs" style={{ color: "var(--ink-soft)" }}>
               {session.role === "admin"
                 ? activeAdminTab === "students"
-                  ? "Console / Directory"
-                  : "Console / Inbound Leads"
-                : "Member / Practice Desk"}
+                  ? "Admin Console / All students"
+                  : "Admin Console / Enquiries"
+                : "Student / Practice Desk"}
             </span>
-            <span className="text-[#E6E5E0]">|</span>
-            <div className="hidden sm:flex items-center gap-1.5 font-mono text-[11px] text-[#1D7344]">
-              <span className="w-2 h-2 rounded-full bg-[#1D7344] animate-pulse" />
+            <span style={{ color: "var(--border)" }}>|</span>
+            <div className="hidden sm:flex items-center gap-1.5 mono text-[11px]" style={{ color: "var(--success)" }}>
+              <span className="w-2 h-2 rounded-full bg-[var(--success)] animate-pulse" />
               <span>Real-time Sync Active</span>
             </div>
           </div>
@@ -401,7 +409,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="p-4 sm:p-7 md:p-8 max-w-7xl w-full mx-auto flex-1">
+        <main className="p-4 sm:p-6 md:p-[26px_32px_60px] max-w-7xl w-full mx-auto flex-1">
           {session.role === "student" && (
             <StudentDashboard
               student={currentStudent}
@@ -438,11 +446,25 @@ export default function App() {
               {activeAdminTab === "enquiries" && (
                 <EnquiriesView
                   enquiries={enquiries}
+                  bookings={bookings}
                   onUpdateEnquiryStatus={handleUpdateEnquiryStatus}
                   onAcceptEnquiry={handleAcceptEnquiry}
                   onViewEnquiry={(enquiry) =>
                     setActiveModal({ type: "enquiryDetail", enquiry })
                   }
+                  onUpdateBookingStatus={async (id, status) => {
+                    try {
+                      const res = await api.bookings.updateStatus(id, status);
+                      if (res?.booking) {
+                        setBookings((prev) =>
+                          prev.map((b) => (b._id === id ? res.booking : b))
+                        );
+                        showToast(`Booking status updated to ${status}.`);
+                      }
+                    } catch (err) {
+                      showToast("Failed to update booking status.");
+                    }
+                  }}
                 />
               )}
             </>
@@ -450,16 +472,16 @@ export default function App() {
         </main>
 
         {/* Editorial Footer */}
-        <footer className="border-t border-[#E6E5E0] bg-[#FFFFFF] py-5 px-5 sm:px-8 mt-8">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-[#6B706E] gap-3">
+        <footer className="border-t py-5 px-5 sm:px-8 mt-8" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs gap-3" style={{ color: "var(--ink-soft)" }}>
             <div>
-              &copy; {new Date().getFullYear()} Devbhoomi Infotech Studio Infrastructure. Authenticated Workspace.
+              &copy; {new Date().getFullYear()} yogaonlive Studio Infrastructure. Authenticated Workspace.
             </div>
             <div className="flex items-center gap-4">
               <button
                 type="button"
                 onClick={() => setLegalModalType("privacy")}
-                className="hover:text-[#121413] underline underline-offset-4 cursor-pointer"
+                className="hover:underline cursor-pointer"
               >
                 Privacy Policy
               </button>
@@ -467,12 +489,12 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setLegalModalType("terms")}
-                className="hover:text-[#121413] underline underline-offset-4 cursor-pointer"
+                className="hover:underline cursor-pointer"
               >
                 Terms of Service
               </button>
               <span>·</span>
-              <span className="font-mono text-[11px]">UTC: {currentTime.toUTCString().slice(17, 22)}</span>
+              <span className="mono text-[11px]">UTC: {currentTime.toUTCString().slice(17, 22)}</span>
             </div>
           </div>
         </footer>
@@ -569,13 +591,13 @@ export default function App() {
                   <div>
                     <h4 className="font-bold text-[#121413] mb-1">1. Student Health Data Sovereignty</h4>
                     <p>
-                      Devbhoomi Infotech provides dedicated infrastructure directly operated by your yoga instructor. Health intake disclosures—including spinal history, joint conditions, pregnancy status, and cardiovascular observations—are stored strictly within your instructor’s private studio instance and are never aggregated, commodified, or shared with commercial health brokers.
+                      yogaonlive provides dedicated infrastructure directly operated by your yoga instructor. Health intake disclosures—including spinal history, joint conditions, pregnancy status, and cardiovascular observations—are stored strictly within your instructor’s private studio instance and are never aggregated, commodified, or shared with commercial health brokers.
                     </p>
                   </div>
                   <div>
                     <h4 className="font-bold text-[#121413] mb-1">2. Payment &amp; Banking Data Safeguards</h4>
                     <p>
-                      Because Devbhoomi Infotech facilitates direct-to-bank settlements (such as UPI IDs and international wire transfers), no full credit card numbers or banking passwords are ever stored on or processed through intermediate cloud aggregators. All transaction confirmations are logged solely for tuition cycle accounting.
+                      Because yogaonlive facilitates direct-to-bank settlements (such as UPI IDs and international wire transfers), no full credit card numbers or banking passwords are ever stored on or processed through intermediate cloud aggregators. All transaction confirmations are logged solely for tuition cycle accounting.
                     </p>
                   </div>
                   <div>

@@ -5,13 +5,13 @@ export async function getPaymentSettings(req, res) {
     let settings = await PaymentSettings.findOne();
     if (!settings) {
       settings = await PaymentSettings.create({
-        upiId: "meridian.yoga@okhdfcbank",
-        payeeName: "Meridian Mindful Living Studio",
-        accountName: "Meridian Yoga Practices",
-        accountNumber: "50200084729112",
-        ifsc: "HDFC0001234",
-        bankName: "HDFC Bank Ltd",
-        adminWhatsApp: "+91 98200 44556",
+        upiId: "yogaonlive@upi",
+        payeeName: "yogaonlive Studio",
+        accountName: "yogaonlive",
+        accountNumber: "000000000000",
+        ifsc: "ABCD0123456",
+        bankName: "State Bank of India",
+        adminWhatsApp: "+91 90000 00000",
       });
     }
     return res.json(settings.toJSON());

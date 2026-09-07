@@ -21,9 +21,10 @@ export default function AnalogClock({ tz, currentTime }) {
         y1={y1}
         x2={x2}
         y2={y2}
-        className={`stroke-[1.3] ${
-          major ? "stroke-[#444846] stroke-[2]" : "stroke-[#C8C4BC]"
-        }`}
+        style={{
+          stroke: major ? "var(--ink-soft)" : "var(--ink-faint)",
+          strokeWidth: major ? 2.2 : 1.4,
+        }}
       />
     );
   });
@@ -33,13 +34,17 @@ export default function AnalogClock({ tz, currentTime }) {
   const secAngle = s * 6;
 
   return (
-    <div className="w-20 h-20 sm:w-24 sm:h-24 mb-2 relative flex items-center justify-center">
+    <div className="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] mb-2 relative flex items-center justify-center">
       <svg viewBox="0 0 120 120" className="w-full h-full">
         <circle
           cx="60"
           cy="60"
           r="56"
-          className="fill-[#FCFAF7] stroke-[#DCD8D0] stroke-[1.5]"
+          style={{
+            fill: "var(--surface)",
+            stroke: "var(--border-strong)",
+            strokeWidth: 2,
+          }}
         />
         {ticks}
         {/* Hour Hand */}
@@ -49,7 +54,10 @@ export default function AnalogClock({ tz, currentTime }) {
           x2="60"
           y2="34"
           strokeLinecap="round"
-          className="stroke-[#161918] stroke-[4]"
+          style={{
+            stroke: "var(--ink)",
+            strokeWidth: 4.5,
+          }}
           transform={`rotate(${hourAngle} 60 60)`}
         />
         {/* Minute Hand */}
@@ -59,21 +67,27 @@ export default function AnalogClock({ tz, currentTime }) {
           x2="60"
           y2="24"
           strokeLinecap="round"
-          className="stroke-[#161918] stroke-[2.5]"
+          style={{
+            stroke: "var(--ink)",
+            strokeWidth: 3,
+          }}
           transform={`rotate(${minAngle} 60 60)`}
         />
-        {/* Second Hand - Terracotta */}
+        {/* Second Hand - Dawn */}
         <line
           x1="60"
           y1="60"
           x2="60"
           y2="18"
           strokeLinecap="round"
-          className="stroke-[#B64E30] stroke-[1.5]"
+          style={{
+            stroke: "var(--dawn)",
+            strokeWidth: 1.6,
+          }}
           transform={`rotate(${secAngle} 60 60)`}
         />
         {/* Center Pin */}
-        <circle cx="60" cy="60" r="3" className="fill-[#161918]" />
+        <circle cx="60" cy="60" r="3.5" style={{ fill: "var(--ink)" }} />
       </svg>
     </div>
   );

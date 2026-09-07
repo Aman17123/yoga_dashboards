@@ -7,302 +7,534 @@ import {
   XIcon,
   SearchIcon,
   UndoIcon,
+  CalendarIcon,
+  UserIcon,
 } from "./Icons";
 import {
   formatDateHuman,
   parseDateOnly,
   getInitials,
+  avatarColor,
 } from "../utils/dateUtils";
+import CountryFlag from "./CountryFlag";
 
+// ─── Enquiries constants ──────────────────────────────────────────────────────
+const ENQUIRY_STATUS_LABEL = {
+  pending: "Pending",
+  in_progress: "In progress",
+  accepted: "Accepted",
+  declined: "Declined",
+};
+
+const ENQUIRY_STATUS_TAG = {
+  pending: "pending",
+  in_progress: "inprogress",
+  accepted: "safe",
+  declined: "declined",
+};
+
+// ─── Booking status ───────────────────────────────────────────────────────────
+const BOOKING_STATUS_LABEL = {
+  pending: "Pending",
+  contacted: "Contacted",
+  confirmed: "Confirmed",
+  converted: "Enrolled",
+  declined: "Declined",
+};
+
+const BOOKING_STATUS_TAG = {
+  pending: "pending",
+  contacted: "inprogress",
+  confirmed: "soon",
+  converted: "safe",
+  declined: "declined",
+};
+
+const CLASS_TYPE_LABEL = {
+  private: "Private",
+  group: "Group",
+  not_sure: "Not sure",
+};
+
+function formatBookingDate(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d)) return "—";
+  return d.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// ─── Tab Button ───────────────────────────────────────────────────────────────
+function TabBtn({ active, onClick, children, badge }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-[var(--radius-sm)] border transition-colors cursor-pointer ${
+        active
+          ? "bg-[var(--dusk-soft)] text-[var(--dusk)] border-[var(--dusk-soft)]"
+          : "bg-[var(--surface)] text-[var(--ink-soft)] border-[var(--border)] hover:bg-[var(--bg-alt)]"
+      }`}
+    >
+      {children}
+      {badge > 0 && (
+        <span
+          className="px-1.5 py-0.5 text-[10px] mono font-bold rounded-full"
+          style={{
+            background: active ? "var(--dusk)" : "var(--warning-soft)",
+            color: active ? "#fff" : "var(--warning)",
+          }}
+        >
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function EnquiriesView({
   enquiries,
+  bookings = [],
   onUpdateEnquiryStatus,
   onAcceptEnquiry,
   onViewEnquiry,
+  onUpdateBookingStatus,
 }) {
+  const [activeTab, setActiveTab] = useState("enquiries");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const stats = useMemo(() => {
-    return {
-      total: enquiries.length,
-      pending: enquiries.filter((q) => q.status === "pending").length,
-      inProgress: enquiries.filter((q) => q.status === "in_progress").length,
-      accepted: enquiries.filter((q) => q.status === "accepted").length,
-      declined: enquiries.filter((q) => q.status === "declined").length,
-    };
-  }, [enquiries]);
+  // ── Enquiry stats ──
+  const enquiryStats = useMemo(() => ({
+    total: enquiries.length,
+    pending: enquiries.filter((q) => q.status === "pending").length,
+    inProgress: enquiries.filter((q) => q.status === "in_progress").length,
+    accepted: enquiries.filter((q) => q.status === "accepted").length,
+    declined: enquiries.filter((q) => q.status === "declined").length,
+  }), [enquiries]);
 
+  // ── Booking stats ──
+  const bookingStats = useMemo(() => ({
+    total: bookings.length,
+    pending: bookings.filter((b) => b.status === "pending").length,
+    contacted: bookings.filter((b) => b.status === "contacted").length,
+    confirmed: bookings.filter((b) => b.status === "confirmed").length,
+    converted: bookings.filter((b) => b.status === "converted").length,
+    declined: bookings.filter((b) => b.status === "declined").length,
+  }), [bookings]);
+
+  // ── Filtered enquiries ──
   const filteredEnquiries = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    let list = enquiries.filter((item) => {
-      if (statusFilter !== "all" && item.status !== statusFilter) return false;
-      if (
-        q &&
-        !(
-          item.name.toLowerCase().includes(q) ||
-          item.email.toLowerCase().includes(q) ||
-          item.country.toLowerCase().includes(q)
-        )
-      ) {
-        return false;
-      }
+    let list = enquiries.filter((e) => {
+      if (statusFilter !== "all" && e.status !== statusFilter) return false;
+      if (q && !(
+        e.name.toLowerCase().includes(q) ||
+        (e.email && e.email.toLowerCase().includes(q)) ||
+        (e.country && e.country.toLowerCase().includes(q))
+      )) return false;
       return true;
     });
-
-    list.sort(
-      (a, b) => parseDateOnly(b.submittedDate) - parseDateOnly(a.submittedDate)
-    );
+    list.sort((a, b) => {
+      const da = a.submittedDate ? parseDateOnly(a.submittedDate) : new Date(0);
+      const db = b.submittedDate ? parseDateOnly(b.submittedDate) : new Date(0);
+      return db - da;
+    });
     return list;
   }, [enquiries, searchQuery, statusFilter]);
 
-  const statusLabels = {
-    pending: "Pending Review",
-    in_progress: "In Communication",
-    accepted: "Enrolled & Active",
-    declined: "Declined",
+  // ── Filtered bookings ──
+  const filteredBookings = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = bookings.filter((b) => {
+      if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (q && !(
+        b.name.toLowerCase().includes(q) ||
+        (b.email && b.email.toLowerCase().includes(q)) ||
+        (b.country && b.country.toLowerCase().includes(q)) ||
+        (b.bookingRef && b.bookingRef.toLowerCase().includes(q))
+      )) return false;
+      return true;
+    });
+    list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    return list;
+  }, [bookings, searchQuery, statusFilter]);
+
+  // Reset filters when switching tabs
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setSearchQuery("");
+    setStatusFilter("all");
   };
 
-  const statusTags = {
-    pending: "bg-[#FAF2E6] text-[#8A6D3B] border border-[#ECD9BD]",
-    in_progress: "bg-[#F4F2EB] text-[#161918] border border-[#DCD8D0]",
-    accepted: "bg-[#EAF5EE] text-[#1D7344] border border-[#C6E6D3]",
-    declined: "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]",
-  };
-
-  const statCards = [
-    {
-      icon: <ChatIcon className="w-3.5 h-3.5" />,
-      label: "Total Inquiries",
-      value: stats.total,
-      color: "text-[#161918]",
-    },
-    {
-      icon: <ClockIcon className="w-3.5 h-3.5" />,
-      label: "Pending Review",
-      value: stats.pending,
-      color: stats.pending > 0 ? "text-[#8A6D3B]" : "text-[#161918]",
-    },
-    {
-      icon: <UsersIcon className="w-3.5 h-3.5" />,
-      label: "In Communication",
-      value: stats.inProgress,
-      color: "text-[#161918]",
-    },
-    {
-      icon: <CheckIcon className="w-3.5 h-3.5" />,
-      label: "Enrolled",
-      value: stats.accepted,
-      color: "text-[#1D7344]",
-    },
-    {
-      icon: <XIcon className="w-3.5 h-3.5" />,
-      label: "Declined",
-      value: stats.declined,
-      color: "text-[#B64E30]",
-    },
-  ];
+  const pendingEnquiries = enquiryStats.pending + enquiryStats.inProgress;
+  const pendingBookings = bookingStats.pending + bookingStats.contacted;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-[6px] border border-[#DCD8D0] bg-[#F2EFE9] text-[#6B706E] font-mono text-[10.5px] uppercase tracking-wider mb-2">
-          <span>Inbound Studio Lead Queue</span>
+    <section className="w-full">
+      {/* View Header */}
+      <header className="flex items-end justify-between gap-4 flex-wrap mb-[18px]">
+        <div>
+          <div className="eyebrow">Admin Console</div>
+          <h1 className="view__title">Enquiries & Bookings</h1>
+          <p className="view__note">
+            Manage inbound enquiries and online booking form submissions.
+          </p>
         </div>
-        <h1 className="font-serif-editorial text-3xl sm:text-4xl font-normal text-[#161918] tracking-tight">
-          Prospective Student Applications
-        </h1>
-        <p className="text-xs sm:text-sm text-[#444846] mt-1 max-w-2xl leading-relaxed">
-          Review candidate health disclosures, verify time alignment, and convert qualifying candidates into active student rosters with one click.
-        </p>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {statCards.map((st, idx) => (
-          <div
-            key={idx}
-            className="bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] p-3 flex flex-col justify-between"
+        {/* Tab switcher */}
+        <div className="flex gap-2">
+          <TabBtn
+            active={activeTab === "enquiries"}
+            onClick={() => switchTab("enquiries")}
+            badge={pendingEnquiries}
           >
-            <div className="flex items-center justify-between text-[#6B706E] mb-2">
-              <span className="font-mono text-[10px] uppercase tracking-wider truncate">
-                {st.label}
-              </span>
-              <div className="text-[#6B706E] flex-none">{st.icon}</div>
+            <ChatIcon className="w-4 h-4" />
+            Enquiries
+          </TabBtn>
+          <TabBtn
+            active={activeTab === "bookings"}
+            onClick={() => switchTab("bookings")}
+            badge={pendingBookings}
+          >
+            <CalendarIcon className="w-4 h-4" />
+            Bookings
+          </TabBtn>
+        </div>
+      </header>
+
+      {/* ══════════ ENQUIRIES TAB ══════════ */}
+      {activeTab === "enquiries" && (
+        <>
+          {/* Stat Row */}
+          <div className="stat-row">
+            <div className="statcard">
+              <div className="statcard__icon"><ChatIcon /></div>
+              <div>
+                <div className="statcard__value">{enquiryStats.total}</div>
+                <div className="statcard__label">Total enquiries</div>
+              </div>
             </div>
-            <div
-              className={`font-serif-editorial text-2xl sm:text-[26px] font-bold leading-none ${st.color}`}
-            >
-              {st.value}
+            <div className={`statcard ${enquiryStats.pending > 0 ? "statcard--warn" : ""}`}>
+              <div className="statcard__icon"><ClockIcon /></div>
+              <div>
+                <div className="statcard__value">{enquiryStats.pending}</div>
+                <div className="statcard__label">Pending</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><UsersIcon /></div>
+              <div>
+                <div className="statcard__value">{enquiryStats.inProgress}</div>
+                <div className="statcard__label">In progress</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><CheckIcon /></div>
+              <div>
+                <div className="statcard__value">{enquiryStats.accepted}</div>
+                <div className="statcard__label">Accepted</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><XIcon /></div>
+              <div>
+                <div className="statcard__value">{enquiryStats.declined}</div>
+                <div className="statcard__label">Declined</div>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-wrap gap-2.5 items-center">
-        <div className="flex items-center gap-2 bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-3 flex-1 min-w-[220px]">
-          <SearchIcon className="w-3.5 h-3.5 text-[#8E8A82]" />
-          <input
-            type="text"
-            placeholder="Search prospective students by name, email, or country…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full py-2 text-xs sm:text-sm bg-transparent outline-none text-[#161918] placeholder-[#8E8A82]"
-          />
-        </div>
+          {/* Filter Bar */}
+          <div className="flex gap-2.5 mb-3.5 flex-wrap items-stretch">
+            <div className="search flex items-center gap-2 bg-[var(--surface)] border rounded-[var(--radius-sm)] px-3 flex-1 min-w-[220px]" style={{ borderColor: "var(--border-strong)" }}>
+              <span className="w-4 h-4 flex-none" style={{ color: "var(--ink-faint)" }}>
+                <SearchIcon className="w-full h-full" />
+              </span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name, email, country…"
+                className="border-none outline-none bg-transparent py-2.5 w-full text-sm"
+                style={{ color: "var(--ink)" }}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border rounded-[var(--radius-sm)] bg-[var(--surface)] px-3 text-sm font-semibold cursor-pointer"
+              style={{ borderColor: "var(--border-strong)", color: "var(--ink)" }}
+            >
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="in_progress">In progress</option>
+              <option value="accepted">Accepted</option>
+              <option value="declined">Declined</option>
+            </select>
+          </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-2.5 py-2 text-xs font-mono text-[#161918] outline-none cursor-pointer"
-        >
-          <option value="all">All review statuses</option>
-          <option value="pending">Pending review</option>
-          <option value="in_progress">In communication</option>
-          <option value="accepted">Enrolled into studio</option>
-          <option value="declined">Declined</option>
-        </select>
-      </div>
-
-      {/* Enquiries Table */}
-      <div className="border border-[#E4E1DB] rounded-[6px] bg-[#FCFAF7] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[920px]">
-            <thead>
-              <tr className="bg-[#F4F2EB] text-[#6B706E] font-mono text-[10px] uppercase tracking-wider border-b border-[#E4E1DB]">
-                <th className="py-3 px-4">Applicant</th>
-                <th className="py-3 px-4">Cohort Preference</th>
-                <th className="py-3 px-4">Contact Details</th>
-                <th className="py-3 px-4">Country</th>
-                <th className="py-3 px-4">Received Date</th>
-                <th className="py-3 px-4">Review State</th>
-                <th className="py-3 px-4">Administrative Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E4E1DB]/70 text-xs">
-              {filteredEnquiries.length === 0 ? (
+          {/* Enquiries Table */}
+          <div className="table-wrap">
+            <table className="stable">
+              <thead>
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#6B706E] font-mono text-xs">
-                    No applicant inquiries match the active filter criteria.
-                  </td>
+                  <th>Name</th>
+                  <th>Interested in</th>
+                  <th>Contact</th>
+                  <th>Country</th>
+                  <th>Submitted</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
-              ) : (
-                filteredEnquiries.map((q) => {
-                  const typeLabel =
-                    q.classTypeInterest === "group"
-                      ? "Group Cohort"
-                      : q.classTypeInterest === "private"
-                      ? "Private 1-on-1"
-                      : "Open / Either";
-
-                  return (
-                    <tr
-                      key={q.id}
-                      onClick={() => onViewEnquiry(q)}
-                      className="hover:bg-[#F4F2EB]/60 transition-colors cursor-pointer"
-                    >
-                      {/* Name */}
-                      <td className="py-3 px-4 font-semibold text-[#161918]">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-6 h-6 rounded-[4px] bg-[#161918] text-[#F8F7F4] font-mono text-[10px] flex items-center justify-center font-bold flex-none">
-                            {getInitials(q.name)}
+              </thead>
+              <tbody>
+                {filteredEnquiries.length === 0 ? (
+                  <tr><td colSpan={7} className="empty-row">No enquiries match this search.</td></tr>
+                ) : (
+                  filteredEnquiries.map((q) => {
+                    const palette = avatarColor(q.id);
+                    const typeLabel = q.classTypeInterest === "group" ? "Group" : q.classTypeInterest === "private" ? "Private" : "Any";
+                    return (
+                      <tr key={q.id} onClick={() => onViewEnquiry(q)} className="stable__row">
+                        <td>
+                          <div className="stable__student">
+                            <span className="avatar avatar--sm" style={{ backgroundColor: palette.bg, color: palette.fg }}>{getInitials(q.name)}</span>
+                            <span>{q.name}</span>
                           </div>
-                          <span>{q.name}</span>
-                        </div>
-                      </td>
+                        </td>
+                        <td><span className="tag tag--muted">{typeLabel}</span></td>
+                        <td>
+                          <div className="mono text-xs">{q.phone}</div>
+                          <div className="text-xs" style={{ color: "var(--ink-soft)" }}>{q.email}</div>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1.5">
+                            <CountryFlag country={q.country} size="xs" />
+                            <span>{q.country}</span>
+                          </div>
+                        </td>
+                        <td className="mono">{q.submittedDate ? formatDateHuman(parseDateOnly(q.submittedDate)) : "—"}</td>
+                        <td><span className={`tag tag--${ENQUIRY_STATUS_TAG[q.status]}`}>{ENQUIRY_STATUS_LABEL[q.status]}</span></td>
+                        <td>
+                          <div className="flex gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                            {q.status === "accepted" ? (
+                              <span className="tag tag--safe"><CheckIcon className="w-3.5 h-3.5" />Enrolled</span>
+                            ) : q.status === "declined" ? (
+                              <button type="button" onClick={() => onUpdateEnquiryStatus(q.id, "pending")} className="btn btn--sm gap-1">
+                                <UndoIcon className="w-3 h-3" /><span>Reopen</span>
+                              </button>
+                            ) : (
+                              <>
+                                <button type="button" onClick={() => onUpdateEnquiryStatus(q.id, "in_progress")} disabled={q.status === "in_progress"} className="btn btn--sm">In progress</button>
+                                <button type="button" onClick={() => onUpdateEnquiryStatus(q.id, "declined")} className="btn btn--sm btn--danger">Decline</button>
+                                <button type="button" onClick={() => onAcceptEnquiry(q)} className="btn btn--sm btn--primary">Accept</button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
-                      {/* Type */}
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] border border-[#DCD8D0] bg-[#F4F2EB] text-[#444846]">
-                          {typeLabel}
-                        </span>
-                      </td>
+      {/* ══════════ BOOKINGS TAB ══════════ */}
+      {activeTab === "bookings" && (
+        <>
+          {/* Stat Row */}
+          <div className="stat-row">
+            <div className="statcard">
+              <div className="statcard__icon"><CalendarIcon /></div>
+              <div>
+                <div className="statcard__value">{bookingStats.total}</div>
+                <div className="statcard__label">Total bookings</div>
+              </div>
+            </div>
+            <div className={`statcard ${bookingStats.pending > 0 ? "statcard--warn" : ""}`}>
+              <div className="statcard__icon"><ClockIcon /></div>
+              <div>
+                <div className="statcard__value">{bookingStats.pending}</div>
+                <div className="statcard__label">New / Pending</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><ChatIcon /></div>
+              <div>
+                <div className="statcard__value">{bookingStats.contacted}</div>
+                <div className="statcard__label">Contacted</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><CheckIcon /></div>
+              <div>
+                <div className="statcard__value">{bookingStats.confirmed}</div>
+                <div className="statcard__label">Confirmed</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><UserIcon /></div>
+              <div>
+                <div className="statcard__value">{bookingStats.converted}</div>
+                <div className="statcard__label">Enrolled</div>
+              </div>
+            </div>
+          </div>
 
-                      {/* Contact */}
-                      <td className="py-3 px-4">
-                        <div className="font-mono text-xs text-[#161918]">
-                          {q.phone}
-                        </div>
-                        <div className="text-[11px] text-[#6B706E]">
-                          {q.email}
-                        </div>
-                      </td>
+          {/* Filter Bar */}
+          <div className="flex gap-2.5 mb-3.5 flex-wrap items-stretch">
+            <div className="search flex items-center gap-2 bg-[var(--surface)] border rounded-[var(--radius-sm)] px-3 flex-1 min-w-[220px]" style={{ borderColor: "var(--border-strong)" }}>
+              <span className="w-4 h-4 flex-none" style={{ color: "var(--ink-faint)" }}>
+                <SearchIcon className="w-full h-full" />
+              </span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name, email, country, ref…"
+                className="border-none outline-none bg-transparent py-2.5 w-full text-sm"
+                style={{ color: "var(--ink)" }}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border rounded-[var(--radius-sm)] bg-[var(--surface)] px-3 text-sm font-semibold cursor-pointer"
+              style={{ borderColor: "var(--border-strong)", color: "var(--ink)" }}
+            >
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="contacted">Contacted</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="converted">Enrolled</option>
+              <option value="declined">Declined</option>
+            </select>
+          </div>
 
-                      {/* Country */}
-                      <td className="py-3 px-4 text-[#6B706E]">
-                        {q.country}
-                      </td>
-
-                      {/* Submitted */}
-                      <td className="py-3 px-4 font-mono text-xs text-[#444846]">
-                        {formatDateHuman(parseDateOnly(q.submittedDate))}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] font-medium ${statusTags[q.status]}`}
-                        >
-                          {statusLabels[q.status]}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td
-                        className="py-3 px-4"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {q.status === "accepted" ? (
-                          <span className="inline-flex items-center gap-1 font-mono text-xs text-[#1D7344] font-medium">
-                            <CheckIcon className="w-3.5 h-3.5" />
-                            <span>Enrolled Student</span>
+          {/* Bookings Table */}
+          <div className="table-wrap">
+            <table className="stable">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Ref</th>
+                  <th>Contact</th>
+                  <th>Preference</th>
+                  <th>Source</th>
+                  <th>Received</th>
+                  <th>Status</th>
+                  <th>Update</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBookings.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="empty-row">
+                      {bookings.length === 0
+                        ? "No booking submissions yet. Share your booking link to get started!"
+                        : "No bookings match this search."}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBookings.map((b) => {
+                    const palette = avatarColor(b._id || b.bookingRef || b.email);
+                    const classLabel = CLASS_TYPE_LABEL[b.classType] || "—";
+                    const daysLabel = b.preferredDays?.length ? b.preferredDays.join(", ") : "Flexible";
+                    return (
+                      <tr key={b._id || b.bookingRef} className="stable__row">
+                        <td>
+                          <div className="stable__student">
+                            <span className="avatar avatar--sm" style={{ backgroundColor: palette.bg, color: palette.fg }}>
+                              {getInitials(b.name)}
+                            </span>
+                            <div>
+                              <div className="font-semibold text-sm">{b.name}</div>
+                              <div className="text-xs flex items-center gap-1.5" style={{ color: "var(--ink-soft)" }}>
+                                <CountryFlag country={b.country} size="xs" />
+                                <span>{b.country}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="mono text-xs font-semibold" style={{ color: "var(--dusk)" }}>
+                            {b.bookingRef || "—"}
                           </span>
-                        ) : q.status === "declined" ? (
-                          <button
-                            type="button"
-                            onClick={() => onUpdateEnquiryStatus(q.id, "pending")}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] text-xs font-mono text-[#161918] transition-colors cursor-pointer"
-                          >
-                            <UndoIcon className="w-3 h-3" />
-                            <span>Reopen</span>
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => onUpdateEnquiryStatus(q.id, "in_progress")}
-                              disabled={q.status === "in_progress"}
-                              className="px-2 py-1 rounded-[4px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] text-xs font-mono text-[#161918] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                            >
-                              Follow up
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onUpdateEnquiryStatus(q.id, "declined")}
-                              className="px-2 py-1 rounded-[4px] border border-[#F2C5BE] bg-[#FBEAE8] hover:bg-[#B64E30] text-[#B64E30] hover:text-[#F8F7F4] text-xs font-mono transition-colors cursor-pointer"
-                            >
-                              Decline
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => onAcceptEnquiry(q)}
-                              className="px-2.5 py-1 rounded-[4px] bg-[#161918] hover:bg-[#2A2E2C] text-[#F8F7F4] text-xs font-semibold transition-colors cursor-pointer"
-                            >
-                              Enroll
-                            </button>
+                        </td>
+                        <td>
+                          <div className="text-xs">{b.email}</div>
+                          {b.phone && <div className="mono text-xs" style={{ color: "var(--ink-soft)" }}>{b.phone}</div>}
+                        </td>
+                        <td>
+                          <div className="text-xs font-semibold">{classLabel}</div>
+                          <div className="text-xs" style={{ color: "var(--ink-soft)" }}>
+                            {b.yogaStyle || "Any style"}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+                          <div className="text-xs" style={{ color: "var(--ink-faint)" }}>
+                            {daysLabel}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="tag tag--muted text-xs">{b.source || "direct"}</span>
+                        </td>
+                        <td className="mono text-xs">{formatBookingDate(b.createdAt)}</td>
+                        <td>
+                          <span className={`tag tag--${BOOKING_STATUS_TAG[b.status] || "pending"}`}>
+                            {BOOKING_STATUS_LABEL[b.status] || b.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {b.status === "pending" && (
+                              <>
+                                <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "contacted")} className="btn btn--sm">Contact</button>
+                                <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "declined")} className="btn btn--sm btn--danger">Decline</button>
+                              </>
+                            )}
+                            {b.status === "contacted" && (
+                              <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "confirmed")} className="btn btn--sm btn--primary">Confirm</button>
+                            )}
+                            {b.status === "confirmed" && (
+                              <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "converted")} className="btn btn--sm btn--primary">
+                                <CheckIcon className="w-3 h-3" /> Enroll
+                              </button>
+                            )}
+                            {b.status === "converted" && (
+                              <span className="tag tag--safe"><CheckIcon className="w-3.5 h-3.5" />Enrolled</span>
+                            )}
+                            {b.status === "declined" && (
+                              <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "pending")} className="btn btn--sm gap-1">
+                                <UndoIcon className="w-3 h-3" /> Reopen
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Booking link hint */}
+          <div className="mt-4 p-4 border rounded-[var(--radius-md)] text-sm" style={{ background: "var(--dusk-soft)", borderColor: "var(--border)", color: "var(--dusk)" }}>
+            <strong>Booking page URL:</strong>{" "}
+            <span className="mono text-xs">{window.location.origin}/book</span>
+            {" "} — Share this link or use{" "}
+            <span className="mono text-xs">{window.location.origin}/book?source=yogasite1</span>
+            {" "}to track which website referred the booking.
+          </div>
+        </>
+      )}
+    </section>
   );
 }

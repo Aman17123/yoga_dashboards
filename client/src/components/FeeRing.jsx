@@ -16,6 +16,8 @@ export default function FeeRing({
   onPayNow,
   onUpdatePayment,
 }) {
+  if (!student) return null;
+
   const due = getCurrentDueDate(student);
   const daysLeft = getDaysLeft(student);
   const cycleStart = addMonthsClamped(due, -1);
@@ -25,10 +27,10 @@ export default function FeeRing({
 
   const tier = feeTier(daysLeft);
   const tierLabel = {
-    overdue: "Overdue Cycle",
-    urgent: "Due Immediately",
-    soon: "Due Within 7 Days",
-    safe: "Settled / On Track",
+    overdue: "Overdue",
+    urgent: "Due very soon",
+    soon: "Due soon",
+    safe: "On track",
   }[tier];
 
   const centerText =
@@ -49,22 +51,15 @@ export default function FeeRing({
       ? "day left"
       : "days left";
 
-  const circumference = 2 * Math.PI * 50;
+  const circumference = 2 * Math.PI * 52;
   const dash = fracRemaining * circumference;
 
-  const strokeColors = {
-    safe: "stroke-[#1D7344]",
-    soon: "stroke-[#8A6D3B]",
-    urgent: "stroke-[#B64E30]",
-    overdue: "stroke-[#B64E30]",
-  };
-
-  const badgeStyles = {
-    safe: "bg-[#EAF5EE] text-[#1D7344] border border-[#C6E6D3]",
-    soon: "bg-[#FAF2E6] text-[#8A6D3B] border border-[#ECD9BD]",
-    urgent: "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]",
-    overdue: "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]",
-  };
+  const tierStrokeColor = {
+    safe: "var(--success)",
+    soon: "var(--warning)",
+    urgent: "var(--danger)",
+    overdue: "var(--overdue)",
+  }[tier];
 
   const handleMarkPaid = () => {
     if (!onUpdatePayment) return;
@@ -81,64 +76,63 @@ export default function FeeRing({
     onUpdatePayment(student.id, lastDate, updatedHistory);
   };
 
-  const canUndo = !!(student.paymentHistory && student.paymentHistory.length);
+  const canUndo = Boolean(student.paymentHistory && student.paymentHistory.length > 0);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full">
-      {/* Circular Progress Ring */}
-      <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex-none">
+    <div className="flex items-center gap-[18px] w-full">
+      {/* Circular Progress Visual */}
+      <div className="relative w-[110px] h-[110px] flex-none">
         <svg viewBox="0 0 120 120" className="w-full h-full">
           <circle
             cx="60"
             cy="60"
-            r="50"
+            r="52"
             fill="none"
-            stroke="#E4E1DB"
-            strokeWidth="8"
+            stroke="var(--border)"
+            strokeWidth="10"
           />
           <circle
             cx="60"
             cy="60"
-            r="50"
+            r="52"
             fill="none"
-            strokeWidth="8"
+            stroke={tierStrokeColor}
+            strokeWidth="10"
             strokeLinecap="round"
-            className={`${strokeColors[tier]} transition-all duration-500 origin-[60px_60px] -rotate-90`}
             strokeDasharray={circumference.toFixed(1)}
             strokeDashoffset={(circumference - dash).toFixed(1)}
+            transform="rotate(-90 60 60)"
+            className="transition-all duration-500 ease-out"
           />
         </svg>
+
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="font-serif-editorial text-2xl font-bold text-[#161918] leading-tight">
+          <div className="mono font-semibold text-[22px] leading-tight" style={{ color: "var(--ink)" }}>
             {centerText}
           </div>
-          <div className="font-mono text-[9.5px] uppercase tracking-wider text-[#6B706E]">
+          <div className="text-[11px] leading-tight" style={{ color: "var(--ink-soft)" }}>
             {subText}
           </div>
         </div>
       </div>
 
-      {/* Details & Actions */}
-      <div className="flex flex-col gap-2.5 flex-1 min-w-0 w-full">
+      {/* Meta Information & Context Actions */}
+      <div className="flex flex-col gap-2 flex-1 min-w-0">
         <div>
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-[4px] font-mono text-[10.5px] font-medium ${badgeStyles[tier]}`}
-          >
-            {tierLabel}
-          </span>
+          <span className={`tag tag--${tier}`}>{tierLabel}</span>
         </div>
 
-        <div className="flex justify-between items-baseline gap-2 text-xs border-b border-[#E4E1DB]/60 pb-1.5">
-          <span className="text-[#6B706E]">Next cycle due</span>
-          <strong className="text-[#161918] font-mono font-medium">
+        <div className="flex justify-between gap-2.5 text-[13px]" style={{ color: "var(--ink-soft)" }}>
+          <span>Next due</span>
+          <strong className="mono font-semibold" style={{ color: "var(--ink)" }}>
             {formatDateHuman(due)}
           </strong>
         </div>
 
-        <div className="flex justify-between items-baseline gap-2 text-xs border-b border-[#E4E1DB]/60 pb-1.5">
-          <span className="text-[#6B706E]">Monthly tuition</span>
-          <strong className="text-[#161918] font-mono font-semibold">
-            ₹{student.fee.toLocaleString("en-IN")}
+        <div className="flex justify-between gap-2.5 text-[13px]" style={{ color: "var(--ink-soft)" }}>
+          <span>Amount</span>
+          <strong className="mono font-semibold" style={{ color: "var(--ink)" }}>
+            ₹{student.fee?.toLocaleString("en-IN")}/mo
           </strong>
         </div>
 
@@ -147,20 +141,20 @@ export default function FeeRing({
             <button
               type="button"
               onClick={handleMarkPaid}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-[6px] bg-[#161918] hover:bg-[#2A2E2C] text-[#F8F7F4] text-xs font-semibold py-2 px-2.5 transition-colors cursor-pointer"
+              className="btn btn--primary flex-1 text-xs"
             >
               <CheckIcon className="w-3.5 h-3.5" />
-              <span>Record Settlement</span>
+              <span>Mark fee received</span>
             </button>
             <button
               type="button"
               onClick={handleReset}
               disabled={!canUndo}
-              title={canUndo ? "Undo last payment update" : "No previous ledger entry to revert"}
-              className="inline-flex items-center justify-center gap-1.5 rounded-[6px] border border-[#DCD8D0] bg-[#FCFAF7] hover:bg-[#F2EFE9] text-[#161918] text-xs font-medium py-2 px-2.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              title={canUndo ? "Undo the last payment update" : "Nothing to undo yet"}
+              className="btn text-xs px-2.5"
             >
               <UndoIcon className="w-3.5 h-3.5" />
-              <span>Undo</span>
+              <span>Reset</span>
             </button>
           </div>
         )}
@@ -169,10 +163,10 @@ export default function FeeRing({
           <button
             type="button"
             onClick={() => onPayNow && onPayNow(student)}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-[6px] bg-[#161918] hover:bg-[#2A2E2C] text-[#F8F7F4] text-xs font-semibold py-2.5 px-3 transition-colors mt-1 cursor-pointer"
+            className="btn btn--primary w-full mt-1"
           >
             <WalletIcon className="w-4 h-4" />
-            <span>Pay Tuition Online</span>
+            <span>Pay now</span>
           </button>
         )}
       </div>

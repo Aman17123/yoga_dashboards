@@ -5,7 +5,8 @@ import { getWallTime, digital12, offsetSentence } from "../utils/dateUtils";
 
 export default function TimeBridge({ student, currentTime }) {
   const istWall = getWallTime("Asia/Kolkata", currentTime);
-  const studentWall = getWallTime(student.timezone || "Asia/Kolkata", currentTime);
+  const studentTz = student?.timezone || "Asia/Kolkata";
+  const studentWall = getWallTime(studentTz, currentTime);
 
   const istDateStr = currentTime.toLocaleDateString("en-US", {
     timeZone: "Asia/Kolkata",
@@ -15,51 +16,60 @@ export default function TimeBridge({ student, currentTime }) {
   });
 
   const studentDateStr = currentTime.toLocaleDateString("en-US", {
-    timeZone: student.timezone || "Asia/Kolkata",
+    timeZone: studentTz,
     weekday: "short",
     day: "numeric",
     month: "short",
   });
 
-  const offset = offsetSentence("Asia/Kolkata", student.timezone || "Asia/Kolkata", student.country || "Local");
-  const studentFirstName = student.name ? student.name.split(" ")[0] : "Student";
+  const offset = offsetSentence("Asia/Kolkata", studentTz, student?.country || "Local");
+  const studentFirstName = student?.name ? student.name.split(" ")[0] : "Student";
 
   return (
-    <div className="flex items-center justify-between gap-2 sm:gap-4 w-full">
+    <div className="flex items-center justify-between gap-2.5 w-full">
       {/* Instructor Side */}
-      <div className="flex flex-col items-center text-center w-[40%] bg-[#F8F7F4] border border-[#E4E1DB] rounded-[6px] p-3 sm:p-4">
-        <div className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mb-2">
-          Studio Reference · IST
+      <div className="flex flex-col items-center text-center w-[40%]">
+        <div
+          className="text-[11.5px] font-bold uppercase tracking-wider mb-2"
+          style={{ color: "var(--dawn)" }}
+        >
+          Instructor · IST
         </div>
         <AnalogClock tz="Asia/Kolkata" currentTime={currentTime} />
-        <div className="font-mono font-semibold text-base text-[#161918]">
+        <div className="mono font-semibold text-base" style={{ color: "var(--ink)" }}>
           {digital12(istWall.h, istWall.m)}
         </div>
-        <div className="font-mono text-[11px] text-[#6B706E] mt-0.5">
+        <div className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>
           {istDateStr}
         </div>
       </div>
 
-      {/* Middle Connector */}
-      <div className="flex flex-col items-center justify-center gap-1.5 w-[20%] text-[#8E8A82]">
-        <div className="w-4 h-4 sm:w-5 sm:h-5 text-[#8E8A82]">
+      {/* Center Connector */}
+      <div className="flex flex-col items-center justify-center gap-1.5 w-[20%]" style={{ color: "var(--ink-faint)" }}>
+        <div className="w-[22px] h-[22px]">
           <ArrowRightIcon className="w-full h-full" />
         </div>
-        <div className="font-mono text-[10.5px] text-[#6B706E] text-center font-medium leading-tight px-1">
+        <div
+          className="text-[11.5px] font-semibold text-center leading-snug px-1"
+          style={{ color: "var(--ink-soft)" }}
+        >
           {offset}
         </div>
       </div>
 
       {/* Student Side */}
-      <div className="flex flex-col items-center text-center w-[40%] bg-[#F8F7F4] border border-[#E4E1DB] rounded-[6px] p-3 sm:p-4">
-        <div className="font-mono text-[10px] uppercase tracking-wider text-[#161918] mb-2">
-          {studentFirstName} · {student.country}
+      <div className="flex flex-col items-center text-center w-[40%]">
+        <div
+          className="text-[11.5px] font-bold uppercase tracking-wider mb-2 truncate max-w-full"
+          style={{ color: "var(--dusk)" }}
+        >
+          {studentFirstName} · {student?.country}
         </div>
-        <AnalogClock tz={student.timezone || "Asia/Kolkata"} currentTime={currentTime} />
-        <div className="font-mono font-semibold text-base text-[#161918]">
+        <AnalogClock tz={studentTz} currentTime={currentTime} />
+        <div className="mono font-semibold text-base" style={{ color: "var(--ink)" }}>
           {digital12(studentWall.h, studentWall.m)}
         </div>
-        <div className="font-mono text-[11px] text-[#6B706E] mt-0.5">
+        <div className="text-xs mt-0.5" style={{ color: "var(--ink-soft)" }}>
           {studentDateStr}
         </div>
       </div>

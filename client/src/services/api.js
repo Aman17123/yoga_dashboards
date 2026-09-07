@@ -88,4 +88,18 @@ export const api = {
         body: JSON.stringify(settingsData),
       }),
   },
+
+  bookings: {
+    getAll: () => request("/bookings"),
+    create: (bookingData) =>
+      request("/bookings", {
+        method: "POST",
+        body: JSON.stringify(bookingData),
+      }),
+    updateStatus: (id, status, adminNotes) =>
+      request(`/bookings/${id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, adminNotes }),
+      }),
+  },
 };

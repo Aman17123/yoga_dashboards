@@ -1,14 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { getWallTime, digital12 } from "../utils/dateUtils";
 
+// Brand Sun Logo
+function SunLogo({ size = 32 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
+      <circle cx="17" cy="17" r="5.5" fill="#F2994A" />
+      <circle cx="17" cy="17" r="11" stroke="#F2994A" strokeWidth="1.5" strokeDasharray="3.5 2.8" fill="none" />
+      <path d="M17 3.5v3M17 27.5v3M3.5 17h3M27.5 17h3M7.2 7.2l2 2M24.8 24.8l2 2M24.8 7.2l-2 2M7.2 24.8l2-2" stroke="#F2994A" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function HomePage({ onLogin, onQuickLogin }) {
+  // Studio login modal state
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [legalModalType, setLegalModalType] = useState(null); // "privacy" | "terms" | null
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
 
-  // Live master clock
+  // Live IST reference clock
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -17,96 +30,205 @@ export default function HomePage({ onLogin, onQuickLogin }) {
 
   const istWall = getWallTime("Asia/Kolkata", currentTime);
 
-  const handleSubmit = async (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setLoginError("");
     if (!username.trim() || !password) {
-      setError("Please provide both username and password.");
+      setLoginError("Please enter both username and password.");
       return;
     }
+    setLoginLoading(true);
     try {
       const success = await onLogin(username.trim(), password);
       if (!success) {
-        setError("The username or password provided does not match our records.");
+        setLoginError("Invalid username or password.");
       }
     } catch (err) {
-      setError(err?.message || "The username or password provided does not match our records.");
+      setLoginError(err?.message || "Invalid credentials. Please try again.");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F7F4] text-[#161918] font-sans antialiased selection:bg-[#B64E30]/15 selection:text-[#B64E30] flex flex-col justify-between">
-      {/* Top Editorial Masthead */}
-      <header className="border-b border-[#E4E1DB] bg-[#F8F7F4]">
-        <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-[6px] bg-[#161918] flex items-center justify-center text-[#F8F7F4]">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-                <path d="M2 12h20" />
-              </svg>
-            </div>
+    <div className="min-h-screen flex flex-col justify-between bg-[#FCFAF7] text-[#171A32] font-sans antialiased selection:bg-[#F2994A]/20 selection:text-[#171A32]">
+      {/* ═══ TOP NAVBAR ═══ */}
+      <header className="sticky top-0 z-40 bg-[#FCFAF7]/95 backdrop-blur-md border-b border-[#E7E4DC] transition-all">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
+          {/* Brand */}
+          <a href="/" className="flex items-center gap-3 no-underline">
+            <SunLogo size={36} />
             <div className="flex flex-col">
-              <span className="font-sans text-base sm:text-lg font-bold tracking-tight text-[#161918] leading-none">
-                Devbhoomi Infotech
+              <span
+                className="text-2xl font-bold tracking-tight text-[#171A32] leading-none"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                yogaonlive
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-[#6B706E] mt-0.5">
-                Studio &amp; Practice Operations
+              <span className="text-[11px] font-semibold tracking-wider text-[#7B8098] uppercase mt-0.5">
+                Live Online Yoga Studio
               </span>
             </div>
-          </div>
+          </a>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-[#6B706E] border border-[#DCD8D0] bg-[#FCFAF7] px-2.5 py-1 rounded-[6px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1D7344]" />
-              <span>Reference IST: {digital12(istWall.h, istWall.m)}</span>
+          {/* Actions: Live IST Clock + Studio Login + Book Now CTA */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-[#6B7089] border border-[#DCD8D0] bg-[#FFFFFF] px-3 py-1.5 rounded-full shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-[#1E9E63] animate-pulse" />
+              <span>IST {digital12(istWall.h, istWall.m)}</span>
             </div>
+
+            {/* Studio Workspace / Sign In Button */}
+            <button
+              type="button"
+              onClick={() => setShowLoginModal(true)}
+              className="text-xs font-semibold text-[#5B607A] hover:text-[#171A32] border border-[#DCD8D0] hover:border-[#A3A8C3] bg-[#FFFFFF] px-3.5 py-2 rounded-[8px] transition-all cursor-pointer"
+            >
+              Studio Login
+            </button>
+
+            {/* Primary Book Now Button */}
+            <a
+              href="/book"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[8px] bg-[#4C5FD5] hover:bg-[#3B4DBF] text-white text-xs sm:text-sm font-bold tracking-wide shadow-md shadow-[#4C5FD5]/20 hover:shadow-lg hover:shadow-[#4C5FD5]/30 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer no-underline"
+            >
+              <span>Book Now</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
           </div>
         </div>
       </header>
 
-      {/* Focused Center Authentication Portal */}
-      <main className="flex-1 flex items-center justify-center py-12 sm:py-16 px-5 sm:px-8">
-        <div className="max-w-md w-full mx-auto">
-          <div className="mb-6 text-center sm:text-left">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] border border-[#DCD8D0] bg-[#F2EFE9] text-[#6B706E] font-mono text-[11px] uppercase tracking-wider mb-4">
-              <span>Direct Studio Authentication</span>
-            </div>
-            <h1 className="font-serif-editorial text-3xl sm:text-4xl text-[#161918] font-normal tracking-tight mb-2">
-              Sign in to your practice workspace.
-            </h1>
-            <p className="text-sm text-[#444846] leading-relaxed">
-              Enter your credentials to access class schedules, fee cycle ledgers, and attendance records.
-            </p>
+      {/* ═══ HERO SECTION ═══ */}
+      <section className="relative overflow-hidden flex-1 flex items-center justify-center py-16 sm:py-24">
+        {/* Background glow orbs */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-b from-[#4C5FD5]/10 via-[#F2994A]/10 to-transparent rounded-full blur-3xl -z-10 pointer-events-none" />
+
+        <div className="max-w-5xl mx-auto px-5 sm:px-8 text-center">
+          {/* Eyebrow badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#FFFFFF] border border-[#E4E1DB] text-xs font-bold uppercase tracking-wider text-[#F2994A] shadow-xs mb-6">
+            <span>✨ Live Interactive Yoga Sessions · 1-to-1 &amp; Group Cohorts</span>
           </div>
 
-          <div className="border border-[#DCD8D0] rounded-[6px] bg-[#FCFAF7] p-6 sm:p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Headline */}
+          <h1
+            className="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[#171A32] leading-[1.1] mb-6"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Transform your mind &amp; body with live guided yoga.
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-base sm:text-xl text-[#5B607A] max-w-3xl mx-auto leading-relaxed mb-10 font-normal">
+            Personalized 1-on-1 private coaching and interactive small cohorts led by certified masters. Practice in your timezone with live posture corrections.
+          </p>
+
+          {/* Primary & Secondary Action CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-12">
+            <a
+              href="/book"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-[10px] bg-gradient-to-r from-[#4C5FD5] to-[#6B3FA8] hover:from-[#3D4EC4] hover:to-[#5B3195] text-white text-base font-bold shadow-xl shadow-[#4C5FD5]/25 hover:shadow-2xl hover:shadow-[#4C5FD5]/35 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer no-underline"
+            >
+              <span>Book Your Free Trial Class</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
+          </div>
+
+          {/* Social Proof Trust Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-xs sm:text-sm font-semibold text-[#6B7089]">
+            <div className="flex items-center gap-2">
+              <span className="text-[#F2994A] text-base">★★★★★</span>
+              <span>4.9/5 Rating (2,500+ Sessions)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>🌍 Students across 18+ Countries</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span>🎁 100% Free First Class · Cancel Anytime</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ FOOTER ═══ */}
+      <footer className="border-t border-[#E7E4DC] bg-[#FFFFFF] py-10 mt-auto">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <SunLogo size={28} />
+            <span
+              className="text-xl font-bold tracking-tight text-[#171A32]"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              yogaonlive
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-[#7B8098]">
+            <span>© 2026 yogaonlive. All rights reserved.</span>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => setShowLoginModal(true)}
+              className="text-[#4C5FD5] hover:underline cursor-pointer font-semibold"
+            >
+              Studio Staff / Student Login
+            </button>
+          </div>
+        </div>
+      </footer>
+
+      {/* ═══ STUDIO SIGN-IN MODAL (FOR ADMIN & REGISTERED STUDENTS) ═══ */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md bg-[#FFFFFF] rounded-[16px] border border-[#DCD8D0] p-7 sm:p-8 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setShowLoginModal(false)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 text-lg cursor-pointer p-1"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-4">
+              <SunLogo size={30} />
+              <span className="font-bold text-xl text-[#171A32]" style={{ fontFamily: "var(--font-display)" }}>
+                yogaonlive Studio Login
+              </span>
+            </div>
+
+            <p className="text-xs text-[#6B7089] mb-5">
+              Enter your credentials to access class schedules, fee cycle ledgers, and attendance records.
+            </p>
+
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="block font-mono text-xs text-[#6B706E] uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#6B7089] mb-1.5">
                   Username
                 </label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g. admin or aarav.sharma"
                   required
                   autoFocus
-                  placeholder="e.g. admin or aarav.sharma"
-                  className="w-full text-sm bg-[#F8F7F4] border border-[#DCD8D0] rounded-[6px] px-3.5 py-2.5 text-[#161918] placeholder-[#9E9E9E] focus:outline-none focus:border-[#161918] transition-colors"
+                  className="w-full text-sm bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-3.5 py-2.5 text-[#171A32] focus:outline-none focus:border-[#4C5FD5]"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block font-mono text-xs text-[#6B706E] uppercase tracking-wider">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#6B7089]">
                     Password
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-xs text-[#6B706E] hover:text-[#161918] font-mono cursor-pointer"
+                    className="text-xs text-[#6B7089] hover:text-[#171A32] font-mono cursor-pointer"
                   >
                     {showPassword ? "Hide" : "Show"}
                   </button>
@@ -115,180 +237,57 @@ export default function HomePage({ onLogin, onQuickLogin }) {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter password"
                   required
-                  placeholder="Enter account password"
-                  className="w-full text-sm bg-[#F8F7F4] border border-[#DCD8D0] rounded-[6px] px-3.5 py-2.5 text-[#161918] placeholder-[#9E9E9E] focus:outline-none focus:border-[#161918] transition-colors"
+                  className="w-full text-sm bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-3.5 py-2.5 text-[#171A32] focus:outline-none focus:border-[#4C5FD5]"
                 />
               </div>
 
-              {error && (
-                <div className="p-3 rounded-[6px] bg-[#FBEAE8] border border-[#F2C5BE] text-[#B64E30] text-xs leading-relaxed font-medium">
-                  {error}
+              {loginError && (
+                <div className="p-3 rounded-[6px] bg-[#FBEAE8] border border-[#F2C5BE] text-[#B64E30] text-xs font-medium">
+                  {loginError}
                 </div>
               )}
 
               <button
                 type="submit"
-                className="w-full text-sm font-semibold text-[#F8F7F4] bg-[#161918] hover:bg-[#2A2E2C] active:bg-[#000000] py-3 rounded-[6px] transition-colors cursor-pointer flex items-center justify-center gap-2 mt-2"
+                disabled={loginLoading}
+                className="w-full text-sm font-semibold text-white bg-[#171A32] hover:bg-[#2A2E46] py-3 rounded-[6px] transition-colors cursor-pointer flex items-center justify-center gap-2 mt-2 shadow-sm"
               >
-                <span>Log in to Studio</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
+                <span>{loginLoading ? "Signing in…" : "Sign in to Studio"}</span>
               </button>
             </form>
 
-            {/* 1-Click Verification / Demo Access */}
-            <div className="mt-6 pt-6 border-t border-[#E4E1DB]">
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-[#6B706E]">
-                  Fast Demo Sign-In
-                </span>
-                <span className="text-[11px] text-[#8F948F] font-mono">Pre-loaded Accounts</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => onQuickLogin?.("admin")}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-[6px] border border-[#DCD8D0] bg-[#F8F7F4] hover:bg-[#F2EFE9] text-[#161918] transition-colors cursor-pointer flex items-center justify-between"
-                >
-                  <span>Admin Portal</span>
-                  <span className="font-mono text-[10px] text-[#6B706E]">Teacher</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onQuickLogin?.("student")}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-[6px] border border-[#DCD8D0] bg-[#F8F7F4] hover:bg-[#F2EFE9] text-[#161918] transition-colors cursor-pointer flex items-center justify-between"
-                >
-                  <span>Student Portal</span>
-                  <span className="font-mono text-[10px] text-[#6B706E]">Aarav</span>
-                </button>
-              </div>
-
-              <div className="space-y-1 text-xs text-[#6B706E] font-mono bg-[#F4F2EB] p-3 rounded-[6px] border border-[#E4E1DB]">
-                <div className="flex justify-between">
-                  <span>Admin Credentials:</span>
-                  <code className="text-[#161918] font-bold">admin / admin123</code>
+            {/* Quick Demo Logins */}
+            {onQuickLogin && (
+              <div className="mt-6 pt-5 border-t border-[#E7E4DC]">
+                <div className="text-[11px] font-mono text-[#7B8098] uppercase tracking-wider mb-2.5">
+                  Quick Demo Access:
                 </div>
-                <div className="flex justify-between">
-                  <span>Student Credentials:</span>
-                  <code className="text-[#161918] font-bold">aarav.sharma / aarav123</code>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onQuickLogin("admin");
+                      setShowLoginModal(false);
+                    }}
+                    className="p-2 rounded-[6px] border border-[#DCD8D0] text-xs font-semibold text-[#171A32] hover:bg-[#FCFAF7] cursor-pointer"
+                  >
+                    👨‍💼 Admin Console
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onQuickLogin("student", 1);
+                      setShowLoginModal(false);
+                    }}
+                    className="p-2 rounded-[6px] border border-[#DCD8D0] text-xs font-semibold text-[#171A32] hover:bg-[#FCFAF7] cursor-pointer"
+                  >
+                    🧘 Student Desk
+                  </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Editorial Footer with Comprehensive Legal Links */}
-      <footer className="border-t border-[#E4E1DB] bg-[#F8F7F4] py-6 px-5 sm:px-8">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-[#6B706E] gap-3">
-          <div>
-            &copy; {new Date().getFullYear()} Devbhoomi Infotech Studio Infrastructure. All rights reserved.
-          </div>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => setLegalModalType("privacy")}
-              className="hover:text-[#161918] underline underline-offset-4 cursor-pointer"
-            >
-              Privacy Policy
-            </button>
-            <span>·</span>
-            <button
-              type="button"
-              onClick={() => setLegalModalType("terms")}
-              className="hover:text-[#161918] underline underline-offset-4 cursor-pointer"
-            >
-              Terms of Service
-            </button>
-            <span>·</span>
-            <span className="font-mono text-[11px]">UTC: {currentTime.toUTCString().slice(17, 22)}</span>
-          </div>
-        </div>
-      </footer>
-
-      {/* Accessible Legal Modals */}
-      {legalModalType && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60">
-          <div className="bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden text-[#161918]">
-            <div className="px-6 py-4 border-b border-[#E4E1DB] flex items-center justify-between bg-[#F4F2EB]">
-              <div>
-                <span className="font-mono text-[10px] uppercase tracking-wider text-[#B64E30]">
-                  Studio Governance Documentation
-                </span>
-                <h3 className="font-serif-editorial text-xl font-bold text-[#161918]">
-                  {legalModalType === "privacy" ? "Student Data & Privacy Policy" : "Studio Terms of Service & Liability Waiver"}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setLegalModalType(null)}
-                className="p-1 rounded-[4px] hover:bg-[#E4E1DB] text-[#444846] transition-colors cursor-pointer"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="6" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto space-y-4 text-xs sm:text-sm text-[#444846] leading-relaxed">
-              {legalModalType === "privacy" ? (
-                <>
-                  <div>
-                    <h4 className="font-bold text-[#161918] mb-1">1. Student Health Data Sovereignty</h4>
-                    <p>
-                      Devbhoomi Infotech provides dedicated infrastructure directly operated by your yoga instructor. Health intake disclosures—including spinal history, joint conditions, pregnancy status, and cardiovascular observations—are stored strictly within your instructor’s private studio instance and are never aggregated, commodified, or shared with commercial health brokers.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[#161918] mb-1">2. Payment &amp; Banking Data Safeguards</h4>
-                    <p>
-                      Because Devbhoomi Infotech facilitates direct-to-bank settlements (such as UPI IDs and international wire transfers), no full credit card numbers or banking passwords are ever stored on or processed through intermediate cloud aggregators. All transaction confirmations are logged solely for tuition cycle accounting.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[#161918] mb-1">3. Right to Rectification &amp; Deletion</h4>
-                    <p>
-                      Every registered student maintains the right to inspect their complete attendance logs and contact details upon request to their instructor. Upon cessation of practice, personal records may be archived or permanently purged upon written request.
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <h4 className="font-bold text-[#161918] mb-1">1. Practice Safety &amp; Physical Liability Waiver</h4>
-                    <p>
-                      Yoga asana, pranayama, and mindful movement involve inherent physical demands. By participating in studio sessions, students acknowledge their responsibility to practice within personal physical boundaries, communicate injuries immediately to the teacher, and seek independent medical clearance when pregnant or managing chronic conditions.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[#161918] mb-1">2. Cancellation &amp; Rescheduling Windows</h4>
-                    <p>
-                      Private 1-on-1 sessions require a minimum 24-hour advance rescheduling notice. Cancellations made inside 24 hours of the scheduled session time are counted as completed classes against the monthly cohort allowance.
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[#161918] mb-1">3. Tuition Cycles &amp; Clamped 30-Day Due Dates</h4>
-                    <p>
-                      Studio fees cover a 30-day practice cycle from the date of initial payment. Monthly tuition is non-refundable once the cycle commences. Due dates clamp to the end of the succeeding calendar month for consistent billing regularity.
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="px-6 py-3 border-t border-[#E4E1DB] bg-[#F4F2EB] flex justify-end">
-              <button
-                type="button"
-                onClick={() => setLegalModalType(null)}
-                className="px-4 py-1.5 rounded-[4px] bg-[#161918] text-[#F8F7F4] text-xs font-medium hover:bg-[#2A2E2C] cursor-pointer"
-              >
-                Close Legal Review
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

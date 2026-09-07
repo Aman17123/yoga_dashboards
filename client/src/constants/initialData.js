@@ -11,13 +11,13 @@ export const INSTRUCTOR_NAMES = [
 ];
 
 export const DEFAULT_PAYMENT_SETTINGS = {
-  upiId: "devbhoomi@upi",
-  payeeName: "Devbhoomi Infotech",
-  accountName: "Devbhoomi Infotech",
-  accountNumber: "987654321012",
-  ifsc: "HDFC0001234",
-  bankName: "HDFC Bank",
-  adminWhatsApp: "+91 98765 43210",
+  upiId: "yourbusiness@upi",
+  payeeName: "Your Tutoring Business",
+  accountName: "Your Name",
+  accountNumber: "000000000000",
+  ifsc: "ABCD0123456",
+  bankName: "Your Bank",
+  adminWhatsApp: "+91 90000 00000",
 };
 
 export const TIMEZONE_OPTIONS = [
@@ -32,6 +32,7 @@ export const TIMEZONE_OPTIONS = [
   { value: "Europe/Paris", label: "France — Paris" },
   { value: "Africa/Lagos", label: "Nigeria — Lagos" },
   { value: "Asia/Singapore", label: "Singapore" },
+
   { value: "Asia/Tokyo", label: "Japan — Tokyo" },
   { value: "Australia/Sydney", label: "Australia — Sydney" },
   { value: "Asia/Riyadh", label: "Saudi Arabia — Riyadh" },
@@ -257,7 +258,8 @@ export const INITIAL_ENQUIRIES = [
     instructorPreference: "Female",
     reason: "Weight Loss",
     otherInfo: "Has mild knee pain, please advise on modifications.",
-    message: "Looking for a private instructor for weight loss, prefer a female teacher.",
+    message:
+      "Looking for a private instructor for weight loss, prefer a female teacher.",
     status: "pending",
     submittedDate: "2026-08-24",
   },

@@ -3,6 +3,7 @@ import * as authController from "../controllers/authController.js";
 import * as studentController from "../controllers/studentController.js";
 import * as enquiryController from "../controllers/enquiryController.js";
 import * as settingsController from "../controllers/settingsController.js";
+import * as bookingController from "../controllers/bookingController.js";
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.get("/health", (req, res) => {
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
-    service: "Meridian Yoga Studio API",
+    service: "yogaonlive API",
   });
 });
 
@@ -32,6 +33,14 @@ router.post("/students/:id/payments", studentController.recordPayment);
 router.get("/enquiries", enquiryController.getAllEnquiries);
 router.post("/enquiries", enquiryController.createEnquiry);
 router.patch("/enquiries/:id/status", enquiryController.updateEnquiryStatus);
+
+// Bookings (from external yoga websites)
+router.get("/bookings", bookingController.getAllBookings);
+router.post("/bookings", bookingController.createBooking);
+router.get("/bookings/email-status", bookingController.getEmailStatus);
+router.post("/bookings/test-email", bookingController.sendTestEmail);
+router.get("/bookings/:id", bookingController.getBookingById);
+router.patch("/bookings/:id/status", bookingController.updateBookingStatus);
 
 // Settings
 router.get("/settings/payment", settingsController.getPaymentSettings);

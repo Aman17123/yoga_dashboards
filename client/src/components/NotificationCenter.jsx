@@ -268,7 +268,7 @@ export default function NotificationCenter({
                             {isOverdue && item.student?.phone && session?.role === "admin" && (
                               <a
                                 href={`https://wa.me/${toWhatsAppDigits(item.student.phone)}?text=${encodeURIComponent(
-                                  `Namaste ${item.student.name.split(" ")[0]}, this is Devbhoomi Infotech reminding you that your class fee of ₹${item.student.fee.toLocaleString("en-IN")} is overdue. Please settle at your earliest convenience.`
+                                  `Hi ${item.student.name.split(" ")[0]}, friendly reminder from yogaonlive that your class fee of ₹${item.student.fee.toLocaleString("en-IN")} is overdue. Please settle at your earliest convenience. Thank you!`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"

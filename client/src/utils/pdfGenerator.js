@@ -36,18 +36,18 @@ export async function generateReceiptPDF(student, paymentSettings) {
   doc.rect(margin, 16, contentWidth, 34, "S");
 
   // Logo Icon Badge
-  doc.setFillColor(18, 20, 19);
+  doc.setFillColor(242, 153, 74);
   doc.roundedRect(margin + 5, 22, 10, 10, 1.5, 1.5, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.text("D", margin + 8.5, 28.5);
+  doc.text("Y", margin + 8.5, 28.5);
 
   // Brand Titles
   doc.setTextColor(18, 20, 19);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
-  doc.text("Devbhoomi Infotech", margin + 18, 27);
+  doc.text("yogaonlive", margin + 18, 27);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
@@ -219,10 +219,10 @@ export async function generateReceiptPDF(student, paymentSettings) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(18, 20, 19);
-  doc.text(`Payee Entity: ${paymentSettings?.payeeName || "Devbhoomi Infotech"}`, margin + 6, y + 14);
-  doc.text(`Primary UPI ID: ${paymentSettings?.upiId || "devbhoomi@upi"}`, margin + 6, y + 20);
+  doc.text(`Payee Entity: ${paymentSettings?.payeeName || "yogaonlive"}`, margin + 6, y + 14);
+  doc.text(`Primary UPI ID: ${paymentSettings?.upiId || "yogaonlive@upi"}`, margin + 6, y + 20);
   doc.text(
-    `Bank Name: ${paymentSettings?.bankName || "HDFC Bank Ltd"} (Account: ${paymentSettings?.accountNumber || "50200084729112"})`,
+    `Bank Name: ${paymentSettings?.bankName || "State Bank of India"} (Account: ${paymentSettings?.accountNumber || "000000000000"})`,
     margin + 6,
     y + 26
   );
@@ -235,7 +235,7 @@ export async function generateReceiptPDF(student, paymentSettings) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(29, 115, 68);
-  doc.text("DEVBHOOMI INFOTECH", pageWidth - margin - 29, y + 11, { align: "center" });
+  doc.text("YOGAONLIVE", pageWidth - margin - 29, y + 11, { align: "center" });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
@@ -252,7 +252,7 @@ export async function generateReceiptPDF(student, paymentSettings) {
   doc.setFontSize(7);
   doc.setTextColor(142, 138, 130);
   doc.text(
-    "This voucher constitutes a verified electronic tuition receipt issued under Devbhoomi Infotech Studio Governance.",
+    "This voucher constitutes a verified electronic tuition receipt issued under yogaonlive Studio Governance.",
     margin,
     y + 5
   );
@@ -269,7 +269,7 @@ export async function generateReceiptPDF(student, paymentSettings) {
 
   // Trigger browser direct download
   const safeName = student.name.replace(/[^a-zA-Z0-9]/g, "_");
-  const filename = `Devbhoomi_Receipt_${safeName}_${receiptNumber}.pdf`;
+  const filename = `yogaonlive_Receipt_${safeName}_${receiptNumber}.pdf`;
   doc.save(filename);
 }
 
@@ -298,14 +298,14 @@ export function printReceiptWindow(student, paymentSettings) {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${receiptNumber} — Devbhoomi Infotech Receipt</title>
+  <title>${receiptNumber} — yogaonlive Receipt</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #121413; padding: 32px; font-size: 13px; line-height: 1.5; }
     .receipt-box { max-width: 740px; margin: 0 auto; border: 1px solid #E6E5E0; border-radius: 6px; padding: 32px; background: #fff; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #E6E5E0; padding-bottom: 20px; margin-bottom: 24px; }
     .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-    .logo-badge { width: 26px; height: 26px; background: #121413; color: #fff; border-radius: 4px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+    .logo-badge { width: 26px; height: 26px; background: #F2994A; color: #fff; border-radius: 4px; font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: center; }
     .brand-name { font-size: 18px; font-weight: 800; color: #121413; letter-spacing: -0.02em; }
     .subhead { font-family: monospace; font-size: 11px; color: #6B706E; }
     .receipt-id-box { text-align: right; }
@@ -336,8 +336,8 @@ export function printReceiptWindow(student, paymentSettings) {
     <div class="header">
       <div>
         <div class="brand">
-          <div class="logo-badge">D</div>
-          <span class="brand-name">Devbhoomi Infotech</span>
+          <div class="logo-badge">Y</div>
+          <span class="brand-name">yogaonlive</span>
         </div>
         <div class="subhead">Studio Practice & Client Learning Operations</div>
         <div class="subhead" style="font-size: 10px; margin-top: 2px;">GST: 07AAACD1234F1Z8</div>
@@ -397,17 +397,17 @@ export function printReceiptWindow(student, paymentSettings) {
     <div class="footer-box">
       <div>
         <div style="font-weight: bold;">Payment Method: Direct Verified Settlement</div>
-        <div style="color: #6B706E; margin-top: 2px;">Payee UPI ID: <code>${paymentSettings?.upiId || "devbhoomi@upi"}</code></div>
-        <div style="color: #6B706E;">Bank: ${paymentSettings?.bankName || "HDFC Bank Ltd"} (A/C: ${paymentSettings?.accountNumber || "50200084729112"})</div>
+        <div style="color: #6B706E; margin-top: 2px;">Payee UPI ID: <code>${paymentSettings?.upiId || "yogaonlive@upi"}</code></div>
+        <div style="color: #6B706E;">Bank: ${paymentSettings?.bankName || "State Bank of India"} (A/C: ${paymentSettings?.accountNumber || "000000000000"})</div>
       </div>
       <div class="stamp-box">
-        DEVBHOOMI INFOTECH<br>
+        YOGAONLIVE<br>
         <span style="font-size: 8.5px; font-weight: normal; color: #6B706E;">DIGITAL VALIDATED STAMP</span>
       </div>
     </div>
 
     <div class="terms">
-      This voucher constitutes an official practice tuition settlement receipt issued under Devbhoomi Infotech Studio Infrastructure.<br>
+      This voucher constitutes an official practice tuition settlement receipt issued under yogaonlive Studio Infrastructure.<br>
       Tuition covers a 30-day cohort period and is non-refundable upon commencement.
     </div>
   </div>

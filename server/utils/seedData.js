@@ -3,13 +3,13 @@ import { Enquiry } from "../models/Enquiry.js";
 import { PaymentSettings } from "../models/PaymentSettings.js";
 
 const DEFAULT_PAYMENT_SETTINGS = {
-  upiId: "meridian.yoga@okhdfcbank",
-  payeeName: "Meridian Mindful Living Studio",
-  accountName: "Meridian Yoga Practices",
-  accountNumber: "50200084729112",
-  ifsc: "HDFC0001234",
-  bankName: "HDFC Bank Ltd, Indiranagar Branch",
-  adminWhatsApp: "+91 98200 44556",
+  upiId: "yogaonlive@upi",
+  payeeName: "yogaonlive Studio",
+  accountName: "yogaonlive",
+  accountNumber: "000000000000",
+  ifsc: "ABCD0123456",
+  bankName: "State Bank of India",
+  adminWhatsApp: "+91 90000 00000",
 };
 
 const INITIAL_STUDENTS = [

@@ -11,8 +11,15 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: "*", // Allow external yoga websites to POST bookings
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Database connection & auto-seeding
 mongoose
@@ -30,11 +37,12 @@ app.use("/api", apiRouter);
 
 // Central error handler
 app.use((err, req, res, next) => {
-  console.error("Unhandled Error:", err);
-  res.status(500).json({ error: "An unexpected server error occurred." });
+  console.error("Unhandled Error:", err.message);
+  console.error(err.stack);
+  res.status(500).json({ error: "An unexpected server error occurred.", detail: err.message });
 });
 
 // Server listener
-app.listen(PORT, () => {
-  console.log(`Meridian Studio API is running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`yogaonlive API running on http://localhost:${PORT}`);
 });
