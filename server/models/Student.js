@@ -34,6 +34,19 @@ const studentSchema = new mongoose.Schema(
       of: String,
       default: () => new Map(),
     },
+    welcomeEmailStatus: {
+      type: String,
+      enum: ["pending", "sent", "failed"],
+      default: "pending",
+    },
+    welcomeEmailSentAt: { type: Date, default: null },
+    welcomeEmailError: { type: String, default: null },
+    enrolledFromBookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Booking",
+      default: null,
+    },
+    enrolledFromEnquiryId: { type: Number, default: null },
     paymentHistory: {
       type: [paymentRecordSchema],
       default: [],
@@ -47,6 +60,7 @@ const studentSchema = new mongoose.Schema(
         if (ret.attendance instanceof Map) {
           ret.attendance = Object.fromEntries(ret.attendance);
         }
+        delete ret.password;
         delete ret.__v;
         return ret;
       },

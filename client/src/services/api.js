@@ -45,6 +45,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(studentData),
       }),
+    enroll: (enrollData) =>
+      request("/students/enroll", {
+        method: "POST",
+        body: JSON.stringify(enrollData),
+      }),
+    resendWelcomeEmail: (id) =>
+      request(`/students/${id}/resend-welcome-email`, {
+        method: "POST",
+      }),
     update: (id, studentData) =>
       request(`/students/${id}`, {
         method: "PUT",

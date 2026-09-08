@@ -413,6 +413,17 @@ h1, h2, h3 {
   max-height: 88vh;
   overflow: auto;
 }
+@media (max-width: 640px) {
+  .modal {
+    padding: 14px 10px;
+    align-items: center;
+  }
+  .modal__panel {
+    padding: 20px 16px 24px;
+    max-height: 94vh;
+    border-radius: var(--radius-md);
+  }
+}
 .modal__close {
   position: absolute;
   top: 16px;
@@ -427,6 +438,14 @@ h1, h2, h3 {
   justify-content: center;
   cursor: pointer;
   color: var(--ink);
+}
+@media (max-width: 640px) {
+  .modal__close {
+    top: 12px;
+    right: 12px;
+    width: 30px;
+    height: 30px;
+  }
 }
 .modal__close:hover {
   background: var(--danger-soft);

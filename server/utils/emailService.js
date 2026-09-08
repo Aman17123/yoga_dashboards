@@ -722,3 +722,205 @@ export async function testEmailTransporter(testRecipient) {
     };
   }
 }
+
+// ─── Student Welcome Email Plain Text ─────────────────────────────────────────
+export function buildStudentWelcomeEmailText({ student, temporaryPassword, loginUrl }) {
+  const firstName = (student.name || "").trim().split(" ")[0] || "there";
+  const url = loginUrl || process.env.DASHBOARD_URL || "http://localhost:5173";
+
+  return `Namaste ${firstName}!
+
+Welcome to yogaonlive Studio! Your student account has been successfully created.
+
+Your Login Credentials:
+─────────────────────────────────────────────
+• Student Portal: ${url}
+• Username:       ${student.username}
+• Temporary Pass: ${temporaryPassword}
+─────────────────────────────────────────────
+
+Your Class Details:
+• Cohort / Type:  ${student.classType === "group" ? `Group Cohort (${student.groupName || "Standard"})` : "Private 1-to-1 Sessions"}
+• Instructor:     ${student.instructor || "Rohan Mehta"}
+• Class Time:     ${student.classTimeIST || "19:00"} IST (${student.timezone || "Asia/Kolkata"})
+• Duration:       ${student.duration || "1 Hour"}
+• Monthly Tuition: ₹${(student.fee || 3000).toLocaleString("en-IN")}
+
+How to Access Your Account:
+1. Open the Yoga Portal: ${url}
+2. Enter your username: "${student.username}" and the temporary password above.
+3. Access your practice calendar, check into live sessions, and track your daily attendance.
+
+Please store these credentials securely. You can update your password once logged in.
+
+If you have any questions or need technical support, reply directly to this email or reach us on WhatsApp.
+
+Namaste,
+The yogaonlive Studio Team
+https://yogaonlive.com
+`;
+}
+
+// ─── Student Welcome Email HTML ───────────────────────────────────────────────
+export function buildStudentWelcomeEmailHTML({ student, temporaryPassword, loginUrl }) {
+  const firstName = (student.name || "").trim().split(" ")[0] || "there";
+  const url = loginUrl || process.env.DASHBOARD_URL || "http://localhost:5173";
+  const classLabel =
+    student.classType === "group"
+      ? `Group Cohort · ${student.groupName || "Standard"}`
+      : "Private · 1-to-1 Live Practice";
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">${BASE_STYLES}</head>
+<body style="margin:0;padding:24px 12px;background-color:#F6F7FB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:20px;border:1px solid #E3E6F2;overflow:hidden;box-shadow:0 8px 30px rgba(23,26,50,0.06);">
+  
+  <!-- Header Banner -->
+  <div style="background:linear-gradient(135deg,#4C5FD5 0%,#6B7FEB 50%,#8B5CF6 100%);padding:36px 32px;color:#ffffff;text-align:left;">
+    <div style="margin-bottom:16px;">
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="vertical-align:middle;padding-right:10px;font-size:26px;line-height:1;">☀️</td>
+          <td style="vertical-align:middle;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">yogaonlive</td>
+        </tr>
+      </table>
+    </div>
+    <h1 style="font-size:26px;font-weight:800;color:#ffffff;margin:0 0 8px;letter-spacing:-0.02em;line-height:1.2;">Welcome to the Studio! 🧘‍♀️</h1>
+    <p style="font-size:15px;color:rgba(255,255,255,0.92);margin:0;line-height:1.5;">Your student account is active. Here are your credentials and class access details.</p>
+  </div>
+
+  <!-- Body -->
+  <div style="padding:32px 32px 36px;">
+    <p style="font-size:16px;color:#171A32;line-height:1.6;margin:0 0 16px;">Namaste <strong>${firstName}</strong>,</p>
+    <p style="font-size:14.5px;color:#4B5264;line-height:1.6;margin:0 0 24px;">
+      We are honored to welcome you to our live online yoga studio community. Your personal student dashboard is ready for you to access live sessions, monitor your attendance, and manage your tuition ledger.
+    </p>
+
+    <!-- Credentials Card -->
+    <div style="background:#F8F9FE;border-radius:16px;border:2px solid #E2E6FA;padding:24px 22px;margin:0 0 28px;">
+      <div style="font-size:12px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#4C5FD5;margin:0 0 16px;display:flex;align-items:center;">
+        🔐 Your Account Login Credentials
+      </div>
+      
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size:14px;border-collapse:collapse;">
+        <tr style="border-bottom:1px dashed #D8DDF5;">
+          <td style="padding:10px 0;color:#6B7089;font-weight:600;">Student Username</td>
+          <td style="padding:10px 0;text-align:right;">
+            <code style="background:#FFFFFF;border:1px solid #CCD4F5;padding:5px 12px;border-radius:6px;font-family:Consolas,Monaco,monospace;font-size:14px;font-weight:700;color:#171A32;">${student.username}</code>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 0;color:#6B7089;font-weight:600;">Temporary Password</td>
+          <td style="padding:12px 0;text-align:right;">
+            <code style="background:#FFFFFF;border:1px solid #F3C4BA;background-color:#FDF4F2;padding:6px 12px;border-radius:6px;font-family:Consolas,Monaco,monospace;font-size:15px;font-weight:700;color:#D84315;letter-spacing:0.04em;">${temporaryPassword}</code>
+          </td>
+        </tr>
+      </table>
+
+      <div style="text-align:center;margin-top:22px;">
+        <a href="${url}" target="_blank" class="btn" style="display:inline-block;background:linear-gradient(135deg,#171A32 0%,#282E54 100%);color:#FFFFFF !important;text-decoration:none !important;padding:13px 32px;border-radius:10px;font-weight:700;font-size:14.5px;letter-spacing:0.01em;box-shadow:0 4px 14px rgba(23,26,50,0.15);">
+          Log In to Student Dashboard →
+        </a>
+      </div>
+      <div style="font-size:11.5px;color:#858BB0;text-align:center;margin-top:10px;">
+        Portal URL: <a href="${url}" style="color:#4C5FD5;text-decoration:underline;">${url}</a>
+      </div>
+    </div>
+
+    <!-- Class Schedule Card -->
+    <div style="background-color:#FFFFFF;border-radius:14px;border:1px solid #E3E6F2;padding:20px 22px;margin-bottom:26px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#858BB0;margin-bottom:14px;">
+        🗓️ Your Practice Schedule Details
+      </div>
+      
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size:13.5px;border-collapse:collapse;">
+        <tr style="border-bottom:1px solid #F1F3F9;">
+          <td style="padding:8px 0;color:#6B7089;font-weight:500;">Class Type</td>
+          <td style="padding:8px 0;color:#171A32;font-weight:700;text-align:right;">${classLabel}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #F1F3F9;">
+          <td style="padding:8px 0;color:#6B7089;font-weight:500;">Assigned Instructor</td>
+          <td style="padding:8px 0;color:#171A32;font-weight:700;text-align:right;">${student.instructor || "Rohan Mehta"}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #F1F3F9;">
+          <td style="padding:8px 0;color:#6B7089;font-weight:500;">Class Time</td>
+          <td style="padding:8px 0;color:#4C5FD5;font-weight:700;text-align:right;">${student.classTimeIST || "19:00"} IST</td>
+        </tr>
+        <tr style="border-bottom:1px solid #F1F3F9;">
+          <td style="padding:8px 0;color:#6B7089;font-weight:500;">Duration</td>
+          <td style="padding:8px 0;color:#171A32;font-weight:600;text-align:right;">${student.duration || "1 Hour"}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#6B7089;font-weight:500;">Tuition Fee</td>
+          <td style="padding:8px 0;color:#171A32;font-weight:700;text-align:right;">₹${(student.fee || 3000).toLocaleString("en-IN")} / month</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Quick Steps -->
+    <div style="background-color:#FBFBFE;border-radius:12px;border:1px solid #ECEEF7;padding:18px 20px;margin-bottom:24px;">
+      <div style="font-size:12px;font-weight:700;color:#171A32;margin-bottom:10px;">Quick Instructions:</div>
+      <ol style="margin:0;padding-left:18px;font-size:13px;color:#4B5264;line-height:1.65;">
+        <li>Visit the student portal link: <strong>${url}</strong></li>
+        <li>Enter your username: <code style="background:#EEEFF9;padding:2px 6px;border-radius:4px;color:#171A32;">${student.username}</code> and temporary password.</li>
+        <li>View your session calendar, check into live classes, and explore practice resources!</li>
+      </ol>
+    </div>
+
+    <p style="font-size:12.5px;color:#858BB0;line-height:1.5;margin:0 0 16px;">
+      🔒 <em>Security notice: Never share your login credentials with anyone. For your security, please update your password after your first login.</em>
+    </p>
+
+    <div style="border-top:1px solid #EAECEF;padding-top:20px;margin-top:24px;">
+      <p style="font-size:14px;color:#333C4E;margin:0;line-height:1.5;">With peace and vitality,</p>
+      <p style="font-size:14.5px;font-weight:700;color:#171A32;margin:4px 0 0;">yogaonlive Studio Team</p>
+      <p style="font-size:12px;color:#858BB0;margin:4px 0 0;"><a href="https://yogaonlive.com" style="color:#4C5FD5;text-decoration:none;">yogaonlive.com</a> · Support: <a href="mailto:${process.env.EMAIL_USER}" style="color:#4C5FD5;">${process.env.EMAIL_USER}</a></p>
+    </div>
+
+  </div>
+</div>
+</body></html>`;
+}
+
+// ─── Send Student Welcome Email ───────────────────────────────────────────────
+export async function sendStudentWelcomeEmail({ student, temporaryPassword, loginUrl }) {
+  const transporter = getTransporter();
+  const url = loginUrl || process.env.DASHBOARD_URL || "http://localhost:5173";
+
+  if (!transporter) {
+    const msg = "Email transporter not configured. Please set EMAIL_USER and EMAIL_PASS in server/.env.";
+    console.warn(`[Welcome Email] ⚠️ ${msg}`);
+    return { success: false, error: msg };
+  }
+
+  if (!student?.email) {
+    return { success: false, error: "Student does not have a registered email address." };
+  }
+
+  const mailOptions = {
+    from: `"yogaonlive Studio" <${process.env.EMAIL_USER.trim()}>`,
+    to: student.email.trim(),
+    subject: `🧘 Welcome to yogaonlive Studio — Your Account & Login Credentials`,
+    text: buildStudentWelcomeEmailText({ student, temporaryPassword, loginUrl: url }),
+    html: buildStudentWelcomeEmailHTML({ student, temporaryPassword, loginUrl: url }),
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`[Welcome Email] ✅ Sent successfully to ${student.email} (Message ID: ${info.messageId})`);
+    return {
+      success: true,
+      delivered: true,
+      recipient: student.email,
+      messageId: info.messageId,
+    };
+  } catch (err) {
+    console.error(`[Welcome Email] ❌ Failed to deliver to ${student.email}:`, err.message);
+    return {
+      success: false,
+      delivered: false,
+      error: err.message,
+      recipient: student.email,
+    };
+  }
+}
+

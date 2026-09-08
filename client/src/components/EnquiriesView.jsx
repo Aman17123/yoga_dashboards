@@ -105,6 +105,7 @@ export default function EnquiriesView({
   onUpdateBookingStatus,
   onViewBooking,
   onEnrollBooking,
+  onRetryEnrollEmail,
   onRefresh,
   isRefreshing = false,
 }) {
@@ -634,7 +635,26 @@ export default function EnquiriesView({
                               </button>
                             )}
                             {b.status === "converted" && (
-                              <span className="tag tag--safe flex items-center gap-1"><CheckIcon className="w-3.5 h-3.5" />Enrolled</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="tag tag--safe flex items-center gap-1">
+                                  <CheckIcon className="w-3.5 h-3.5" /> Enrolled
+                                </span>
+                                {b.enrollmentEmailStatus === "sent" && (
+                                  <span className="text-[11px] font-semibold text-[var(--success)]" title="Login credentials successfully sent to student's email">
+                                    ✉️ Emailed
+                                  </span>
+                                )}
+                                {b.enrollmentEmailStatus === "failed" && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onRetryEnrollEmail && onRetryEnrollEmail(b)}
+                                    className="btn btn--sm text-xs text-[var(--danger)] border-[var(--danger)]/30 hover:bg-[var(--danger-soft)] py-0.5 px-1.5"
+                                    title={b.enrollmentEmailError || "Email failed - click to retry sending credentials"}
+                                  >
+                                    Retry Email
+                                  </button>
+                                )}
+                              </div>
                             )}
                             {b.status === "declined" && (
                               <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "pending")} className="btn btn--sm gap-1">
@@ -829,9 +849,9 @@ export default function EnquiriesView({
                               <button
                                 type="button"
                                 onClick={() => onAcceptEnquiry && onAcceptEnquiry(row.item)}
-                                className="btn btn--sm btn--primary"
+                                className="btn btn--sm btn--primary flex items-center gap-1"
                               >
-                                Accept
+                                <CheckIcon className="w-3 h-3" /> Enroll
                               </button>
                             )}
                           </div>

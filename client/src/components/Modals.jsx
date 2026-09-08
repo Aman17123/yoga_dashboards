@@ -63,6 +63,8 @@ export function StudentDetailModal({
   onEditStudent,
   onUpdatePayment,
   onOpenReceipt,
+  onResendWelcomeEmail,
+  isResendingEmail = false,
 }) {
   if (!student) return null;
 
@@ -219,6 +221,59 @@ export function StudentDetailModal({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Student Account & Welcome Email Credentials Section */}
+        <div className="card mb-4 bg-[var(--surface)] border-[var(--border)]">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <div className="card__label mb-0">Student Account &amp; Welcome Credentials</div>
+            <div className="flex items-center gap-2">
+              {student.welcomeEmailStatus === "sent" ? (
+                <span className="tag tag--safe">
+                  <CheckIcon className="w-3.5 h-3.5" /> Welcome Email Sent
+                </span>
+              ) : student.welcomeEmailStatus === "failed" ? (
+                <span className="tag tag--urgent">
+                  <XIcon className="w-3.5 h-3.5" /> Email Delivery Failed
+                </span>
+              ) : (
+                <span className="tag tag--soon">
+                  <ClockIcon className="w-3.5 h-3.5" /> Active Account
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm pt-2">
+            <div>
+              <span className="text-xs text-[var(--ink-soft)] font-medium">Username:</span>
+              <div className="font-mono font-bold text-[var(--ink)] mt-0.5">{student.username}</div>
+            </div>
+            <div>
+              <span className="text-xs text-[var(--ink-soft)] font-medium">Registered Email:</span>
+              <div className="font-medium text-[var(--ink)] truncate mt-0.5" title={student.email}>
+                {student.email || "No email on record"}
+              </div>
+            </div>
+            <div className="flex items-end justify-start sm:justify-end">
+              {onResendWelcomeEmail && (
+                <button
+                  type="button"
+                  onClick={() => onResendWelcomeEmail(student.id)}
+                  disabled={isResendingEmail}
+                  className="btn btn--sm gap-1.5"
+                  title="Generate fresh secure password and dispatch welcome email to student"
+                >
+                  <SunIcon className="w-3.5 h-3.5" />
+                  <span>{isResendingEmail ? "Sending…" : "Resend Credentials Email"}</span>
+                </button>
+              )}
+            </div>
+          </div>
+          {student.welcomeEmailError && (
+            <div className="text-xs text-[var(--danger)] bg-[var(--danger-soft)] p-2.5 rounded-[var(--radius-sm)] mt-2.5">
+              <strong>Error sending email:</strong> {student.welcomeEmailError}
+            </div>
+          )}
         </div>
 
         {/* Attendance (Read Only for Admin in view-modal) */}
@@ -1179,6 +1234,7 @@ export function BookingDetailModal({
   onClose,
   onUpdateStatus,
   onEnrollBooking,
+  onRetryEnrollEmail,
 }) {
   if (!booking) return null;
 
@@ -1367,12 +1423,35 @@ export function BookingDetailModal({
         </div>
 
         {/* Actions Row */}
-        <div className="flex justify-end gap-2 pt-2 border-t flex-wrap" style={{ borderColor: "var(--border)" }}>
+        <div className="flex justify-end items-center gap-2 pt-2 border-t flex-wrap" style={{ borderColor: "var(--border)" }}>
           {booking.status === "converted" ? (
-            <span className="tag tag--safe">
-              <CheckIcon className="w-4 h-4" />
-              <span>Enrolled in Studio Roster</span>
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="tag tag--safe">
+                <CheckIcon className="w-4 h-4" />
+                <span>Enrolled in Studio Roster {booking.enrolledStudentId ? `(#${booking.enrolledStudentId})` : ""}</span>
+              </span>
+              {booking.enrollmentEmailStatus === "sent" && (
+                <span className="tag tag--safe text-xs">
+                  ✉️ Credentials Emailed
+                </span>
+              )}
+              {booking.enrollmentEmailStatus === "failed" && (
+                <div className="flex items-center gap-1.5">
+                  <span className="tag tag--urgent text-xs">
+                    ⚠️ Email Failed
+                  </span>
+                  {onRetryEnrollEmail && (
+                    <button
+                      type="button"
+                      onClick={() => onRetryEnrollEmail(booking)}
+                      className="btn btn--sm btn--primary text-xs"
+                    >
+                      Retry Email
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           ) : booking.status === "declined" ? (
             <button
               type="button"
@@ -1702,3 +1781,169 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
     </ModalBackdrop>
   );
 }
+
+/* ================= 7. ENROLL STUDENT CONFIRMATION MODAL ================= */
+export function EnrollStudentConfirmModal({
+  target,
+  type = "booking", // "booking" | "enquiry"
+  onClose,
+  onConfirmEnroll,
+  isEnrolling = false,
+  error = null,
+}) {
+  if (!target) return null;
+
+  const isBooking = type === "booking";
+  const name = target.name || "Student";
+  const email = target.email || "";
+  const phone = target.phone || "—";
+  const country = target.country || "India";
+  const classType =
+    target.classType || (target.classTypeInterest === "group" ? "group" : "private");
+  const cohortOrTime =
+    target.groupCohort || target.preferredTime || target.preferredTimings || "19:00 IST";
+  const fee =
+    target.fee || (classType === "private" ? 4000 : 2500);
+  const instructor =
+    target.instructorPreference && target.instructorPreference !== "Any"
+      ? target.instructorPreference
+      : "Rohan Mehta";
+
+  return (
+    <ModalBackdrop onClose={!isEnrolling ? onClose : () => {}}>
+      <div className="w-full">
+        {/* Header */}
+        <div className="mb-4">
+          <div className="eyebrow flex items-center gap-1.5">
+            <SunIcon className="w-3.5 h-3.5" />
+            <span>Automated Studio Enrollment</span>
+          </div>
+          <h2 className="modal__title">Enroll {name}</h2>
+          <p className="view__note" style={{ margin: "-2px 0 0" }}>
+            Review enrollment parameters before automatically generating credentials and dispatching the welcome email.
+          </p>
+        </div>
+
+        {/* Error notification if any */}
+        {error && (
+          <div className="mb-4 p-3 rounded-[var(--radius-sm)] text-sm bg-[var(--danger-soft)] text-[var(--danger)] border border-[var(--danger)]/30 font-medium">
+            <strong>Enrollment Error:</strong> {error}
+          </div>
+        )}
+
+        {/* Automated Action Callout */}
+        <div
+          className="p-4 rounded-[var(--radius-md)] border mb-4"
+          style={{
+            background: "linear-gradient(135deg, #F8F9FE 0%, #EEF2FD 100%)",
+            borderColor: "var(--dusk-soft)",
+          }}
+        >
+          <div className="text-xs font-bold uppercase tracking-wider text-[var(--dusk)] mb-2 flex items-center gap-1.5">
+            <span>⚡ Automated System Workflow</span>
+          </div>
+          <ul className="text-xs space-y-1.5 text-[var(--ink)] font-medium">
+            <li className="flex items-start gap-2">
+              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
+              <span>Creates official student account with active membership in studio roster.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
+              <span>Generates a unique username and secure bcrypt-hashed password.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
+              <span>
+                Dispatches a branded HTML welcome email with login credentials directly to{" "}
+                <strong className="text-[var(--dusk)]">{email || "registered email"}</strong>.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
+              <span>Updates all dashboard statistics and active rosters across clients in real-time.</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Enrollment Summary Card */}
+        <div
+          className="rounded-[var(--radius-md)] border p-4 mb-5 text-sm"
+          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        >
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)] mb-3">
+            Student Profile &amp; Class Preferences
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-4">
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">Full Name:</span>
+              <strong className="text-[var(--ink)]">{name}</strong>
+            </div>
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">Registered Email:</span>
+              <strong className="text-[var(--ink)] truncate max-w-[180px]" title={email}>
+                {email || "—"}
+              </strong>
+            </div>
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">WhatsApp / Phone:</span>
+              <span className="text-[var(--ink)] font-medium">{phone}</span>
+            </div>
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">Country:</span>
+              <span className="text-[var(--ink)] font-medium">{country}</span>
+            </div>
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">Class Type:</span>
+              <span className="text-[var(--ink)] font-bold capitalize">
+                {classType === "private" ? "Private (1-to-1)" : "Group Cohort"}
+              </span>
+            </div>
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">Cohort / Slot:</span>
+              <span className="text-[var(--ink)] font-medium">{cohortOrTime}</span>
+            </div>
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">Assigned Instructor:</span>
+              <span className="text-[var(--ink)] font-medium">{instructor}</span>
+            </div>
+            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+              <span className="text-[var(--ink-soft)]">Monthly Tuition Fee:</span>
+              <strong className="text-[var(--success)]">₹{Number(fee).toLocaleString("en-IN")}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-2.5 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isEnrolling}
+            className="btn"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirmEnroll && onConfirmEnroll(target, type)}
+            disabled={isEnrolling || !email}
+            className="btn btn--primary flex items-center gap-2"
+          >
+            {isEnrolling ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Enrolling &amp; Sending Email…</span>
+              </>
+            ) : (
+              <>
+                <CheckIcon className="w-4 h-4" />
+                <span>Enroll Student</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </ModalBackdrop>
+  );
+}
+

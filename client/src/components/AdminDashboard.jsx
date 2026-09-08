@@ -28,6 +28,7 @@ export default function AdminDashboard({
   onEditStudent,
   onAddStudent,
   onOpenPaymentSettings,
+  onResendWelcomeEmail,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -233,6 +234,7 @@ export default function AdminDashboard({
               <th>Fee</th>
               <th>Next due</th>
               <th>Status</th>
+              <th>Credentials</th>
               <th>Edit</th>
               <th>Remind</th>
             </tr>
@@ -240,7 +242,7 @@ export default function AdminDashboard({
           <tbody>
             {filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={10} className="empty-row">
+                <td colSpan={11} className="empty-row">
                   No students match this search.
                 </td>
               </tr>
@@ -305,6 +307,29 @@ export default function AdminDashboard({
                     <td className="mono">{formatDateHuman(getCurrentDueDate(s))}</td>
                     <td>
                       <span className={`tag tag--${tier}`}>{dlText}</span>
+                    </td>
+                    <td>
+                      {s.welcomeEmailStatus === "sent" ? (
+                        <span className="tag tag--safe text-[11px]" title={`Welcome email sent on ${s.welcomeEmailSentAt ? new Date(s.welcomeEmailSentAt).toLocaleDateString() : "enrollment"}`}>
+                          ✉️ Sent
+                        </span>
+                      ) : s.welcomeEmailStatus === "failed" ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onResendWelcomeEmail && onResendWelcomeEmail(s.id);
+                          }}
+                          className="tag tag--urgent text-[11px] hover:opacity-80 cursor-pointer"
+                          title={s.welcomeEmailError || "Email failed - click to retry sending credentials"}
+                        >
+                          ⚠️ Retry
+                        </button>
+                      ) : (
+                        <span className="tag tag--muted text-[11px]" title="Standard membership">
+                          Active
+                        </span>
+                      )}
                     </td>
                     <td>
                       <button

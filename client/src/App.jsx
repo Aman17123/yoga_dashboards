@@ -14,6 +14,7 @@ import {
   EnquiryDetailModal,
   BookingDetailModal,
   ReceiptModal,
+  EnrollStudentConfirmModal,
 } from "./components/Modals";
 import {
   ADMIN_ACCOUNT,
@@ -23,6 +24,7 @@ import {
 } from "./constants/initialData";
 import { generateAttendance, formatDateHuman, getCurrentDueDate } from "./utils/dateUtils";
 import { api } from "./services/api";
+import { socket, initSocketConnection } from "./services/socket";
 
 export default function App() {
   // Initialize with initial data, then hydrate from backend API
@@ -55,6 +57,10 @@ export default function App() {
   const [activeModal, setActiveModal] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
   const [legalModalType, setLegalModalType] = useState(null);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(true);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState(null);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
 
   // Live 1-second clock
   useEffect(() => {
@@ -126,6 +132,123 @@ export default function App() {
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [loadDatabaseData]);
+
+  // Real-time WebSocket synchronization
+  useEffect(() => {
+    const cleanupSocket = initSocketConnection(({ connected }) => {
+      setIsRealtimeConnected(connected);
+    });
+
+    const handleStudentEnrolled = ({ student, emailStatus, bookingId, enquiryId }) => {
+      setStudents((prev) => {
+        const exists = prev.some((s) => s.id === student.id);
+        if (exists) return prev.map((s) => (s.id === student.id ? student : s));
+        return [...prev, student];
+      });
+
+      if (bookingId) {
+        setBookings((prev) =>
+          prev.map((b) =>
+            b._id === bookingId
+              ? {
+                  ...b,
+                  status: "converted",
+                  enrolledStudentId: student.id,
+                  enrollmentEmailStatus: emailStatus?.success ? "sent" : "failed",
+                }
+              : b
+          )
+        );
+      }
+
+      if (enquiryId) {
+        setEnquiries((prev) =>
+          prev.map((q) =>
+            q.id === enquiryId
+              ? { ...q, status: "accepted", convertedStudentId: student.id }
+              : q
+          )
+        );
+      }
+
+      if (emailStatus?.success) {
+        showToast("Student enrolled successfully. Login credentials have been sent to the student’s email.");
+      } else if (emailStatus?.error) {
+        showToast(`Student enrolled, but welcome email failed: ${emailStatus.error}`);
+      }
+    };
+
+    const handleStudentUpdated = ({ student }) => {
+      if (!student) return;
+      setStudents((prev) =>
+        prev.map((s) => (s.id === student.id ? student : s))
+      );
+    };
+
+    const handleStudentDeleted = ({ id }) => {
+      setStudents((prev) => prev.filter((s) => s.id !== id));
+    };
+
+    const handleBookingCreated = ({ booking }) => {
+      if (!booking) return;
+      setBookings((prev) => {
+        if (prev.some((b) => (b._id || b.bookingRef) === (booking._id || booking.bookingRef))) {
+          return prev;
+        }
+        return [booking, ...prev];
+      });
+      showToast(`New online booking received from ${booking.name}!`);
+    };
+
+    const handleBookingUpdated = ({ booking }) => {
+      if (!booking) return;
+      setBookings((prev) =>
+        prev.map((b) => (b._id === booking._id ? booking : b))
+      );
+    };
+
+    const handleEnquiryCreated = ({ enquiry }) => {
+      if (!enquiry) return;
+      setEnquiries((prev) => {
+        if (prev.some((q) => q.id === enquiry.id)) return prev;
+        return [enquiry, ...prev];
+      });
+      showToast(`New inquiry received from ${enquiry.name}!`);
+    };
+
+    const handleEnquiryUpdated = ({ enquiry }) => {
+      if (!enquiry) return;
+      setEnquiries((prev) =>
+        prev.map((q) => (q.id === enquiry.id ? enquiry : q))
+      );
+    };
+
+    const handleStatsUpdated = () => {
+      // Background re-fetch to ensure exact consistency
+      loadDatabaseData(true);
+    };
+
+    socket.on("student:enrolled", handleStudentEnrolled);
+    socket.on("student:updated", handleStudentUpdated);
+    socket.on("student:deleted", handleStudentDeleted);
+    socket.on("booking:created", handleBookingCreated);
+    socket.on("booking:updated", handleBookingUpdated);
+    socket.on("enquiry:created", handleEnquiryCreated);
+    socket.on("enquiry:updated", handleEnquiryUpdated);
+    socket.on("stats:updated", handleStatsUpdated);
+
+    return () => {
+      cleanupSocket();
+      socket.off("student:enrolled", handleStudentEnrolled);
+      socket.off("student:updated", handleStudentUpdated);
+      socket.off("student:deleted", handleStudentDeleted);
+      socket.off("booking:created", handleBookingCreated);
+      socket.off("booking:updated", handleBookingUpdated);
+      socket.off("enquiry:created", handleEnquiryCreated);
+      socket.off("enquiry:updated", handleEnquiryUpdated);
+      socket.off("stats:updated", handleStatsUpdated);
     };
   }, [loadDatabaseData]);
 
@@ -366,36 +489,115 @@ export default function App() {
   };
 
   const handleAcceptEnquiry = (enquiry) => {
+    setEnrollError(null);
     setActiveModal({
-      type: "addEditStudent",
-      student: null,
-      prefill: {
-        name: enquiry.name,
-        email: enquiry.email,
-        phone: enquiry.phone,
-        country: enquiry.country,
-        classType: enquiry.classTypeInterest === "group" ? "group" : "private",
-      },
-      enquiryId: enquiry.id,
+      type: "enrollConfirm",
+      target: enquiry,
+      itemType: "enquiry",
     });
   };
 
   const handleEnrollBooking = (booking) => {
+    setEnrollError(null);
     setActiveModal({
-      type: "addEditStudent",
-      student: null,
-      prefill: {
-        name: booking.name,
-        email: booking.email,
-        phone: booking.phone,
-        country: booking.country,
-        timezone: booking.timezone || "Asia/Kolkata",
-        classType: booking.classType === "private" ? "private" : "group",
-        groupName: booking.groupCohort || "",
-        fee: booking.fee || (booking.classType === "private" ? 4000 : 2500),
-      },
-      bookingId: booking._id,
+      type: "enrollConfirm",
+      target: booking,
+      itemType: "booking",
     });
+  };
+
+  const handleConfirmEnrollStudent = async (target, itemType) => {
+    setIsEnrolling(true);
+    setEnrollError(null);
+    try {
+      const payload =
+        itemType === "booking"
+          ? { bookingId: target._id }
+          : { enquiryId: target.id };
+
+      const res = await api.students.enroll(payload);
+
+      if (res.student) {
+        setStudents((prev) => {
+          const exists = prev.some((s) => s.id === res.student.id);
+          if (exists) return prev.map((s) => (s.id === res.student.id ? res.student : s));
+          return [...prev, res.student];
+        });
+      }
+
+      if (itemType === "booking" && target._id) {
+        setBookings((prev) =>
+          prev.map((b) =>
+            b._id === target._id
+              ? {
+                  ...b,
+                  status: "converted",
+                  enrolledStudentId: res.student?.id,
+                  enrollmentEmailStatus: res.emailStatus?.success ? "sent" : "failed",
+                }
+              : b
+          )
+        );
+      }
+
+      if (itemType === "enquiry" && target.id) {
+        setEnquiries((prev) =>
+          prev.map((q) =>
+            q.id === target.id
+              ? { ...q, status: "accepted", convertedStudentId: res.student?.id }
+              : q
+          )
+        );
+      }
+
+      if (res.emailStatus?.success) {
+        showToast("Student enrolled successfully. Login credentials have been sent to the student’s email.");
+      } else {
+        showToast(
+          `Student enrolled, but welcome email failed: ${res.emailStatus?.error || "Check email service"}`
+        );
+      }
+
+      setActiveModal(null);
+    } catch (err) {
+      console.error("Student enrollment failed:", err);
+      const errMsg = err?.message || err?.data?.error || "Failed to enroll student.";
+      setEnrollError(errMsg);
+      showToast(errMsg);
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
+
+  const handleResendWelcomeEmail = async (studentId) => {
+    setIsResendingEmail(true);
+    try {
+      showToast("Generating credentials & sending email…");
+      const res = await api.students.resendWelcomeEmail(studentId);
+      if (res.success) {
+        showToast("Login credentials successfully sent to student's email.");
+        if (res.student) {
+          setStudents((prev) =>
+            prev.map((s) => (s.id === studentId ? res.student : s))
+          );
+        }
+      } else {
+        showToast(`Email delivery failed: ${res.emailStatus?.error || "Check SMTP"}`);
+      }
+    } catch (err) {
+      console.error("Resend welcome email failed:", err);
+      showToast(err?.message || "Failed to resend credentials.");
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
+  const handleRetryBookingEmail = async (booking) => {
+    if (booking.enrolledStudentId) {
+      await handleResendWelcomeEmail(booking.enrolledStudentId);
+    } else {
+      handleEnrollBooking(booking);
+    }
   };
 
   // Payment settings (persists to backend API)
@@ -442,6 +644,7 @@ export default function App() {
         currentTime={currentTime}
         student={currentStudent}
         pendingEnquiryCount={pendingEnquiryCount}
+        isRealtimeConnected={isRealtimeConnected}
       />
 
       {/* Main Content Area */}
@@ -453,13 +656,13 @@ export default function App() {
               {session.role === "admin"
                 ? activeAdminTab === "students"
                   ? "Admin Console / All students"
-                  : "Admin Console / Enquiries"
+                  : "Admin Console / Enquiries & Bookings"
                 : "Student / Practice Desk"}
             </span>
             <span style={{ color: "var(--border)" }}>|</span>
-            <div className="hidden sm:flex items-center gap-1.5 mono text-[11px]" style={{ color: "var(--success)" }}>
-              <span className="w-2 h-2 rounded-full bg-[var(--success)] animate-pulse" />
-              <span>Real-time Sync Active</span>
+            <div className={`hidden sm:flex items-center gap-1.5 mono text-[11px] ${isRealtimeConnected ? "text-[var(--success)]" : "text-[var(--warning)]"}`}>
+              <span className={`w-2 h-2 rounded-full ${isRealtimeConnected ? "bg-[var(--success)] animate-pulse" : "bg-[var(--warning)]"}`} />
+              <span>{isRealtimeConnected ? "Real-time Live Sync" : "Syncing…"}</span>
             </div>
           </div>
 
@@ -483,6 +686,8 @@ export default function App() {
               onPayNow={(student) =>
                 setActiveModal({ type: "payNow", student })
               }
+              onResendStudentEmail={handleResendWelcomeEmail}
+              onRetryBookingEmail={handleRetryBookingEmail}
             />
           </div>
         </header>
@@ -518,6 +723,7 @@ export default function App() {
                   onOpenReceipt={(student) =>
                     setActiveModal({ type: "receipt", student })
                   }
+                  onResendWelcomeEmail={handleResendWelcomeEmail}
                 />
               )}
 
@@ -534,6 +740,7 @@ export default function App() {
                     setActiveModal({ type: "bookingDetail", booking })
                   }
                   onEnrollBooking={handleEnrollBooking}
+                  onRetryEnrollEmail={handleRetryBookingEmail}
                   onRefresh={() => loadDatabaseData(false)}
                   isRefreshing={isRefreshing}
                   onUpdateBookingStatus={async (id, status) => {
@@ -585,7 +792,7 @@ export default function App() {
       </div>
 
       {/* Modals Container */}
-      {activeModal?.type === "studentDetail" && (
+        {activeModal?.type === "studentDetail" && (
         <StudentDetailModal
           student={students.find((s) => s.id === activeModal.student.id) || activeModal.student}
           currentTime={currentTime}
@@ -595,6 +802,8 @@ export default function App() {
           }
           onUpdatePayment={handleUpdatePayment}
           onOpenReceipt={(s) => setActiveModal({ type: "receipt", student: s })}
+          onResendWelcomeEmail={handleResendWelcomeEmail}
+          isResendingEmail={isResendingEmail}
         />
       )}
 
@@ -607,6 +816,20 @@ export default function App() {
           onClose={() => setActiveModal(null)}
           onSave={handleSaveStudent}
           onDelete={handleDeleteStudent}
+        />
+      )}
+
+      {activeModal?.type === "enrollConfirm" && (
+        <EnrollStudentConfirmModal
+          target={activeModal.target}
+          type={activeModal.itemType || "booking"}
+          onClose={() => {
+            setActiveModal(null);
+            setEnrollError(null);
+          }}
+          onConfirmEnroll={handleConfirmEnrollStudent}
+          isEnrolling={isEnrolling}
+          error={enrollError}
         />
       )}
 
@@ -657,6 +880,7 @@ export default function App() {
           onEnrollBooking={(booking) => {
             handleEnrollBooking(booking);
           }}
+          onRetryEnrollEmail={handleRetryBookingEmail}
         />
       )}
 

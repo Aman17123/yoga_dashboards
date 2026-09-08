@@ -1,4 +1,5 @@
 import { Student } from "../models/Student.js";
+import bcrypt from "bcryptjs";
 
 const ADMIN_CREDENTIALS = {
   username: "admin",
@@ -27,15 +28,24 @@ export async function login(req, res) {
     // Check student credentials in database
     const student = await Student.findOne({
       username: username.trim(),
-      password: password,
     });
 
     if (student) {
-      return res.json({
-        success: true,
-        session: { role: "student", id: student.id },
-        user: student.toJSON(),
-      });
+      let isMatch = false;
+      if (student.password.startsWith("$2a$") || student.password.startsWith("$2b$")) {
+        isMatch = await bcrypt.compare(password, student.password);
+      } else {
+        // Fallback for legacy plain-text seed accounts
+        isMatch = student.password === password;
+      }
+
+      if (isMatch) {
+        return res.json({
+          success: true,
+          session: { role: "student", id: student.id },
+          user: student.toJSON(),
+        });
+      }
     }
 
     return res.status(401).json({

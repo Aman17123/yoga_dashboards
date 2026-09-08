@@ -19,6 +19,8 @@ export default function NotificationCenter({
   onSelectEnquiry,
   onSelectBooking,
   onPayNow,
+  onResendStudentEmail,
+  onRetryBookingEmail,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [dismissedIds, setDismissedIds] = useState(new Set());
@@ -89,6 +91,37 @@ export default function NotificationCenter({
           time: "Book Now Form",
           booking: b,
           action: "booking",
+        });
+      });
+
+    // 4. Failed Welcome Emails (requires admin retry)
+    students
+      .filter((s) => s.welcomeEmailStatus === "failed")
+      .forEach((s) => {
+        notifications.push({
+          id: `email-failed-${s.id}`,
+          type: "email_failed",
+          severity: "high",
+          title: `Welcome Email Failed — ${s.name}`,
+          desc: `Credentials could not be delivered to ${s.email}. Error: ${s.welcomeEmailError || "Delivery error"}. Click to retry.`,
+          time: "Retry Available",
+          student: s,
+          action: "retry_student_email",
+        });
+      });
+
+    bookings
+      .filter((b) => b.status === "converted" && b.enrollmentEmailStatus === "failed")
+      .forEach((b) => {
+        notifications.push({
+          id: `booking-email-failed-${b._id}`,
+          type: "email_failed",
+          severity: "high",
+          title: `Enrollment Email Failed — ${b.name}`,
+          desc: `Credentials could not be delivered to ${b.email}. Click to retry.`,
+          time: "Retry Available",
+          booking: b,
+          action: "retry_booking_email",
         });
       });
   } else if (session?.role === "student") {
@@ -194,14 +227,14 @@ export default function NotificationCenter({
 
       {/* Dropdown Flyout Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-[6px] border border-[#E6E5E0] bg-[#FFFFFF] shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-2 w-[calc(100vw-28px)] sm:w-96 max-w-sm rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-[#E6E5E0] bg-[#FBFBFA] flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-alt)] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="font-sans font-bold text-sm text-[#121413]">
+              <span className="font-bold text-sm text-[var(--ink)]">
                 Operational Alerts
               </span>
-              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-[4px] bg-[#F0EFEA] text-[#6B706E] border border-[#E6E5E0]">
+              <span className="mono text-[10px] px-1.5 py-0.5 rounded-[4px] bg-[var(--surface)] text-[var(--ink-soft)] border border-[var(--border)] font-bold">
                 {unreadCount} Active
               </span>
             </div>
@@ -209,7 +242,7 @@ export default function NotificationCenter({
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="text-[11px] font-mono text-[#6B706E] hover:text-[#121413] cursor-pointer"
+                className="text-[11px] mono text-[var(--ink-soft)] hover:text-[var(--ink)] cursor-pointer"
               >
                 Clear all
               </button>
@@ -217,23 +250,24 @@ export default function NotificationCenter({
           </div>
 
           {/* Notifications List */}
-          <div className="max-h-[380px] overflow-y-auto divide-y divide-[#E6E5E0]/60">
+          <div className="max-h-[380px] overflow-y-auto divide-y divide-[var(--border)]">
             {activeList.length === 0 ? (
               <div className="p-8 text-center">
-                <div className="w-8 h-8 rounded-full bg-[#EAF5EE] text-[#1D7344] mx-auto flex items-center justify-center mb-2">
+                <div className="w-8 h-8 rounded-full bg-[var(--success-soft)] text-[var(--success)] mx-auto flex items-center justify-center mb-2">
                   <CheckIcon className="w-4 h-4" />
                 </div>
-                <div className="text-xs font-semibold text-[#121413]">
+                <div className="text-xs font-semibold text-[var(--ink)]">
                   All caught up
                 </div>
-                <div className="text-[11px] text-[#6B706E] font-mono mt-0.5">
+                <div className="text-[11px] text-[var(--ink-soft)] mono mt-0.5">
                   No active fee or schedule alerts.
                 </div>
               </div>
             ) : (
               activeList.map((item) => {
-                const isOverdue = item.severity === "high";
-                const isDueSoon = item.severity === "medium";
+                const isOverdue = item.severity === "high" && item.type !== "email_failed";
+                const isEmailFailed = item.type === "email_failed";
+                const isDueSoon = item.severity === "medium" && item.type !== "booking";
 
                 return (
                   <div
@@ -251,26 +285,32 @@ export default function NotificationCenter({
                       } else if (item.action === "pay") {
                         onPayNow && onPayNow(item.student);
                         setIsOpen(false);
+                      } else if (item.action === "retry_student_email") {
+                        onResendStudentEmail && onResendStudentEmail(item.student.id);
+                        setIsOpen(false);
+                      } else if (item.action === "retry_booking_email") {
+                        onRetryBookingEmail && onRetryBookingEmail(item.booking);
+                        setIsOpen(false);
                       }
                     }}
-                    className={`p-3.5 hover:bg-[#FBFBFA] transition-colors cursor-pointer group relative ${
-                      isOverdue ? "bg-[#FBEAE8]/30" : ""
+                    className={`p-3.5 hover:bg-[var(--bg-alt)] transition-colors cursor-pointer group relative ${
+                      isOverdue || isEmailFailed ? "bg-[var(--danger-soft)]/20" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5">
                         <div
                           className={`w-6 h-6 rounded-[4px] flex items-center justify-center flex-none mt-0.5 ${
-                            isOverdue
-                              ? "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]"
+                            isEmailFailed || isOverdue
+                              ? "bg-[var(--danger-soft)] text-[var(--danger)] border border-[var(--danger-soft)]"
                               : item.type === "booking"
                               ? "bg-[var(--dusk-soft)] text-[var(--dusk)] border border-[var(--dusk-soft)]"
                               : isDueSoon
-                              ? "bg-[#FAF2E6] text-[#8A6D3B] border border-[#ECD9BD]"
-                              : "bg-[#F0EFEA] text-[#6B706E] border border-[#E6E5E0]"
+                              ? "bg-[var(--warning-soft)] text-[var(--warning)] border border-[var(--warning-soft)]"
+                              : "bg-[var(--bg-alt)] text-[var(--ink-soft)] border border-[var(--border)]"
                           }`}
                         >
-                          {isOverdue ? (
+                          {isEmailFailed || isOverdue ? (
                             <AlertIcon className="w-3.5 h-3.5" />
                           ) : item.type === "booking" ? (
                             <CalendarIcon className="w-3.5 h-3.5" />
@@ -281,16 +321,33 @@ export default function NotificationCenter({
                           )}
                         </div>
                         <div>
-                          <div className="text-xs font-bold text-[#121413] leading-snug">
+                          <div className="text-xs font-bold text-[var(--ink)] leading-snug">
                             {item.title}
                           </div>
-                          <p className="text-[11.5px] text-[#444846] mt-0.5 leading-relaxed">
+                          <p className="text-[11.5px] text-[var(--ink-soft)] mt-0.5 leading-relaxed">
                             {item.desc}
                           </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="font-mono text-[10px] text-[#8E8A82]">
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <span className="mono text-[10px] text-[var(--ink-faint)]">
                               {item.time}
                             </span>
+                            {isEmailFailed && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (item.action === "retry_student_email") {
+                                    onResendStudentEmail && onResendStudentEmail(item.student.id);
+                                  } else {
+                                    onRetryBookingEmail && onRetryBookingEmail(item.booking);
+                                  }
+                                  setIsOpen(false);
+                                }}
+                                className="inline-flex items-center gap-1 mono text-[10px] px-2 py-0.5 rounded-[4px] bg-[var(--danger)] text-white hover:opacity-90 transition-opacity font-bold"
+                              >
+                                Retry Dispatch
+                              </button>
+                            )}
                             {isOverdue && item.student?.phone && session?.role === "admin" && (
                               <a
                                 href={`https://wa.me/${toWhatsAppDigits(item.student.phone)}?text=${encodeURIComponent(
@@ -299,7 +356,7 @@ export default function NotificationCenter({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-[4px] bg-[#EAF5EE] text-[#1D7344] hover:bg-[#1D7344] hover:text-[#FFFFFF] border border-[#C6E6D3] transition-colors"
+                                className="inline-flex items-center gap-1 mono text-[10px] px-2 py-0.5 rounded-[4px] bg-[var(--success-soft)] text-[var(--success)] hover:bg-[var(--success)] hover:text-white border border-[var(--success-soft)] transition-colors"
                               >
                                 <span>WhatsApp Ping</span>
                               </a>

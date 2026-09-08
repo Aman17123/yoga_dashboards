@@ -47,6 +47,15 @@ const bookingSchema = new mongoose.Schema(
     // Email tracking
     confirmationEmailSent: { type: Boolean, default: false },
     adminEmailSent: { type: Boolean, default: false },
+
+    // Enrollment tracking
+    enrolledStudentId: { type: Number, default: null },
+    enrollmentEmailStatus: {
+      type: String,
+      enum: ["pending", "sent", "failed", "none"],
+      default: "none",
+    },
+    enrollmentEmailError: { type: String, default: null },
   },
   {
     timestamps: true,

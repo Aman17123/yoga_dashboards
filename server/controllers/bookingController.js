@@ -1,4 +1,5 @@
 import { Booking } from "../models/Booking.js";
+import { emitRealtimeEvent } from "../index.js";
 import {
   sendUserConfirmationEmail,
   sendAdminNotificationEmail,
@@ -113,10 +114,14 @@ export async function createBooking(req, res) {
       await booking.save();
     }
 
+    const bookingJson = booking.toJSON();
+    emitRealtimeEvent("booking:created", { booking: bookingJson });
+    emitRealtimeEvent("stats:updated", {});
+
     return res.status(201).json({
       success: true,
       bookingRef: booking.bookingRef,
-      booking: booking.toJSON(),
+      booking: bookingJson,
       emailStatus: {
         userEmail: userEmailResult,
         adminEmail: adminEmailResult,
@@ -159,7 +164,11 @@ export async function updateBookingStatus(req, res) {
       return res.status(404).json({ error: "Booking not found." });
     }
 
-    return res.json({ success: true, booking: booking.toJSON() });
+    const bookingJson = booking.toJSON();
+    emitRealtimeEvent("booking:updated", { booking: bookingJson });
+    emitRealtimeEvent("stats:updated", {});
+
+    return res.json({ success: true, booking: bookingJson });
   } catch (error) {
     console.error("Error updating booking status:", error);
     return res.status(500).json({ error: "Failed to update booking." });

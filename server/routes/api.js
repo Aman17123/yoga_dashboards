@@ -24,6 +24,8 @@ router.post("/auth/quick-login", authController.quickLogin);
 router.get("/students", studentController.getAllStudents);
 router.get("/students/:id", studentController.getStudentById);
 router.post("/students", studentController.createStudent);
+router.post("/students/enroll", studentController.enrollStudent);
+router.post("/students/:id/resend-welcome-email", studentController.resendWelcomeEmail);
 router.put("/students/:id", studentController.updateStudent);
 router.delete("/students/:id", studentController.deleteStudent);
 router.patch("/students/:id/attendance", studentController.toggleAttendance);

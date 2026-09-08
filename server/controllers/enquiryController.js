@@ -1,4 +1,5 @@
 import { Enquiry } from "../models/Enquiry.js";
+import { emitRealtimeEvent } from "../index.js";
 
 export async function getAllEnquiries(req, res) {
   try {
@@ -27,7 +28,12 @@ export async function createEnquiry(req, res) {
     });
 
     await newEnquiry.save();
-    return res.status(201).json(newEnquiry.toJSON());
+    const enquiryJson = newEnquiry.toJSON();
+
+    emitRealtimeEvent("enquiry:created", { enquiry: enquiryJson });
+    emitRealtimeEvent("stats:updated", {});
+
+    return res.status(201).json(enquiryJson);
   } catch (error) {
     console.error("Error creating enquiry:", error);
     return res.status(500).json({ error: "Failed to create enquiry." });
@@ -53,7 +59,11 @@ export async function updateEnquiryStatus(req, res) {
       return res.status(404).json({ error: "Enquiry not found." });
     }
 
-    return res.json(updated.toJSON());
+    const enquiryJson = updated.toJSON();
+    emitRealtimeEvent("enquiry:updated", { enquiry: enquiryJson });
+    emitRealtimeEvent("stats:updated", {});
+
+    return res.json(enquiryJson);
   } catch (error) {
     console.error("Error updating enquiry status:", error);
     return res.status(500).json({ error: "Failed to update enquiry status." });
