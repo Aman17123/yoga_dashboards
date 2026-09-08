@@ -188,7 +188,23 @@ export function getInitials(name) {
 }
 
 export function avatarColor(id) {
-  return AVATAR_PALETTE[id % AVATAR_PALETTE.length];
+  if (!AVATAR_PALETTE || AVATAR_PALETTE.length === 0) {
+    return { bg: "#EDE9FE", fg: "#6D28D9" };
+  }
+  if (typeof id === "string") {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+    }
+    const idx = Math.abs(hash) % AVATAR_PALETTE.length;
+    return AVATAR_PALETTE[idx] || AVATAR_PALETTE[0];
+  }
+  const num = Number(id);
+  if (!isNaN(num)) {
+    const idx = Math.abs(Math.floor(num)) % AVATAR_PALETTE.length;
+    return AVATAR_PALETTE[idx] || AVATAR_PALETTE[0];
+  }
+  return AVATAR_PALETTE[0];
 }
 
 export function toWhatsAppDigits(phone) {

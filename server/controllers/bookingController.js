@@ -52,6 +52,12 @@ export async function createBooking(req, res) {
     if (!emailRx.test(email.trim())) {
       return res.status(400).json({ error: "Please enter a valid email address." });
     }
+    if (phone && phone.trim()) {
+      const digits = phone.replace(/\D/g, "");
+      if (digits.length < 7 || digits.length > 17) {
+        return res.status(400).json({ error: "Please enter a valid phone number with country code." });
+      }
+    }
 
     // Create booking record
     const booking = new Booking({
@@ -78,19 +84,31 @@ export async function createBooking(req, res) {
 
     await booking.save();
 
-    // Send emails (non-blocking — don't fail the request if email fails)
-    const [userEmailResult, adminEmailResult] = await Promise.allSettled([
-      sendUserConfirmationEmail(booking),
-      sendAdminNotificationEmail(booking),
-    ]);
+    // Send emails sequentially (user confirmation first, then admin notification)
+    // Sequential dispatch avoids SMTP connection concurrency collisions on Gmail
+    let userEmailResult = null;
+    let adminEmailResult = null;
 
-    // Update email status flags
-    if (userEmailResult.status === "fulfilled" && userEmailResult.value?.success) {
-      booking.confirmationEmailSent = true;
+    try {
+      userEmailResult = await sendUserConfirmationEmail(booking);
+      if (userEmailResult?.success) {
+        booking.confirmationEmailSent = true;
+      }
+    } catch (err) {
+      console.error("[Booking] ❌ User confirmation email dispatch error:", err);
+      userEmailResult = { error: err.message, recipient: booking.email };
     }
-    if (adminEmailResult.status === "fulfilled" && adminEmailResult.value?.success) {
-      booking.adminEmailSent = true;
+
+    try {
+      adminEmailResult = await sendAdminNotificationEmail(booking);
+      if (adminEmailResult?.success) {
+        booking.adminEmailSent = true;
+      }
+    } catch (err) {
+      console.error("[Booking] ❌ Admin notification email dispatch error:", err);
+      adminEmailResult = { error: err.message };
     }
+
     if (booking.confirmationEmailSent || booking.adminEmailSent) {
       await booking.save();
     }
@@ -100,12 +118,8 @@ export async function createBooking(req, res) {
       bookingRef: booking.bookingRef,
       booking: booking.toJSON(),
       emailStatus: {
-        userEmail: userEmailResult.status === "fulfilled"
-          ? userEmailResult.value
-          : { error: userEmailResult.reason?.message },
-        adminEmail: adminEmailResult.status === "fulfilled"
-          ? adminEmailResult.value
-          : { error: adminEmailResult.reason?.message },
+        userEmail: userEmailResult,
+        adminEmail: adminEmailResult,
       },
     });
   } catch (error) {
@@ -149,6 +163,38 @@ export async function updateBookingStatus(req, res) {
   } catch (error) {
     console.error("Error updating booking status:", error);
     return res.status(500).json({ error: "Failed to update booking." });
+  }
+}
+
+// ─── GET /api/bookings/ref/:ref ───────────────────────────────────────────────
+export async function getBookingByRef(req, res) {
+  try {
+    const { ref } = req.params;
+    if (!ref || !ref.trim()) {
+      return res.status(400).json({ error: "Booking reference is required." });
+    }
+    const booking = await Booking.findOne({ bookingRef: ref.trim() }).lean();
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found with this reference." });
+    }
+    return res.json({
+      success: true,
+      booking: {
+        bookingRef: booking.bookingRef,
+        name: booking.name,
+        email: booking.email,
+        phone: booking.phone,
+        classType: booking.classType,
+        groupCohort: booking.groupCohort,
+        preferredTime: booking.preferredTime,
+        joiningDate: booking.joiningDate,
+        createdAt: booking.createdAt,
+        confirmationEmailSent: booking.confirmationEmailSent,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching booking by ref:", error);
+    return res.status(500).json({ error: "Failed to verify booking reference." });
   }
 }
 

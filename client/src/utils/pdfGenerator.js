@@ -3,7 +3,7 @@ import { formatDateHuman, addMonthsClamped, getCurrentDueDate } from "./dateUtil
 /**
  * Downloads a high-definition, professional vector PDF receipt for a student tuition settlement.
  */
-export async function generateReceiptPDF(student, paymentSettings) {
+export async function generateReceiptPDF(student, paymentSettings, currency = "INR") {
   if (!student) return;
   const { default: jsPDF } = await import("jspdf");
 
@@ -13,7 +13,22 @@ export async function generateReceiptPDF(student, paymentSettings) {
   const issueDateStr = formatDateHuman(new Date());
   const cycleStartStr = formatDateHuman(cycleStart);
   const cycleEndStr = formatDateHuman(due);
-  const amountStr = `INR ${Number(student.fee).toLocaleString("en-IN")}.00`;
+
+  // Multi-currency calculations (INR / USD / EUR)
+  const inrFee = Number(student.fee) || 0;
+  const usdAmount = (inrFee / 86.5).toFixed(2);
+  const eurAmount = (inrFee / 94.0).toFixed(2);
+
+  let primaryAmountStr = `INR ${inrFee.toLocaleString("en-IN")}.00`;
+  let convertedSubStr = `Equiv: $${usdAmount} USD · €${eurAmount} EUR`;
+
+  if (currency === "USD") {
+    primaryAmountStr = `$${usdAmount} USD`;
+    convertedSubStr = `Equiv: INR ${inrFee.toLocaleString("en-IN")}.00 · €${eurAmount} EUR`;
+  } else if (currency === "EUR") {
+    primaryAmountStr = `€${eurAmount} EUR`;
+    convertedSubStr = `Equiv: INR ${inrFee.toLocaleString("en-IN")}.00 · $${usdAmount} USD`;
+  }
 
   // Create A4 document in Portrait: 210mm x 297mm
   const doc = new jsPDF({
@@ -155,14 +170,14 @@ export async function generateReceiptPDF(student, paymentSettings) {
   doc.setTextColor(107, 112, 110);
   doc.text("DESCRIPTION", margin + 6, y + 5.5);
   doc.text("CYCLE FREQUENCY", margin + 115, y + 5.5);
-  doc.text("AMOUNT (INR)", pageWidth - margin - 6, y + 5.5, { align: "right" });
+  doc.text(`AMOUNT (${currency})`, pageWidth - margin - 6, y + 5.5, { align: "right" });
 
   // Table Body Row
   y += 8;
   doc.setFillColor(255, 255, 255);
-  doc.rect(margin, y, contentWidth, 22, "F");
+  doc.rect(margin, y, contentWidth, 24, "F");
   doc.setDrawColor(228, 225, 219);
-  doc.rect(margin, y, contentWidth, 22, "S");
+  doc.rect(margin, y, contentWidth, 24, "S");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
@@ -186,26 +201,37 @@ export async function generateReceiptPDF(student, paymentSettings) {
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text(amountStr, pageWidth - margin - 6, y + 10, { align: "right" });
+  doc.text(primaryAmountStr, pageWidth - margin - 6, y + 9, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(107, 112, 110);
+  doc.text(convertedSubStr, pageWidth - margin - 6, y + 14.5, { align: "right" });
 
   // Table Footer / Total
-  y += 22;
+  y += 24;
   doc.setFillColor(248, 247, 244);
-  doc.rect(margin, y, contentWidth, 12, "F");
+  doc.rect(margin, y, contentWidth, 14, "F");
   doc.setDrawColor(228, 225, 219);
-  doc.rect(margin, y, contentWidth, 12, "S");
+  doc.rect(margin, y, contentWidth, 14, "S");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(18, 20, 19);
-  doc.text("TOTAL TUITION SETTLED", margin + 6, y + 7.5);
+  doc.text("TOTAL TUITION SETTLED", margin + 6, y + 8);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(amountStr, pageWidth - margin - 6, y + 8, { align: "right" });
+  doc.setTextColor(18, 20, 19);
+  doc.text(primaryAmountStr, pageWidth - margin - 6, y + 7.5, { align: "right" });
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(107, 112, 110);
+  doc.text(convertedSubStr, pageWidth - margin - 6, y + 12, { align: "right" });
 
   // Settlement Details & Banking Coordinates
-  y += 20;
+  y += 22;
   doc.setFillColor(255, 255, 255);
   doc.roundedRect(margin, y, contentWidth, 32, 1.5, 1.5, "F");
   doc.setDrawColor(228, 225, 219);
@@ -252,31 +278,26 @@ export async function generateReceiptPDF(student, paymentSettings) {
   doc.setFontSize(7);
   doc.setTextColor(142, 138, 130);
   doc.text(
-    "This voucher constitutes a verified electronic tuition receipt issued under yogaonlive Studio Governance.",
+    "This voucher constitutes an official practice tuition settlement receipt issued under yogaonlive Studio Infrastructure.",
     margin,
-    y + 5
+    y + 6
   );
   doc.text(
-    "Classes cover 30-day practice cycles and are non-refundable upon commencement. Inquiries: contact your yoga teacher.",
+    "Tuition covers a 30-day cohort period and is non-refundable upon commencement. Live posture coaching records are stored on studio premises.",
     margin,
-    y + 9
-  );
-  doc.text(
-    `Document UID: ${receiptNumber} · Generated on ${issueDateStr}`,
-    margin,
-    y + 13
+    y + 11
   );
 
   // Trigger browser direct download
   const safeName = student.name.replace(/[^a-zA-Z0-9]/g, "_");
-  const filename = `yogaonlive_Receipt_${safeName}_${receiptNumber}.pdf`;
+  const filename = `yogaonlive_Receipt_${safeName}_${receiptNumber}_${currency}.pdf`;
   doc.save(filename);
 }
 
 /**
  * Reliable standalone printable receipt window that never gets clipped by modals
  */
-export function printReceiptWindow(student, paymentSettings) {
+export function printReceiptWindow(student, paymentSettings, currency = "INR") {
   if (!student) return;
 
   const due = getCurrentDueDate(student);
@@ -285,7 +306,22 @@ export function printReceiptWindow(student, paymentSettings) {
   const todayStr = formatDateHuman(new Date());
   const cycleStartStr = formatDateHuman(cycleStart);
   const cycleEndStr = formatDateHuman(due);
-  const amountStr = `₹${Number(student.fee).toLocaleString("en-IN")}.00`;
+
+  // Multi-currency calculations (INR / USD / EUR)
+  const inrFee = Number(student.fee) || 0;
+  const usdAmount = (inrFee / 86.5).toFixed(2);
+  const eurAmount = (inrFee / 94.0).toFixed(2);
+
+  let primaryAmountStr = `₹${inrFee.toLocaleString("en-IN")}.00`;
+  let convertedSubStr = `≈ $${usdAmount} USD · €${eurAmount} EUR`;
+
+  if (currency === "USD") {
+    primaryAmountStr = `$${usdAmount} USD`;
+    convertedSubStr = `Equiv: ₹${inrFee.toLocaleString("en-IN")}.00 INR · €${eurAmount} EUR`;
+  } else if (currency === "EUR") {
+    primaryAmountStr = `€${eurAmount} EUR`;
+    convertedSubStr = `Equiv: ₹${inrFee.toLocaleString("en-IN")}.00 INR · $${usdAmount} USD`;
+  }
 
   const printWindow = window.open("", "_blank", "width=850,height=900");
   if (!printWindow) {
@@ -298,7 +334,7 @@ export function printReceiptWindow(student, paymentSettings) {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${receiptNumber} — yogaonlive Receipt</title>
+  <title>${receiptNumber} — yogaonlive Receipt (${currency})</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fff; color: #121413; padding: 32px; font-size: 13px; line-height: 1.5; }
@@ -358,7 +394,7 @@ export function printReceiptWindow(student, paymentSettings) {
       </div>
       <div>
         <span class="label">Cohort Assignment</span>
-        <div class="val-bold">${student.classType === "group" ? `Group (${student.groupName})` : "Private (1-on-1)"}</div>
+        <div class="val-bold">${student.classType === "group" ? `Group (${student.groupName || "Standard"})` : "Private (1-on-1)"}</div>
         <div class="val-sub">Instructor: ${student.instructor || "Assigned Teacher"}</div>
         <div class="val-sub">Schedule: ${student.classTimeIST} IST</div>
       </div>
@@ -375,7 +411,7 @@ export function printReceiptWindow(student, paymentSettings) {
         <tr>
           <th>Description</th>
           <th style="text-align: center;">Cycle Frequency</th>
-          <th style="text-align: right;">Amount (INR)</th>
+          <th style="text-align: right;">Amount (${currency})</th>
         </tr>
       </thead>
       <tbody>
@@ -385,11 +421,17 @@ export function printReceiptWindow(student, paymentSettings) {
             <div class="desc-sub">Personalized live instruction, attendance logging, and timezone alignment.</div>
           </td>
           <td style="text-align: center; font-family: monospace;">30-Day Cycle</td>
-          <td style="text-align: right; font-family: monospace; font-weight: bold;">${amountStr}</td>
+          <td style="text-align: right; font-family: monospace; font-weight: bold;">
+            ${primaryAmountStr}
+            <div style="font-size: 11px; font-weight: normal; color: #6B706E;">${convertedSubStr}</div>
+          </td>
         </tr>
         <tr class="total-row">
-          <td colspan="2" style="text-align: right; font-family: monospace; text-transform: uppercase;">Total Settlement Settled:</td>
-          <td style="text-align: right; font-family: monospace;">${amountStr}</td>
+          <td colspan="2" style="text-align: right; font-family: monospace; text-transform: uppercase;">Total Settlement:</td>
+          <td style="text-align: right; font-family: monospace;">
+            ${primaryAmountStr}
+            <div style="font-size: 11px; font-weight: normal; color: #6B706E;">${convertedSubStr}</div>
+          </td>
         </tr>
       </tbody>
     </table>

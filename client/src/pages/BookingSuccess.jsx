@@ -43,28 +43,265 @@ const TIMELINE = [
 ];
 
 export default function BookingSuccess() {
-  const [searchParams] = useSearchParams();
-  const ref = searchParams.get("ref") || "Processing…";
-  const name = searchParams.get("name") || "";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawRef = searchParams.get("ref");
+  const ref = rawRef?.trim() || "";
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [booking, setBooking] = useState(null);
   const checkRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
-  // Trigger pop animation
+  // Production-grade URL sanitation: strip any extraneous PII parameters (like name or email)
+  // so sensitive information is never exposed or retained in the browser address bar
   useEffect(() => {
-    if (checkRef.current) {
+    if (searchParams.has("name") || searchParams.has("email")) {
+      const cleanParams = new URLSearchParams();
+      if (ref) cleanParams.set("ref", ref);
+      setSearchParams(cleanParams, { replace: true });
+    }
+  }, [searchParams, ref, setSearchParams]);
+
+  // Fetch and verify booking reference against backend database
+  useEffect(() => {
+    if (!ref) {
+      setLoading(false);
+      setError("No booking reference was provided in the address URL.");
+      return;
+    }
+
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
+
+    async function verifyBooking() {
+      try {
+        const res = await fetch(`/api/bookings/ref/${encodeURIComponent(ref)}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.success || !data.booking) {
+          throw new Error(data.error || `No active booking found matching reference "${ref}".`);
+        }
+
+        if (isMounted) {
+          setBooking(data.booking);
+          setLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err.message || "Invalid or non-existent booking reference.");
+          setLoading(false);
+        }
+      }
+    }
+
+    verifyBooking();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [ref]);
+
+  // Trigger pop animation when loaded
+  useEffect(() => {
+    if (!loading && !error && checkRef.current) {
       checkRef.current.style.animation = "none";
       void checkRef.current.offsetWidth;
       checkRef.current.style.animation = "pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both";
     }
-  }, []);
+  }, [loading, error]);
 
   const handleCopy = () => {
-    if (ref && ref !== "Processing…") {
-      navigator.clipboard?.writeText(ref);
+    const code = booking?.bookingRef || ref;
+    if (code) {
+      navigator.clipboard?.writeText(code);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  // ─── 1. Loading State ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          background: "var(--bg, #F6F7FB)",
+          fontFamily: "var(--font-body, system-ui, sans-serif)",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+          <SunLogo size={26} />
+          <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink, #171A32)" }}>yogaonlive</span>
+        </div>
+        <div
+          style={{
+            background: "var(--surface, #FFFFFF)",
+            border: "1px solid var(--border, #E3E6F2)",
+            borderRadius: "var(--radius-lg, 16px)",
+            maxWidth: 440,
+            width: "100%",
+            padding: "36px 28px",
+            textAlign: "center",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              border: "3px solid var(--border, #E3E6F2)",
+              borderTopColor: "var(--dusk, #4C5FD5)",
+              borderRadius: "50%",
+              margin: "0 auto 16px",
+              animation: "spin 0.8s linear infinite",
+            }}
+          />
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--ink, #171A32)", margin: "0 0 6px" }}>
+            Verifying Booking Reference…
+          </h3>
+          <p style={{ fontSize: 13, color: "var(--ink-soft, #6B7089)", margin: 0 }}>
+            Checking reference <code style={{ fontFamily: "monospace", color: "var(--dusk, #4C5FD5)" }}>{ref}</code> against studio records.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 2. Error State (Invalid / Tampered Reference) ────────────────────────────
+  if (error || !booking) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+          background: `
+            radial-gradient(ellipse at 20% 20%, rgba(235,87,87,0.06) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(76,95,213,0.06) 0%, transparent 50%),
+            var(--bg, #F6F7FB)
+          `,
+          fontFamily: "var(--font-body, system-ui, sans-serif)",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <SunLogo size={26} />
+          <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink, #171A32)" }}>yogaonlive</span>
+        </div>
+
+        <div
+          style={{
+            background: "var(--surface, #FFFFFF)",
+            border: "1px solid var(--border, #E3E6F2)",
+            borderRadius: "var(--radius-lg, 16px)",
+            maxWidth: 480,
+            width: "100%",
+            padding: "32px 28px",
+            textAlign: "center",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div
+            style={{
+              width: 54,
+              height: 54,
+              borderRadius: "50%",
+              background: "rgba(235, 87, 87, 0.1)",
+              border: "2px solid rgba(235, 87, 87, 0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 26,
+              margin: "0 auto 16px",
+            }}
+          >
+            ⚠️
+          </div>
+
+          <div
+            style={{
+              display: "inline-block",
+              fontSize: 11,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: "#EB5757",
+              background: "rgba(235, 87, 87, 0.08)",
+              padding: "4px 10px",
+              borderRadius: 6,
+              marginBottom: 10,
+            }}
+          >
+            Verification Error
+          </div>
+
+          <h2 style={{ fontSize: 21, fontWeight: 700, margin: "0 0 8px", color: "var(--ink, #171A32)" }}>
+            Booking Reference Not Found
+          </h2>
+
+          <p style={{ fontSize: 13.5, color: "var(--ink-soft, #6B7089)", lineHeight: 1.55, margin: "0 0 20px" }}>
+            {ref ? (
+              <>
+                The booking reference <strong style={{ color: "#EB5757", fontFamily: "monospace" }}>{ref}</strong> does not exist in our database. It may be mistyped or expired.
+              </>
+            ) : (
+              "No booking reference was provided in the address URL. Please fill out our registration form to book a yoga class."
+            )}
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Link
+              to="/book"
+              style={{
+                padding: "11px 16px",
+                borderRadius: "var(--radius-md, 10px)",
+                background: "var(--dusk, #4C5FD5)",
+                color: "#FFFFFF",
+                fontWeight: 700,
+                fontSize: 13,
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              Book a Class &rarr;
+            </Link>
+            <Link
+              to="/"
+              style={{
+                padding: "11px 16px",
+                borderRadius: "var(--radius-md, 10px)",
+                border: "1.5px solid var(--border, #E3E6F2)",
+                color: "var(--ink-soft, #4B5264)",
+                fontWeight: 700,
+                fontSize: 13,
+                textDecoration: "none",
+                display: "inline-block",
+              }}
+            >
+              Studio Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── 3. Verified Success State ───────────────────────────────────────────────
+  const verifiedFirstName = (booking.name || "").trim().split(" ")[0] || "Student";
+  const verifiedEmail = booking.email || "";
+  const verifiedRef = booking.bookingRef;
 
   return (
     <div
@@ -72,7 +309,7 @@ export default function BookingSuccess() {
         background: `
           radial-gradient(ellipse at 20% 20%, rgba(76,95,213,0.07) 0%, transparent 50%),
           radial-gradient(ellipse at 80% 80%, rgba(242,153,74,0.07) 0%, transparent 50%),
-          var(--bg)
+          var(--bg, #F6F7FB)
         `,
         minHeight: "100vh",
         display: "flex",
@@ -81,18 +318,18 @@ export default function BookingSuccess() {
         justifyContent: "center",
         padding: "14px 16px",
         boxSizing: "border-box",
-        fontFamily: "var(--font-body)",
+        fontFamily: "var(--font-body, system-ui, sans-serif)",
       }}
     >
-      {/* Brand - Compact */}
+      {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <SunLogo size={24} />
         <span
           style={{
-            fontFamily: "var(--font-display)",
+            fontFamily: "var(--font-display, inherit)",
             fontSize: 18,
             fontWeight: 700,
-            color: "var(--ink)",
+            color: "var(--ink, #171A32)",
             letterSpacing: "-0.02em",
           }}
         >
@@ -100,19 +337,19 @@ export default function BookingSuccess() {
         </span>
       </div>
 
-      {/* Card - Viewport Optimized */}
+      {/* Card */}
       <div
         style={{
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-lg)",
+          background: "var(--surface, #FFFFFF)",
+          border: "1px solid var(--border, #E3E6F2)",
+          borderRadius: "var(--radius-lg, 16px)",
           width: "100%",
           maxWidth: 520,
           overflow: "hidden",
           boxShadow: "0 12px 40px rgba(23,26,50,0.08)",
         }}
       >
-        {/* Success header - Compact */}
+        {/* Success header */}
         <div
           className="success-header"
           style={{
@@ -136,7 +373,7 @@ export default function BookingSuccess() {
             }}
           />
 
-          {/* Animated check - Compact 46px */}
+          {/* Animated check */}
           <div
             ref={checkRef}
             style={{
@@ -164,7 +401,7 @@ export default function BookingSuccess() {
 
           <h1
             style={{
-              fontFamily: "var(--font-display)",
+              fontFamily: "var(--font-display, inherit)",
               fontSize: 22,
               fontWeight: 700,
               color: "#fff",
@@ -172,7 +409,7 @@ export default function BookingSuccess() {
               margin: "0 0 4px",
             }}
           >
-            Booking Received! 🎉
+            Booking Confirmed! 🎉
           </h1>
           <p
             style={{
@@ -183,13 +420,11 @@ export default function BookingSuccess() {
               margin: "0 auto",
             }}
           >
-            {name
-              ? `Hi ${name}! Your request has been saved. We'll be in touch within 24 hours.`
-              : "Your request has been submitted. We'll be in touch within 24 hours!"}
+            Hi <strong>{verifiedFirstName}</strong>! Your request is verified and logged in our studio system.
           </p>
         </div>
 
-        {/* Body - Compact */}
+        {/* Body */}
         <div className="success-body" style={{ padding: "18px 24px" }}>
           {/* Booking ref row */}
           <div
@@ -197,9 +432,9 @@ export default function BookingSuccess() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              background: "var(--dusk-soft)",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-md)",
+              background: "var(--dusk-soft, #EEF0FA)",
+              border: "1px solid var(--border, #E3E6F2)",
+              borderRadius: "var(--radius-md, 10px)",
               padding: "9px 14px",
               marginBottom: 14,
             }}
@@ -211,21 +446,21 @@ export default function BookingSuccess() {
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.08em",
-                  color: "var(--ink-faint)",
+                  color: "var(--ink-faint, #A3A8C3)",
                 }}
               >
-                Booking Reference
+                Verified Reference
               </div>
               <div
                 style={{
-                  fontFamily: "var(--font-mono)",
+                  fontFamily: "var(--font-mono, monospace)",
                   fontSize: 15,
                   fontWeight: 700,
-                  color: "var(--dusk)",
+                  color: "var(--dusk, #4C5FD5)",
                   letterSpacing: "0.03em",
                 }}
               >
-                {ref}
+                {verifiedRef}
               </div>
             </div>
 
@@ -234,10 +469,10 @@ export default function BookingSuccess() {
               onClick={handleCopy}
               title="Copy Reference Number"
               style={{
-                background: copied ? "var(--success-soft)" : "var(--surface)",
-                border: "1px solid var(--border)",
-                color: copied ? "var(--success)" : "var(--ink-soft)",
-                borderRadius: "var(--radius-sm)",
+                background: copied ? "var(--success-soft, #E6F8F0)" : "var(--surface, #FFF)",
+                border: "1px solid var(--border, #E3E6F2)",
+                color: copied ? "var(--success, #1E9E63)" : "var(--ink-soft, #4B5264)",
+                borderRadius: "var(--radius-sm, 6px)",
                 padding: "5px 10px",
                 fontSize: 11,
                 fontWeight: 600,
@@ -252,14 +487,38 @@ export default function BookingSuccess() {
             </button>
           </div>
 
-          {/* Timeline - Compact 4 Steps */}
+          {/* Email Confirmation Notice */}
+          {verifiedEmail && (
+            <div
+              style={{
+                background: "rgba(76, 95, 213, 0.07)",
+                border: "1px solid rgba(76, 95, 213, 0.2)",
+                borderRadius: "var(--radius-md, 10px)",
+                padding: "10px 14px",
+                marginBottom: 14,
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+              }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>✉️</span>
+              <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--ink-soft, #4B5264)" }}>
+                Confirmation sent to <strong style={{ color: "var(--ink, #171A32)" }}>{verifiedEmail}</strong>
+                <div style={{ fontSize: 11, color: "var(--ink-faint, #A3A8C3)", marginTop: 2 }}>
+                  If not in your inbox, please check your <strong>Spam</strong> or <strong>Promotions</strong> folder.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Timeline */}
           <div
             style={{
               fontSize: 10.5,
               fontWeight: 700,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color: "var(--ink-faint)",
+              color: "var(--ink-faint, #A3A8C3)",
               marginBottom: 8,
             }}
           >
@@ -275,7 +534,7 @@ export default function BookingSuccess() {
                 top: 10,
                 bottom: 10,
                 width: 2,
-                background: "var(--border)",
+                background: "var(--border, #E3E6F2)",
               }}
             />
 
@@ -301,9 +560,9 @@ export default function BookingSuccess() {
                     flexShrink: 0,
                     position: "relative",
                     zIndex: 1,
-                    background: item.done ? "var(--success-soft)" : "var(--surface)",
-                    color: item.done ? "var(--success)" : "var(--ink-faint)",
-                    border: `1.5px solid ${item.done ? "var(--success)" : "var(--border)"}`,
+                    background: item.done ? "var(--success-soft, #E6F8F0)" : "var(--surface, #FFF)",
+                    color: item.done ? "var(--success, #1E9E63)" : "var(--ink-faint, #A3A8C3)",
+                    border: `1.5px solid ${item.done ? "var(--success, #1E9E63)" : "var(--border, #E3E6F2)"}`,
                     fontSize: 11,
                     fontWeight: 700,
                   }}
@@ -327,13 +586,13 @@ export default function BookingSuccess() {
                     style={{
                       fontSize: 13,
                       fontWeight: 700,
-                      color: "var(--ink)",
+                      color: "var(--ink, #171A32)",
                       marginRight: 6,
                     }}
                   >
                     {item.title}
                   </span>
-                  <span style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.4 }}>
+                  <span style={{ fontSize: 12, color: "var(--ink-soft, #4B5264)", lineHeight: 1.4 }}>
                     — {item.desc}
                   </span>
                 </div>
@@ -341,38 +600,28 @@ export default function BookingSuccess() {
             ))}
           </div>
 
-          {/* CTAs - 2 Column Row to save vertical space */}
+          {/* CTAs */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <a
-              href="/"
+            <Link
+              to="/"
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 6,
                 padding: "10px 14px",
-                borderRadius: "var(--radius-md)",
-                fontFamily: "var(--font-body)",
+                borderRadius: "var(--radius-md, 10px)",
+                fontFamily: "var(--font-body, system-ui, sans-serif)",
                 fontSize: 13,
                 fontWeight: 700,
                 textDecoration: "none",
-                background: "var(--dusk)",
-                color: "#fff",
-                boxShadow: "0 2px 8px rgba(76,95,213,0.2)",
-                transition: "all 0.15s",
+                background: "var(--dusk, #4C5FD5)",
+                color: "#ffffff",
+                transition: "opacity 0.15s",
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M10 3L5 8l5 5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
               Return Home
-            </a>
+            </Link>
 
             <Link
               to="/book"
@@ -382,57 +631,22 @@ export default function BookingSuccess() {
                 justifyContent: "center",
                 gap: 6,
                 padding: "10px 14px",
-                borderRadius: "var(--radius-md)",
-                fontFamily: "var(--font-body)",
+                borderRadius: "var(--radius-md, 10px)",
+                fontFamily: "var(--font-body, system-ui, sans-serif)",
                 fontSize: 13,
                 fontWeight: 700,
                 textDecoration: "none",
                 background: "transparent",
-                color: "var(--ink-soft)",
-                border: "1.5px solid var(--border)",
+                color: "var(--ink-soft, #4B5264)",
+                border: "1.5px solid var(--border, #E3E6F2)",
                 transition: "all 0.15s",
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M8 3v5l3 3"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.8" />
-              </svg>
-              Book Another
+              Book Another &rarr;
             </Link>
           </div>
         </div>
       </div>
-
-      {/* Sub-note - Compact 1-line */}
-      <div
-        style={{
-          textAlign: "center",
-          fontSize: 11.5,
-          color: "var(--ink-faint)",
-          marginTop: 10,
-          lineHeight: 1.4,
-        }}
-      >
-        ✉️ Confirmation email sent to your inbox · If you have questions, reply to the email anytime.
-      </div>
-
-      <style>{`
-        @keyframes pop {
-          0% { transform: scale(0.3); opacity: 0; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @media (max-width: 500px) {
-          .success-header { padding: 18px 16px 14px !important; }
-          .success-body { padding: 16px 14px !important; }
-        }
-      `}</style>
     </div>
   );
 }
-

@@ -39,6 +39,7 @@ router.get("/bookings", bookingController.getAllBookings);
 router.post("/bookings", bookingController.createBooking);
 router.get("/bookings/email-status", bookingController.getEmailStatus);
 router.post("/bookings/test-email", bookingController.sendTestEmail);
+router.get("/bookings/ref/:ref", bookingController.getBookingByRef);
 router.get("/bookings/:id", bookingController.getBookingById);
 router.patch("/bookings/:id/status", bookingController.updateBookingStatus);
 

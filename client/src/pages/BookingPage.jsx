@@ -222,11 +222,15 @@ export default function BookingPage() {
     }));
   };
 
-  // Country change
-  const handleCountryChange = (countryName, countryObj) => {
+  // Country change - only updates Country of Origin, keeping phone code and timezone independent
+  const handleCountryChange = (countryName) => {
     set("country", countryName);
-    if (countryObj?.defaultTz) {
-      set("timezone", countryObj.defaultTz);
+    if (errors.country) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.country;
+        return next;
+      });
     }
   };
 
@@ -282,9 +286,26 @@ export default function BookingPage() {
     } else if (ageNum < 5 || ageNum > 100) {
       errs.age = "Age must be between 5 and 100 years.";
     }
-    if (!form.phone.trim()) {
+
+    // Proper phone number validation (ITU-T E.164 compliant)
+    const rawPhone = (form.phone || "").trim();
+    if (!rawPhone) {
       errs.phone = "Phone number is required.";
+    } else {
+      const digitsOnly = rawPhone.replace(/\D/g, "");
+      const dialCodeMatch = rawPhone.match(/^\+\d+/);
+      const dialCodeDigits = dialCodeMatch ? dialCodeMatch[0].replace(/\D/g, "") : "";
+      const subscriberDigits = digitsOnly.slice(dialCodeDigits.length);
+
+      if (!subscriberDigits || subscriberDigits.length === 0) {
+        errs.phone = "Please enter your phone number digits.";
+      } else if (dialCodeMatch && dialCodeMatch[0] === "+91" && subscriberDigits.length !== 10) {
+        errs.phone = "Please enter a valid 10-digit Indian phone number.";
+      } else if (subscriberDigits.length < 6 || subscriberDigits.length > 15) {
+        errs.phone = "Please enter a valid phone number (6 to 15 digits).";
+      }
     }
+
     if (!form.country) {
       errs.country = "Please select your country.";
     }
@@ -354,7 +375,8 @@ export default function BookingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Submission failed.");
-      navigate(`/book/success?ref=${data.bookingRef}&name=${encodeURIComponent(form.name.split(" ")[0])}`);
+      // Production-ready: pass only the booking reference in URL (no PII like name or email)
+      navigate(`/book/success?ref=${encodeURIComponent(data.bookingRef)}`);
     } catch (err) {
       setGlobalError(err.message || "Something went wrong. Please try again.");
       setLoading(false);

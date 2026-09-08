@@ -233,6 +233,7 @@ export function AddEditStudentModal({
   student,
   prefill,
   enquiryId,
+  bookingId,
   onClose,
   onSave,
   onDelete,
@@ -266,7 +267,10 @@ export function AddEditStudentModal({
         email: prefill.email || "",
         phone: prefill.phone || "",
         country: prefill.country || "",
+        timezone: prefill.timezone || base.timezone,
         classType: prefill.classType || "private",
+        groupName: prefill.groupName || "",
+        fee: prefill.fee || base.fee,
       };
     }
     return base;
@@ -319,7 +323,7 @@ export function AddEditStudentModal({
       scheduleDays: isGroup ? formData.scheduleDays : [0, 1, 2, 3, 4, 5, 6],
     };
 
-    onSave(payload, student?.id, enquiryId);
+    onSave(payload, student?.id, enquiryId, bookingId);
     onClose();
   };
 
@@ -1169,21 +1173,309 @@ export function EnquiryDetailModal({
   );
 }
 
+/* ================= 5B. BOOKING DETAIL MODAL ================= */
+export function BookingDetailModal({
+  booking,
+  onClose,
+  onUpdateStatus,
+  onEnrollBooking,
+}) {
+  if (!booking) return null;
+
+  const palette = avatarColor(booking._id || booking.bookingRef || booking.email);
+  const classLabel =
+    booking.classType === "private"
+      ? "Private 1-to-1"
+      : booking.classType === "group"
+      ? "Group Cohort"
+      : "Not sure";
+
+  const BOOKING_STATUS_LABEL = {
+    pending: "Pending",
+    contacted: "Contacted",
+    confirmed: "Confirmed",
+    converted: "Enrolled",
+    declined: "Declined",
+  };
+
+  const BOOKING_STATUS_TAG = {
+    pending: "pending",
+    contacted: "inprogress",
+    confirmed: "soon",
+    converted: "safe",
+    declined: "declined",
+  };
+
+  return (
+    <ModalBackdrop onClose={onClose}>
+      <div>
+        {/* Profile Strip */}
+        <div className="profile-strip">
+          <div
+            className="avatar"
+            style={{
+              backgroundColor: palette.bg,
+              color: palette.fg,
+            }}
+          >
+            {getInitials(booking.name)}
+          </div>
+          <div>
+            <div className="profile-strip__name">{booking.name}</div>
+            <div className="profile-strip__tags">
+              <span className="mono text-xs font-semibold px-2 py-0.5 rounded bg-[var(--dusk-soft)] text-[var(--dusk)]">
+                {booking.bookingRef || "Pending Ref"}
+              </span>
+              <span className="tag tag--muted">{classLabel}</span>
+              <span className={`tag tag--${BOOKING_STATUS_TAG[booking.status] || "pending"}`}>
+                {BOOKING_STATUS_LABEL[booking.status] || booking.status}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Infogrid */}
+        <div className="infogrid">
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <CalendarIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Selected Cohort / Timing</div>
+              <div className="infogrid__value font-medium">
+                {booking.groupCohort || booking.preferredTime || "Flexible"}
+              </div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <WalletIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Tuition Fee</div>
+              <div className="infogrid__value font-medium">
+                {booking.fee ? `₹${Number(booking.fee).toLocaleString("en-IN")}` : "₹2,500"} / month
+              </div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <ClockIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Timezone &amp; Language</div>
+              <div className="infogrid__value">
+                {booking.timezone || "Asia/Kolkata"} · {booking.language || "English"}
+              </div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <CalendarIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Requested Joining Date</div>
+              <div className="infogrid__value">
+                {booking.joiningDate ? formatDateHuman(parseDateOnly(booking.joiningDate)) : "Immediate"}
+              </div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <UserIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Demographics</div>
+              <div className="infogrid__value">
+                {booking.age ? `${booking.age} yrs` : "—"} · {booking.gender || "—"}
+              </div>
+            </div>
+          </div>
+
+          <div className="infogrid__item">
+            <div className="infogrid__icon">
+              <SunIcon />
+            </div>
+            <div>
+              <div className="infogrid__label">Source &amp; Referral</div>
+              <div className="infogrid__value">
+                {booking.source || "Direct Form"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Message / Goals Card */}
+        {booking.message && (
+          <div className="card mb-4">
+            <div className="card__label">Health Goals / Prior Experience / Notes</div>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+              {booking.message}
+            </p>
+          </div>
+        )}
+
+        {/* Contact Card */}
+        <div className="card mb-4">
+          <div className="card__label">Contact Details</div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span style={{ color: "var(--ink-soft)" }}>Phone</span>
+              <div className="flex items-center gap-2">
+                <strong className="mono" style={{ color: "var(--ink)" }}>{booking.phone || "—"}</strong>
+                {booking.phone && (
+                  <a
+                    href={`https://wa.me/${toWhatsAppDigits(booking.phone)}?text=${encodeURIComponent(
+                      `Hi ${booking.name.split(" ")[0]}, namaste from yogaonlive! We received your online booking (${booking.bookingRef || ""}) for ${classLabel}. We would love to finalize your schedule.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-mono text-[10px] px-2 py-0.5 rounded-[4px] bg-[#EAF5EE] text-[#1D7344] hover:bg-[#1D7344] hover:text-[#FFFFFF] border border-[#C6E6D3] transition-colors"
+                  >
+                    WhatsApp
+                  </a>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ color: "var(--ink-soft)" }}>Email</span>
+              <div className="flex items-center gap-2">
+                <strong style={{ color: "var(--ink)" }}>{booking.email}</strong>
+                <a
+                  href={`mailto:${booking.email}?subject=${encodeURIComponent(`yogaonlive Booking Confirmation - ${booking.bookingRef || ""}`)}`}
+                  className="font-mono text-[10px] px-2 py-0.5 rounded-[4px] bg-[var(--surface)] text-[var(--ink-soft)] hover:text-[var(--ink)] border border-[var(--border)]"
+                >
+                  Email
+                </a>
+              </div>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: "var(--ink-soft)" }}>Country</span>
+              <strong style={{ color: "var(--ink)" }}>{booking.country || "—"}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: "var(--ink-soft)" }}>Submitted On</span>
+              <strong style={{ color: "var(--ink)" }}>
+                {booking.createdAt ? new Date(booking.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions Row */}
+        <div className="flex justify-end gap-2 pt-2 border-t flex-wrap" style={{ borderColor: "var(--border)" }}>
+          {booking.status === "converted" ? (
+            <span className="tag tag--safe">
+              <CheckIcon className="w-4 h-4" />
+              <span>Enrolled in Studio Roster</span>
+            </span>
+          ) : booking.status === "declined" ? (
+            <button
+              type="button"
+              onClick={() => {
+                onUpdateStatus && onUpdateStatus(booking._id, "pending");
+                onClose();
+              }}
+              className="btn btn--sm gap-1"
+            >
+              <UndoIcon className="w-3.5 h-3.5" />
+              <span>Reopen</span>
+            </button>
+          ) : (
+            <>
+              {booking.status === "pending" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStatus && onUpdateStatus(booking._id, "contacted");
+                    onClose();
+                  }}
+                  className="btn btn--sm"
+                >
+                  Mark as Contacted
+                </button>
+              )}
+              {booking.status !== "confirmed" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStatus && onUpdateStatus(booking._id, "confirmed");
+                    onClose();
+                  }}
+                  className="btn btn--sm"
+                >
+                  Confirm Schedule
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateStatus && onUpdateStatus(booking._id, "declined");
+                  onClose();
+                }}
+                className="btn btn--sm btn--danger"
+              >
+                Decline
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onEnrollBooking && onEnrollBooking(booking);
+                }}
+                className="btn btn--sm btn--primary"
+              >
+                Enroll as Student
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </ModalBackdrop>
+  );
+}
+
 /* ================= 6. TUITION RECEIPT MODAL ================= */
 export function ReceiptModal({ student, paymentSettings, onClose }) {
   if (!student) return null;
 
+  const [currency, setCurrency] = useState("INR"); // "INR" | "USD" | "EUR"
   const due = getCurrentDueDate(student);
   const cycleStart = addMonthsClamped(due, -1);
   const receiptNumber = `YOL-${new Date().getFullYear()}-${String(student.id).padStart(4, "0")}`;
   const todayStr = formatDateHuman(new Date());
+
+  // Multi-currency calculation
+  const inrFee = Number(student.fee) || 0;
+  const usdAmount = (inrFee / 86.5).toFixed(2);
+  const eurAmount = (inrFee / 94.0).toFixed(2);
+
+  const getDisplayAmount = (curr) => {
+    if (curr === "USD") return `$${usdAmount} USD`;
+    if (curr === "EUR") return `€${eurAmount} EUR`;
+    return `₹${inrFee.toLocaleString("en-IN")}.00`;
+  };
+
+  const getConversionNotice = (curr) => {
+    if (curr === "USD") {
+      return `Equiv: ₹${inrFee.toLocaleString("en-IN")}.00 INR · €${eurAmount} EUR (Rate: 1 USD ≈ ₹86.50)`;
+    }
+    if (curr === "EUR") {
+      return `Equiv: ₹${inrFee.toLocaleString("en-IN")}.00 INR · $${usdAmount} USD (Rate: 1 EUR ≈ ₹94.00)`;
+    }
+    return `≈ $${usdAmount} USD · €${eurAmount} EUR`;
+  };
 
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadPDF = () => {
     setIsDownloading(true);
     try {
-      generateReceiptPDF(student, paymentSettings);
+      generateReceiptPDF(student, paymentSettings, currency);
     } catch (err) {
       console.error("PDF generation failed:", err);
     } finally {
@@ -1192,7 +1484,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
   };
 
   const handlePrint = () => {
-    printReceiptWindow(student, paymentSettings);
+    printReceiptWindow(student, paymentSettings, currency);
   };
 
   return (
@@ -1201,7 +1493,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
         {/* Printable Area */}
         <div id="printable-receipt" className="border rounded-[var(--radius-lg)] p-6 sm:p-8 bg-white" style={{ borderColor: "var(--border)" }}>
           {/* Masthead Header */}
-          <div className="flex items-start justify-between border-b pb-5 mb-5" style={{ borderColor: "var(--border)" }}>
+          <div className="flex items-start justify-between border-b pb-5 mb-5 flex-wrap gap-4" style={{ borderColor: "var(--border)" }}>
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-6 h-6 flex-none" style={{ color: "var(--dawn)" }}>
@@ -1222,15 +1514,49 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
               </p>
             </div>
 
-            <div className="text-right">
-              <span className="tag tag--safe mb-1.5">
-                Settled &amp; Verified
-              </span>
-              <div className="mono text-xs font-bold" style={{ color: "var(--ink)" }}>
-                {receiptNumber}
+            <div className="flex flex-col items-end gap-2">
+              <div className="text-right">
+                <span className="tag tag--safe mb-1.5">
+                  Settled &amp; Verified
+                </span>
+                <div className="mono text-xs font-bold" style={{ color: "var(--ink)" }}>
+                  {receiptNumber}
+                </div>
+                <div className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
+                  Issued: {todayStr}
+                </div>
               </div>
-              <div className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
-                Issued: {todayStr}
+
+              {/* Currency Converter Tabs */}
+              <div className="flex items-center gap-1 bg-[var(--bg)] p-1 rounded-[var(--radius-sm)] border" style={{ borderColor: "var(--border)" }}>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint)] px-1.5">Currency:</span>
+                <button
+                  type="button"
+                  onClick={() => setCurrency("INR")}
+                  className={`px-2 py-0.5 text-xs font-bold rounded cursor-pointer transition-colors ${
+                    currency === "INR" ? "bg-[var(--dusk)] text-white" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  ₹ INR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrency("USD")}
+                  className={`px-2 py-0.5 text-xs font-bold rounded cursor-pointer transition-colors ${
+                    currency === "USD" ? "bg-[var(--dusk)] text-white" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  $ USD
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrency("EUR")}
+                  className={`px-2 py-0.5 text-xs font-bold rounded cursor-pointer transition-colors ${
+                    currency === "EUR" ? "bg-[var(--dusk)] text-white" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                  }`}
+                >
+                  € EUR
+                </button>
               </div>
             </div>
           </div>
@@ -1283,7 +1609,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
                 <tr className="border-b font-bold text-[10.5px] uppercase tracking-wider" style={{ borderColor: "var(--border)", color: "var(--ink-faint)" }}>
                   <th className="py-2">Description</th>
                   <th className="py-2 text-center">Frequency</th>
-                  <th className="py-2 text-right">Amount</th>
+                  <th className="py-2 text-right">Amount ({currency})</th>
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
@@ -1298,7 +1624,10 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
                     30-Day Cycle
                   </td>
                   <td className="py-3 text-right mono font-bold" style={{ color: "var(--ink)" }}>
-                    ₹{student.fee.toLocaleString("en-IN")}.00
+                    {getDisplayAmount(currency)}
+                    <span className="block text-[10.5px] font-normal" style={{ color: "var(--ink-soft)" }}>
+                      {getConversionNotice(currency)}
+                    </span>
                   </td>
                 </tr>
               </tbody>
@@ -1308,7 +1637,10 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
                     Total Settlement Paid:
                   </td>
                   <td className="py-3 text-right mono font-bold text-sm" style={{ color: "var(--ink)" }}>
-                    ₹{student.fee.toLocaleString("en-IN")}.00
+                    {getDisplayAmount(currency)}
+                    <span className="block text-[10.5px] font-normal" style={{ color: "var(--ink-soft)" }}>
+                      {getConversionNotice(currency)}
+                    </span>
                   </td>
                 </tr>
               </tfoot>
@@ -1339,7 +1671,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
           <div className="text-xs font-mono" style={{ color: "var(--ink-soft)" }}>
-            Official electronic receipt for tuition records.
+            Receipt with real-time INR ⇄ USD / EUR conversion.
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1354,7 +1686,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
               onClick={handlePrint}
               className="btn"
             >
-              Print
+              Print ({currency})
             </button>
             <button
               type="button"
@@ -1362,7 +1694,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
               disabled={isDownloading}
               className="btn btn--primary"
             >
-              {isDownloading ? "Generating PDF…" : "Download PDF"}
+              {isDownloading ? "Generating PDF…" : `Download PDF (${currency})`}
             </button>
           </div>
         </div>

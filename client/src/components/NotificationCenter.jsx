@@ -6,15 +6,18 @@ import {
   CheckIcon,
   XIcon,
   UsersIcon,
+  CalendarIcon,
 } from "./Icons";
 import { getDaysLeft, formatDateHuman, getCurrentDueDate, toWhatsAppDigits } from "../utils/dateUtils";
 
 export default function NotificationCenter({
   students = [],
   enquiries = [],
+  bookings = [],
   session,
   onSelectStudent,
   onSelectEnquiry,
+  onSelectBooking,
   onPayNow,
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -70,6 +73,22 @@ export default function NotificationCenter({
           time: "Pending Review",
           enquiry: q,
           action: "enquiry",
+        });
+      });
+
+    // 3. Pending Online Bookings (Book Now form submissions)
+    bookings
+      .filter((b) => b.status === "pending")
+      .forEach((b) => {
+        notifications.push({
+          id: `booking-${b._id || b.bookingRef}`,
+          type: "booking",
+          severity: "medium",
+          title: `Online Booking — ${b.name}`,
+          desc: `${b.classType === "private" ? "Private 1-on-1" : (b.groupCohort || "Group Cohort")} (${b.country || "Global"}). Ref: ${b.bookingRef || "Pending"}`,
+          time: "Book Now Form",
+          booking: b,
+          action: "booking",
         });
       });
   } else if (session?.role === "student") {
@@ -226,6 +245,9 @@ export default function NotificationCenter({
                       } else if (item.action === "enquiry") {
                         onSelectEnquiry && onSelectEnquiry(item.enquiry);
                         setIsOpen(false);
+                      } else if (item.action === "booking") {
+                        onSelectBooking && onSelectBooking(item.booking);
+                        setIsOpen(false);
                       } else if (item.action === "pay") {
                         onPayNow && onPayNow(item.student);
                         setIsOpen(false);
@@ -241,6 +263,8 @@ export default function NotificationCenter({
                           className={`w-6 h-6 rounded-[4px] flex items-center justify-center flex-none mt-0.5 ${
                             isOverdue
                               ? "bg-[#FBEAE8] text-[#B64E30] border border-[#F2C5BE]"
+                              : item.type === "booking"
+                              ? "bg-[var(--dusk-soft)] text-[var(--dusk)] border border-[var(--dusk-soft)]"
                               : isDueSoon
                               ? "bg-[#FAF2E6] text-[#8A6D3B] border border-[#ECD9BD]"
                               : "bg-[#F0EFEA] text-[#6B706E] border border-[#E6E5E0]"
@@ -248,6 +272,8 @@ export default function NotificationCenter({
                         >
                           {isOverdue ? (
                             <AlertIcon className="w-3.5 h-3.5" />
+                          ) : item.type === "booking" ? (
+                            <CalendarIcon className="w-3.5 h-3.5" />
                           ) : isDueSoon ? (
                             <ClockIcon className="w-3.5 h-3.5" />
                           ) : (

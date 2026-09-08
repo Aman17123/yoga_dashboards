@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "./components/Sidebar";
 import HomePage from "./components/HomePage";
 import StudentDashboard from "./components/StudentDashboard";
@@ -12,6 +12,7 @@ import {
   PayNowModal,
   PaymentSettingsModal,
   EnquiryDetailModal,
+  BookingDetailModal,
   ReceiptModal,
 } from "./components/Modals";
 import {
@@ -36,8 +37,20 @@ export default function App() {
   const [enquiries, setEnquiries] = useState(INITIAL_ENQUIRIES);
   const [bookings, setBookings] = useState([]);
   const [paymentSettings, setPaymentSettings] = useState(DEFAULT_PAYMENT_SETTINGS);
-  const [session, setSession] = useState(null); // { role: "admin" } or { role: "student", id: 1 }
-  const [activeAdminTab, setActiveAdminTab] = useState("students");
+  const [session, setSession] = useState(() => {
+    try {
+      const saved = localStorage.getItem("yoga_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }); // { role: "admin" } or { role: "student", id: 1 }
+  const [activeAdminTab, setActiveAdminTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab === "enquiries" || tab === "bookings") return "enquiries";
+    return "students";
+  });
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeModal, setActiveModal] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
@@ -51,49 +64,70 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Hydrate data from backend API on mount
-  useEffect(() => {
-    async function loadDatabaseData() {
-      try {
-        const [fetchedStudents, fetchedEnquiries, fetchedSettings, fetchedBookings] =
-          await Promise.all([
-            api.students.getAll().catch((err) => {
-              console.warn("Could not fetch students from API:", err);
-              return null;
-            }),
-            api.enquiries.getAll().catch((err) => {
-              console.warn("Could not fetch enquiries from API:", err);
-              return null;
-            }),
-            api.settings.getPayment().catch((err) => {
-              console.warn("Could not fetch settings from API:", err);
-              return null;
-            }),
-            api.bookings.getAll().catch((err) => {
-              console.warn("Could not fetch bookings from API:", err);
-              return null;
-            }),
-          ]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-        if (Array.isArray(fetchedStudents) && fetchedStudents.length > 0) {
-          setStudents(fetchedStudents);
-        }
-        if (Array.isArray(fetchedEnquiries) && fetchedEnquiries.length > 0) {
-          setEnquiries(fetchedEnquiries);
-        }
-        if (fetchedSettings && fetchedSettings.upiId) {
-          setPaymentSettings(fetchedSettings);
-        }
-        if (Array.isArray(fetchedBookings)) {
-          setBookings(fetchedBookings);
-        }
-      } catch (err) {
-        console.warn("Error hydrating from backend API:", err);
+  // Hydrate data from backend API with live auto-sync
+  const loadDatabaseData = useCallback(async (silent = false) => {
+    if (!silent) setIsRefreshing(true);
+    try {
+      const [fetchedStudents, fetchedEnquiries, fetchedSettings, fetchedBookings] =
+        await Promise.all([
+          api.students.getAll().catch((err) => {
+            console.warn("Could not fetch students from API:", err);
+            return null;
+          }),
+          api.enquiries.getAll().catch((err) => {
+            console.warn("Could not fetch enquiries from API:", err);
+            return null;
+          }),
+          api.settings.getPayment().catch((err) => {
+            console.warn("Could not fetch settings from API:", err);
+            return null;
+          }),
+          api.bookings.getAll().catch((err) => {
+            console.warn("Could not fetch bookings from API:", err);
+            return null;
+          }),
+        ]);
+
+      if (Array.isArray(fetchedStudents) && fetchedStudents.length > 0) {
+        setStudents(fetchedStudents);
       }
+      if (Array.isArray(fetchedEnquiries) && fetchedEnquiries.length > 0) {
+        setEnquiries(fetchedEnquiries);
+      }
+      if (fetchedSettings && fetchedSettings.upiId) {
+        setPaymentSettings(fetchedSettings);
+      }
+      if (Array.isArray(fetchedBookings)) {
+        setBookings(fetchedBookings);
+      }
+    } catch (err) {
+      console.warn("Error hydrating from backend API:", err);
+    } finally {
+      if (!silent) setIsRefreshing(false);
     }
-
-    loadDatabaseData();
   }, []);
+
+  useEffect(() => {
+    loadDatabaseData();
+
+    // Auto-poll every 6s so new online bookings immediately appear in admin
+    const syncInterval = setInterval(() => {
+      loadDatabaseData(true);
+    }, 6000);
+
+    // Refresh immediately on window focus
+    const handleWindowFocus = () => {
+      loadDatabaseData(true);
+    };
+    window.addEventListener("focus", handleWindowFocus);
+
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [loadDatabaseData]);
 
   // Toast auto-dismiss
   const showToast = (msg) => {
@@ -124,6 +158,7 @@ export default function App() {
       const res = await api.auth.login(username, password);
       if (res?.success) {
         setSession(res.session);
+        localStorage.setItem("yoga_session", JSON.stringify(res.session));
         return true;
       }
     } catch (err) {
@@ -135,14 +170,18 @@ export default function App() {
       username === ADMIN_ACCOUNT.username &&
       password === ADMIN_ACCOUNT.password
     ) {
-      setSession({ role: "admin" });
+      const adminSess = { role: "admin" };
+      setSession(adminSess);
+      localStorage.setItem("yoga_session", JSON.stringify(adminSess));
       return true;
     }
     const foundStudent = students.find(
       (s) => s.username === username && s.password === password
     );
     if (foundStudent) {
-      setSession({ role: "student", id: foundStudent.id });
+      const studentSess = { role: "student", id: foundStudent.id };
+      setSession(studentSess);
+      localStorage.setItem("yoga_session", JSON.stringify(studentSess));
       return true;
     }
     return false;
@@ -153,6 +192,7 @@ export default function App() {
       const res = await api.auth.quickLogin(role);
       if (res?.success) {
         setSession(res.session);
+        localStorage.setItem("yoga_session", JSON.stringify(res.session));
         return;
       }
     } catch (err) {
@@ -160,15 +200,20 @@ export default function App() {
     }
 
     if (role === "admin") {
-      setSession({ role: "admin" });
+      const adminSess = { role: "admin" };
+      setSession(adminSess);
+      localStorage.setItem("yoga_session", JSON.stringify(adminSess));
     } else {
       const studentId = students[0]?.id || 1;
-      setSession({ role: "student", id: studentId });
+      const studentSess = { role: "student", id: studentId };
+      setSession(studentSess);
+      localStorage.setItem("yoga_session", JSON.stringify(studentSess));
     }
   };
 
   const handleLogout = () => {
     setSession(null);
+    localStorage.removeItem("yoga_session");
     setActiveModal(null);
   };
 
@@ -227,7 +272,8 @@ export default function App() {
   };
 
   // Add / Edit Student (persists to backend API)
-  const handleSaveStudent = async (formData, existingId, linkedEnquiryId) => {
+  // Add / Edit Student (persists to backend API)
+  const handleSaveStudent = async (formData, existingId, linkedEnquiryId, linkedBookingId) => {
     const duplicate = students.find(
       (s) => s.username === formData.username && s.id !== existingId
     );
@@ -260,6 +306,15 @@ export default function App() {
           );
           showToast(
             `${created.name} was enrolled into studio roster.`
+          );
+        } else if (linkedBookingId || activeModal?.bookingId) {
+          const bId = linkedBookingId || activeModal?.bookingId;
+          await api.bookings.updateStatus(bId, "converted").catch(console.warn);
+          setBookings((prev) =>
+            prev.map((b) => (b._id === bId ? { ...b, status: "converted" } : b))
+          );
+          showToast(
+            `${created.name} was successfully enrolled from online booking.`
           );
         } else {
           showToast(
@@ -322,6 +377,24 @@ export default function App() {
         classType: enquiry.classTypeInterest === "group" ? "group" : "private",
       },
       enquiryId: enquiry.id,
+    });
+  };
+
+  const handleEnrollBooking = (booking) => {
+    setActiveModal({
+      type: "addEditStudent",
+      student: null,
+      prefill: {
+        name: booking.name,
+        email: booking.email,
+        phone: booking.phone,
+        country: booking.country,
+        timezone: booking.timezone || "Asia/Kolkata",
+        classType: booking.classType === "private" ? "private" : "group",
+        groupName: booking.groupCohort || "",
+        fee: booking.fee || (booking.classType === "private" ? 4000 : 2500),
+      },
+      bookingId: booking._id,
     });
   };
 
@@ -395,6 +468,7 @@ export default function App() {
             <NotificationCenter
               students={students}
               enquiries={enquiries}
+              bookings={bookings}
               session={session}
               onSelectStudent={(student) =>
                 setActiveModal({ type: "studentDetail", student })
@@ -402,6 +476,10 @@ export default function App() {
               onSelectEnquiry={(enquiry) =>
                 setActiveModal({ type: "enquiryDetail", enquiry })
               }
+              onSelectBooking={(booking) => {
+                setActiveAdminTab("enquiries");
+                setActiveModal({ type: "bookingDetail", booking });
+              }}
               onPayNow={(student) =>
                 setActiveModal({ type: "payNow", student })
               }
@@ -452,6 +530,12 @@ export default function App() {
                   onViewEnquiry={(enquiry) =>
                     setActiveModal({ type: "enquiryDetail", enquiry })
                   }
+                  onViewBooking={(booking) =>
+                    setActiveModal({ type: "bookingDetail", booking })
+                  }
+                  onEnrollBooking={handleEnrollBooking}
+                  onRefresh={() => loadDatabaseData(false)}
+                  isRefreshing={isRefreshing}
                   onUpdateBookingStatus={async (id, status) => {
                     try {
                       const res = await api.bookings.updateStatus(id, status);
@@ -519,6 +603,7 @@ export default function App() {
           student={activeModal.student}
           prefill={activeModal.prefill}
           enquiryId={activeModal.enquiryId}
+          bookingId={activeModal.bookingId}
           onClose={() => setActiveModal(null)}
           onSave={handleSaveStudent}
           onDelete={handleDeleteStudent}
@@ -549,6 +634,29 @@ export default function App() {
           onClose={() => setActiveModal(null)}
           onUpdateStatus={handleUpdateEnquiryStatus}
           onAcceptEnquiry={handleAcceptEnquiry}
+        />
+      )}
+
+      {activeModal?.type === "bookingDetail" && (
+        <BookingDetailModal
+          booking={bookings.find((b) => (b._id || b.bookingRef) === (activeModal.booking?._id || activeModal.booking?.bookingRef)) || activeModal.booking}
+          onClose={() => setActiveModal(null)}
+          onUpdateStatus={async (id, status) => {
+            try {
+              const res = await api.bookings.updateStatus(id, status);
+              if (res?.booking) {
+                setBookings((prev) =>
+                  prev.map((b) => (b._id === id ? res.booking : b))
+                );
+                showToast(`Booking status updated to ${status}.`);
+              }
+            } catch (err) {
+              showToast("Failed to update booking status.");
+            }
+          }}
+          onEnrollBooking={(booking) => {
+            handleEnrollBooking(booking);
+          }}
         />
       )}
 

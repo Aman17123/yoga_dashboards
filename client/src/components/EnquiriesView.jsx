@@ -97,14 +97,18 @@ function TabBtn({ active, onClick, children, badge }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function EnquiriesView({
-  enquiries,
+  enquiries = [],
   bookings = [],
   onUpdateEnquiryStatus,
   onAcceptEnquiry,
   onViewEnquiry,
   onUpdateBookingStatus,
+  onViewBooking,
+  onEnrollBooking,
+  onRefresh,
+  isRefreshing = false,
 }) {
-  const [activeTab, setActiveTab] = useState("enquiries");
+  const [activeTab, setActiveTab] = useState("bookings");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -164,6 +168,53 @@ export default function EnquiriesView({
     return list;
   }, [bookings, searchQuery, statusFilter]);
 
+  // ── Combined list (All submissions) ──
+  const combinedList = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const bMapped = bookings.map((b) => ({
+      _kind: "booking",
+      _id: b._id || b.bookingRef,
+      item: b,
+      name: b.name,
+      email: b.email,
+      phone: b.phone,
+      country: b.country,
+      status: b.status,
+      ref: b.bookingRef || "Pending",
+      detail: b.groupCohort || b.preferredTime || (b.classType === "private" ? "Private 1-on-1" : "Group"),
+      date: new Date(b.createdAt || 0),
+    }));
+
+    const eMapped = enquiries.map((e) => ({
+      _kind: "enquiry",
+      _id: e.id,
+      item: e,
+      name: e.name,
+      email: e.email,
+      phone: e.phone,
+      country: e.country,
+      status: e.status,
+      ref: `ENQ-${e.id}`,
+      detail: e.classTypeInterest === "group" ? "Group Cohort" : "Private Session",
+      date: e.submittedDate ? parseDateOnly(e.submittedDate) : new Date(e.createdAt || 0),
+    }));
+
+    let list = [...bMapped, ...eMapped];
+    if (statusFilter !== "all") {
+      list = list.filter((x) => x.status === statusFilter);
+    }
+    if (q) {
+      list = list.filter((x) =>
+        x.name.toLowerCase().includes(q) ||
+        (x.email && x.email.toLowerCase().includes(q)) ||
+        (x.country && x.country.toLowerCase().includes(q)) ||
+        (x.ref && x.ref.toLowerCase().includes(q))
+      );
+    }
+    list.sort((a, b) => b.date - a.date);
+    return list;
+  }, [enquiries, bookings, searchQuery, statusFilter]);
+
   // Reset filters when switching tabs
   const switchTab = (tab) => {
     setActiveTab(tab);
@@ -173,6 +224,7 @@ export default function EnquiriesView({
 
   const pendingEnquiries = enquiryStats.pending + enquiryStats.inProgress;
   const pendingBookings = bookingStats.pending + bookingStats.contacted;
+  const totalPending = pendingBookings + pendingEnquiries;
 
   return (
     <section className="w-full">
@@ -180,29 +232,49 @@ export default function EnquiriesView({
       <header className="flex items-end justify-between gap-4 flex-wrap mb-[18px]">
         <div>
           <div className="eyebrow">Admin Console</div>
-          <h1 className="view__title">Enquiries & Bookings</h1>
+          <h1 className="view__title">Enquiries &amp; Bookings</h1>
           <p className="view__note">
-            Manage inbound enquiries and online booking form submissions.
+            Manage online Book Now form submissions and general student enquiries.
           </p>
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex gap-2">
-          <TabBtn
-            active={activeTab === "enquiries"}
-            onClick={() => switchTab("enquiries")}
-            badge={pendingEnquiries}
-          >
-            <ChatIcon className="w-4 h-4" />
-            Enquiries
-          </TabBtn>
+        {/* Action Controls & Tab switcher */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {onRefresh && (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--bg-alt)] text-[var(--ink)] transition-colors cursor-pointer"
+              title="Synchronize database records"
+            >
+              <span className={`text-sm ${isRefreshing ? "animate-spin" : ""}`}>⟳</span>
+              <span>{isRefreshing ? "Syncing…" : "Refresh"}</span>
+            </button>
+          )}
           <TabBtn
             active={activeTab === "bookings"}
             onClick={() => switchTab("bookings")}
             badge={pendingBookings}
           >
             <CalendarIcon className="w-4 h-4" />
-            Bookings
+            Online Bookings ({bookings.length})
+          </TabBtn>
+          <TabBtn
+            active={activeTab === "enquiries"}
+            onClick={() => switchTab("enquiries")}
+            badge={pendingEnquiries}
+          >
+            <ChatIcon className="w-4 h-4" />
+            General Enquiries ({enquiries.length})
+          </TabBtn>
+          <TabBtn
+            active={activeTab === "all"}
+            onClick={() => switchTab("all")}
+            badge={totalPending}
+          >
+            <UsersIcon className="w-4 h-4" />
+            All Submissions ({bookings.length + enquiries.length})
           </TabBtn>
         </div>
       </header>
@@ -210,6 +282,25 @@ export default function EnquiriesView({
       {/* ══════════ ENQUIRIES TAB ══════════ */}
       {activeTab === "enquiries" && (
         <>
+          {/* Pending Bookings Banner in Enquiries Tab */}
+          {pendingBookings > 0 && (
+            <div className="mb-4 p-3.5 rounded-[var(--radius-md)] border flex items-center justify-between gap-3 flex-wrap bg-[var(--dusk-soft)] border-[var(--border)] text-[var(--dusk)]">
+              <div className="flex items-center gap-2.5">
+                <span className="text-base">🔔</span>
+                <span className="text-sm font-medium">
+                  <strong>{bookingStats.pending} new online booking submission(s)</strong> received from the Book Now form.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => switchTab("bookings")}
+                className="btn btn--sm btn--primary cursor-pointer"
+              >
+                View Online Bookings ({bookings.length}) →
+              </button>
+            </div>
+          )}
+
           {/* Stat Row */}
           <div className="stat-row">
             <div className="statcard">
@@ -300,7 +391,7 @@ export default function EnquiriesView({
                     const palette = avatarColor(q.id);
                     const typeLabel = q.classTypeInterest === "group" ? "Group" : q.classTypeInterest === "private" ? "Private" : "Any";
                     return (
-                      <tr key={q.id} onClick={() => onViewEnquiry(q)} className="stable__row">
+                      <tr key={q.id} onClick={() => onViewEnquiry(q)} className="stable__row cursor-pointer hover:bg-[var(--bg-alt)]">
                         <td>
                           <div className="stable__student">
                             <span className="avatar avatar--sm" style={{ backgroundColor: palette.bg, color: palette.fg }}>{getInitials(q.name)}</span>
@@ -363,7 +454,7 @@ export default function EnquiriesView({
               <div className="statcard__icon"><ClockIcon /></div>
               <div>
                 <div className="statcard__value">{bookingStats.pending}</div>
-                <div className="statcard__label">New / Pending</div>
+                <div className="statcard__label">Pending review</div>
               </div>
             </div>
             <div className="statcard">
@@ -427,11 +518,11 @@ export default function EnquiriesView({
                   <th>Student</th>
                   <th>Ref</th>
                   <th>Contact</th>
-                  <th>Preference</th>
+                  <th>Class / Cohort</th>
                   <th>Source</th>
                   <th>Received</th>
                   <th>Status</th>
-                  <th>Update</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -439,17 +530,22 @@ export default function EnquiriesView({
                   <tr>
                     <td colSpan={8} className="empty-row">
                       {bookings.length === 0
-                        ? "No booking submissions yet. Share your booking link to get started!"
+                        ? "No booking submissions yet. Submissions from /book will appear here in real time."
                         : "No bookings match this search."}
                     </td>
                   </tr>
                 ) : (
                   filteredBookings.map((b) => {
                     const palette = avatarColor(b._id || b.bookingRef || b.email);
-                    const classLabel = CLASS_TYPE_LABEL[b.classType] || "—";
-                    const daysLabel = b.preferredDays?.length ? b.preferredDays.join(", ") : "Flexible";
+                    const classLabel = CLASS_TYPE_LABEL[b.classType] || "Class";
+                    const cohortLabel = b.groupCohort || b.preferredTime || "Flexible";
                     return (
-                      <tr key={b._id || b.bookingRef} className="stable__row">
+                      <tr
+                        key={b._id || b.bookingRef}
+                        onClick={() => onViewBooking && onViewBooking(b)}
+                        className="stable__row cursor-pointer hover:bg-[var(--bg-alt)] transition-colors"
+                        title="Click to view full booking details"
+                      >
                         <td>
                           <div className="stable__student">
                             <span className="avatar avatar--sm" style={{ backgroundColor: palette.bg, color: palette.fg }}>
@@ -459,28 +555,30 @@ export default function EnquiriesView({
                               <div className="font-semibold text-sm">{b.name}</div>
                               <div className="text-xs flex items-center gap-1.5" style={{ color: "var(--ink-soft)" }}>
                                 <CountryFlag country={b.country} size="xs" />
-                                <span>{b.country}</span>
+                                <span>{b.country || "—"}</span>
                               </div>
                             </div>
                           </div>
                         </td>
                         <td>
-                          <span className="mono text-xs font-semibold" style={{ color: "var(--dusk)" }}>
+                          <span className="mono text-xs font-semibold px-2 py-0.5 rounded bg-[var(--dusk-soft)] text-[var(--dusk)]">
                             {b.bookingRef || "—"}
                           </span>
                         </td>
                         <td>
-                          <div className="text-xs">{b.email}</div>
+                          <div className="text-xs font-medium">{b.email}</div>
                           {b.phone && <div className="mono text-xs" style={{ color: "var(--ink-soft)" }}>{b.phone}</div>}
                         </td>
                         <td>
                           <div className="text-xs font-semibold">{classLabel}</div>
                           <div className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                            {b.yogaStyle || "Any style"}
+                            {cohortLabel}
                           </div>
-                          <div className="text-xs" style={{ color: "var(--ink-faint)" }}>
-                            {daysLabel}
-                          </div>
+                          {b.fee ? (
+                            <div className="text-[11px] font-mono font-medium" style={{ color: "var(--dusk)" }}>
+                              ₹{Number(b.fee).toLocaleString("en-IN")}
+                            </div>
+                          ) : null}
                         </td>
                         <td>
                           <span className="tag tag--muted text-xs">{b.source || "direct"}</span>
@@ -492,23 +590,51 @@ export default function EnquiriesView({
                           </span>
                         </td>
                         <td>
-                          <div className="flex gap-1.5 flex-wrap">
+                          <div className="flex gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => onViewBooking && onViewBooking(b)}
+                              className="btn btn--sm"
+                              title="View details"
+                            >
+                              View
+                            </button>
                             {b.status === "pending" && (
                               <>
                                 <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "contacted")} className="btn btn--sm">Contact</button>
+                                <button
+                                  type="button"
+                                  onClick={() => onEnrollBooking && onEnrollBooking(b)}
+                                  className="btn btn--sm btn--primary flex items-center gap-1"
+                                >
+                                  <CheckIcon className="w-3 h-3" /> Enroll
+                                </button>
                                 <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "declined")} className="btn btn--sm btn--danger">Decline</button>
                               </>
                             )}
                             {b.status === "contacted" && (
-                              <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "confirmed")} className="btn btn--sm btn--primary">Confirm</button>
+                              <>
+                                <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "confirmed")} className="btn btn--sm">Confirm</button>
+                                <button
+                                  type="button"
+                                  onClick={() => onEnrollBooking && onEnrollBooking(b)}
+                                  className="btn btn--sm btn--primary flex items-center gap-1"
+                                >
+                                  <CheckIcon className="w-3 h-3" /> Enroll
+                                </button>
+                              </>
                             )}
                             {b.status === "confirmed" && (
-                              <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "converted")} className="btn btn--sm btn--primary">
+                              <button
+                                type="button"
+                                onClick={() => onEnrollBooking && onEnrollBooking(b)}
+                                className="btn btn--sm btn--primary flex items-center gap-1"
+                              >
                                 <CheckIcon className="w-3 h-3" /> Enroll
                               </button>
                             )}
                             {b.status === "converted" && (
-                              <span className="tag tag--safe"><CheckIcon className="w-3.5 h-3.5" />Enrolled</span>
+                              <span className="tag tag--safe flex items-center gap-1"><CheckIcon className="w-3.5 h-3.5" />Enrolled</span>
                             )}
                             {b.status === "declined" && (
                               <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "pending")} className="btn btn--sm gap-1">
@@ -527,11 +653,195 @@ export default function EnquiriesView({
 
           {/* Booking link hint */}
           <div className="mt-4 p-4 border rounded-[var(--radius-md)] text-sm" style={{ background: "var(--dusk-soft)", borderColor: "var(--border)", color: "var(--dusk)" }}>
-            <strong>Booking page URL:</strong>{" "}
-            <span className="mono text-xs">{window.location.origin}/book</span>
-            {" "} — Share this link or use{" "}
-            <span className="mono text-xs">{window.location.origin}/book?source=yogasite1</span>
-            {" "}to track which website referred the booking.
+            <strong>Public Book Now page URL:</strong>{" "}
+            <span className="mono text-xs font-semibold">{window.location.origin}/book</span>
+            {" "} — Share this link with prospective students or append{" "}
+            <span className="mono text-xs font-semibold">?source=yogasite1</span>
+            {" "}to track referrals.
+          </div>
+        </>
+      )}
+
+      {/* ══════════ ALL SUBMISSIONS TAB ══════════ */}
+      {activeTab === "all" && (
+        <>
+          {/* Stat Row */}
+          <div className="stat-row">
+            <div className="statcard">
+              <div className="statcard__icon"><UsersIcon /></div>
+              <div>
+                <div className="statcard__value">{bookings.length + enquiries.length}</div>
+                <div className="statcard__label">Total submissions</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><CalendarIcon /></div>
+              <div>
+                <div className="statcard__value">{bookings.length}</div>
+                <div className="statcard__label">Online bookings</div>
+              </div>
+            </div>
+            <div className="statcard">
+              <div className="statcard__icon"><ChatIcon /></div>
+              <div>
+                <div className="statcard__value">{enquiries.length}</div>
+                <div className="statcard__label">General enquiries</div>
+              </div>
+            </div>
+            <div className={`statcard ${totalPending > 0 ? "statcard--warn" : ""}`}>
+              <div className="statcard__icon"><ClockIcon /></div>
+              <div>
+                <div className="statcard__value">{totalPending}</div>
+                <div className="statcard__label">Pending review</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="flex gap-2.5 mb-3.5 flex-wrap items-stretch">
+            <div className="search flex items-center gap-2 bg-[var(--surface)] border rounded-[var(--radius-sm)] px-3 flex-1 min-w-[220px]" style={{ borderColor: "var(--border-strong)" }}>
+              <span className="w-4 h-4 flex-none" style={{ color: "var(--ink-faint)" }}>
+                <SearchIcon className="w-full h-full" />
+              </span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search across all submissions…"
+                className="border-none outline-none bg-transparent py-2.5 w-full text-sm"
+                style={{ color: "var(--ink)" }}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border rounded-[var(--radius-sm)] bg-[var(--surface)] px-3 text-sm font-semibold cursor-pointer"
+              style={{ borderColor: "var(--border-strong)", color: "var(--ink)" }}
+            >
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="contacted">Contacted / In Progress</option>
+              <option value="confirmed">Confirmed / Accepted</option>
+              <option value="declined">Declined</option>
+            </select>
+          </div>
+
+          {/* Combined Table */}
+          <div className="table-wrap">
+            <table className="stable">
+              <thead>
+                <tr>
+                  <th>Origin</th>
+                  <th>Applicant</th>
+                  <th>Ref</th>
+                  <th>Contact</th>
+                  <th>Class / Request</th>
+                  <th>Country</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {combinedList.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="empty-row">
+                      No submissions found matching this filter.
+                    </td>
+                  </tr>
+                ) : (
+                  combinedList.map((row) => {
+                    const isB = row._kind === "booking";
+                    const palette = avatarColor(row._id || row.ref || row.email);
+                    return (
+                      <tr
+                        key={`${row._kind}-${row._id}`}
+                        onClick={() => {
+                          if (isB && onViewBooking) onViewBooking(row.item);
+                          else if (!isB && onViewEnquiry) onViewEnquiry(row.item);
+                        }}
+                        className="stable__row cursor-pointer hover:bg-[var(--bg-alt)] transition-colors"
+                        title="Click to view details"
+                      >
+                        <td>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                            isB
+                              ? "bg-[var(--dusk-soft)] text-[var(--dusk)]"
+                              : "bg-[var(--bg-alt)] text-[var(--ink-soft)] border border-[var(--border)]"
+                          }`}>
+                            {isB ? "Book Now Form" : "Enquiry Form"}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="stable__student">
+                            <span className="avatar avatar--sm" style={{ backgroundColor: palette.bg, color: palette.fg }}>
+                              {getInitials(row.name)}
+                            </span>
+                            <span className="font-semibold text-sm">{row.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="mono text-xs font-semibold" style={{ color: isB ? "var(--dusk)" : "var(--ink-soft)" }}>
+                            {row.ref}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="text-xs">{row.email}</div>
+                          {row.phone && <div className="mono text-xs" style={{ color: "var(--ink-soft)" }}>{row.phone}</div>}
+                        </td>
+                        <td>
+                          <div className="text-xs font-semibold">{row.detail}</div>
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <CountryFlag country={row.country} size="xs" />
+                            <span>{row.country || "—"}</span>
+                          </div>
+                        </td>
+                        <td className="mono text-xs">{formatBookingDate(row.date)}</td>
+                        <td>
+                          <span className={`tag tag--${BOOKING_STATUS_TAG[row.status] || ENQUIRY_STATUS_TAG[row.status] || "pending"}`}>
+                            {BOOKING_STATUS_LABEL[row.status] || ENQUIRY_STATUS_LABEL[row.status] || row.status}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isB && onViewBooking) onViewBooking(row.item);
+                                else if (!isB && onViewEnquiry) onViewEnquiry(row.item);
+                              }}
+                              className="btn btn--sm"
+                            >
+                              View
+                            </button>
+                            {isB && row.status !== "converted" && (
+                              <button
+                                type="button"
+                                onClick={() => onEnrollBooking && onEnrollBooking(row.item)}
+                                className="btn btn--sm btn--primary"
+                              >
+                                Enroll
+                              </button>
+                            )}
+                            {!isB && row.status !== "accepted" && (
+                              <button
+                                type="button"
+                                onClick={() => onAcceptEnquiry && onAcceptEnquiry(row.item)}
+                                className="btn btn--sm btn--primary"
+                              >
+                                Accept
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </>
       )}

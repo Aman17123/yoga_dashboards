@@ -20,16 +20,6 @@ export default function PhoneInputWithFlag({
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
 
-  // Sync selected country when parent `country` prop changes
-  useEffect(() => {
-    if (country) {
-      const match = findCountry(country);
-      if (match && match.code !== selectedCountry?.code) {
-        setSelectedCountry(match);
-      }
-    }
-  }, [country]);
-
   // Parse incoming value on initial load or if value prop is updated from outside
   useEffect(() => {
     if (!value) {
@@ -83,12 +73,13 @@ export default function PhoneInputWithFlag({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isDropdownOpen]);
 
-  // Handle phone number input
+  // Handle phone number input (only numbers, spaces, and hyphens allowed)
   const handleNumberChange = (e) => {
     const raw = e.target.value;
-    setPhoneNumber(raw);
+    const filtered = raw.replace(/[^\d\s-]/g, "");
+    setPhoneNumber(filtered);
     if (onChange) {
-      const full = raw.trim() ? `${selectedCountry?.dialCode || "+91"} ${raw.trim()}` : "";
+      const full = filtered.trim() ? `${selectedCountry?.dialCode || "+91"} ${filtered.trim()}` : "";
       onChange(full);
     }
   };

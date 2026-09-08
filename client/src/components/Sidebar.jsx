@@ -69,7 +69,7 @@ export default function Sidebar({
                 <span className="w-[18px] h-[18px] flex-none">
                   <ChatIcon className="w-full h-full" />
                 </span>
-                <span>Enquiries</span>
+                <span>Enquiries &amp; Bookings</span>
               </div>
               {pendingEnquiryCount > 0 && (
                 <span
