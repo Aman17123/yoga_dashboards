@@ -15,6 +15,7 @@ import {
   ClockIcon,
   CalendarIcon,
   SunIcon,
+  TrashIcon,
 } from "./Icons";
 import {
   TIMEZONE_OPTIONS,
@@ -61,6 +62,7 @@ export function StudentDetailModal({
   currentTime,
   onClose,
   onEditStudent,
+  onDeleteStudent,
   onUpdatePayment,
   onOpenReceipt,
   onResendWelcomeEmail,
@@ -101,6 +103,26 @@ export function StudentDetailModal({
             <EditIcon className="w-3.5 h-3.5" />
             <span>Edit details</span>
           </button>
+          {onDeleteStudent && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Are you sure you want to delete ${student.name} and their user login account (${student.username})? This action cannot be undone.`
+                  )
+                ) {
+                  onDeleteStudent(student.id);
+                  onClose();
+                }
+              }}
+              className="btn btn--sm btn--danger gap-1.5"
+              title={`Delete ${student.name} and their account`}
+            >
+              <TrashIcon className="w-3.5 h-3.5" />
+              <span>Delete</span>
+            </button>
+          )}
         </div>
 
         {/* Profile Strip */}

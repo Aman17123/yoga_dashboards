@@ -449,16 +449,38 @@ export async function updateStudent(req, res) {
 
 export async function deleteStudent(req, res) {
   try {
-    const id = Number(req.params.id);
-    const deleted = await Student.findOneAndDelete({ id });
+    const rawId = req.params.id;
+    const numId = Number(rawId);
+    let deleted = null;
+
+    if (!isNaN(numId)) {
+      deleted = await Student.findOneAndDelete({ id: numId });
+    }
+    if (!deleted && typeof rawId === "string" && rawId.match(/^[0-9a-fA-F]{24}$/)) {
+      deleted = await Student.findByIdAndDelete(rawId);
+    }
+
     if (!deleted) {
       return res.status(404).json({ error: "Student not found." });
     }
 
-    emitRealtimeEvent("student:deleted", { id });
+    // Clean up references in Bookings and Enquiries
+    await Booking.updateMany(
+      { enrolledStudentId: deleted.id },
+      { $set: { enrolledStudentId: null } }
+    ).catch(() => {});
+    await Enquiry.updateMany(
+      { convertedStudentId: deleted.id },
+      { $set: { convertedStudentId: null } }
+    ).catch(() => {});
+
+    emitRealtimeEvent("student:deleted", { id: deleted.id });
     emitRealtimeEvent("stats:updated", {});
 
-    return res.json({ success: true, message: `${deleted.name} was removed.` });
+    return res.json({
+      success: true,
+      message: `${deleted.name} and their user login account were permanently deleted.`,
+    });
   } catch (error) {
     console.error("Error deleting student:", error);
     return res.status(500).json({ error: "Failed to delete student record." });

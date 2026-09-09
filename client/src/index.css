@@ -233,6 +233,16 @@ h1, h2, h3 {
   background: var(--success);
   color: #fff;
 }
+.icon-btn--danger {
+  color: var(--danger);
+  border-color: var(--border);
+}
+.icon-btn--danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
 
 /* Infogrid */
 .infogrid {

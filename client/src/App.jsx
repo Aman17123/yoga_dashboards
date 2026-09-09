@@ -714,6 +714,7 @@ export default function App() {
                   onEditStudent={(student) =>
                     setActiveModal({ type: "addEditStudent", student })
                   }
+                  onDeleteStudent={handleDeleteStudent}
                   onAddStudent={() =>
                     setActiveModal({ type: "addEditStudent", student: null })
                   }
@@ -800,6 +801,7 @@ export default function App() {
           onEditStudent={(s) =>
             setActiveModal({ type: "addEditStudent", student: s })
           }
+          onDeleteStudent={handleDeleteStudent}
           onUpdatePayment={handleUpdatePayment}
           onOpenReceipt={(s) => setActiveModal({ type: "receipt", student: s })}
           onResendWelcomeEmail={handleResendWelcomeEmail}
