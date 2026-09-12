@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import { Booking } from "../models/Booking.js";
+import { Student } from "../models/Student.js";
 import { emitRealtimeEvent } from "../index.js";
 import {
   sendUserConfirmationEmail,
@@ -6,6 +8,10 @@ import {
   verifyEmailTransporter,
   testEmailTransporter,
 } from "../utils/emailService.js";
+
+function escapeRegex(str) {
+  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 // ─── GET /api/bookings ────────────────────────────────────────────────────────
 export async function getAllBookings(req, res) {
@@ -36,6 +42,7 @@ export async function createBooking(req, res) {
       instructorPreference,
       groupCohort,
       fee,
+      goals,
       joiningDate,
       message,
       source,
@@ -76,6 +83,7 @@ export async function createBooking(req, res) {
       instructorPreference: instructorPreference?.trim() || "Any",
       groupCohort: groupCohort?.trim() || "",
       fee: Number(fee) || 0,
+      goals: goals?.trim() || "",
       joiningDate: joiningDate?.trim() || "",
       message: message?.trim() || "",
       source: source?.trim() || "direct",
@@ -239,6 +247,135 @@ export async function sendTestEmail(req, res) {
     return res.json(result);
   } catch (error) {
     return res.status(500).json({ error: error.message });
+  }
+}
+
+// ─── DELETE /api/bookings/:id/enrolled-student ───────────────────────────────
+export async function deleteEnrolledStudentFromBooking(req, res) {
+  try {
+    const { id } = req.params;
+    const { alsoDeleteBooking } = req.query;
+
+    let booking = null;
+    if (mongoose.isValidObjectId(id)) {
+      booking = await Booking.findById(id);
+    }
+    if (!booking) {
+      booking = await Booking.findOne({ bookingRef: id });
+    }
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found." });
+    }
+
+    // Find student by enrolledStudentId or enrolledFromBookingId or email
+    let student = null;
+    if (booking.enrolledStudentId) {
+      student = await Student.findOne({ id: booking.enrolledStudentId });
+    }
+    if (!student) {
+      student = await Student.findOne({ enrolledFromBookingId: booking._id });
+    }
+    if (!student && booking.email) {
+      student = await Student.findOne({
+        email: { $regex: new RegExp(`^${escapeRegex(booking.email.trim())}$`, "i") },
+      });
+    }
+
+    let deletedStudentInfo = null;
+    if (student) {
+      deletedStudentInfo = {
+        id: student.id,
+        name: student.name,
+        username: student.username,
+      };
+      await Student.findByIdAndDelete(student._id);
+      emitRealtimeEvent("student:deleted", { id: student.id });
+    }
+
+    if (alsoDeleteBooking === "true" || alsoDeleteBooking === true) {
+      await Booking.findByIdAndDelete(booking._id);
+      emitRealtimeEvent("booking:deleted", { id: booking._id });
+      emitRealtimeEvent("stats:updated", {});
+      return res.json({
+        success: true,
+        bookingDeleted: true,
+        message: deletedStudentInfo
+          ? `Enrolled student ${deletedStudentInfo.name} (${deletedStudentInfo.username}) and booking record deleted.`
+          : `Booking record deleted.`,
+      });
+    }
+
+    // Reset booking to confirmed
+    booking.enrolledStudentId = null;
+    booking.status = "confirmed";
+    booking.enrollmentEmailStatus = "none";
+    booking.enrollmentEmailError = null;
+    await booking.save();
+
+    const bookingJson = booking.toJSON();
+    emitRealtimeEvent("booking:updated", { booking: bookingJson });
+    emitRealtimeEvent("stats:updated", {});
+
+    return res.json({
+      success: true,
+      booking: bookingJson,
+      message: deletedStudentInfo
+        ? `Enrolled student ${deletedStudentInfo.name} and login credentials (${deletedStudentInfo.username}) permanently deleted. Booking restored to confirmed status.`
+        : `Booking enrollment link cleared and restored to confirmed status.`,
+    });
+  } catch (error) {
+    console.error("Error deleting enrolled student from booking:", error);
+    return res.status(500).json({ error: "Failed to delete enrolled student.", detail: error.message });
+  }
+}
+
+// ─── DELETE /api/bookings/:id ────────────────────────────────────────────────
+export async function deleteBooking(req, res) {
+  try {
+    const { id } = req.params;
+    const { deleteStudent } = req.query;
+
+    let booking = null;
+    if (mongoose.isValidObjectId(id)) {
+      booking = await Booking.findById(id);
+    }
+    if (!booking) {
+      booking = await Booking.findOne({ bookingRef: id });
+    }
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found." });
+    }
+
+    if (deleteStudent === "true" || deleteStudent === true) {
+      let student = null;
+      if (booking.enrolledStudentId) {
+        student = await Student.findOne({ id: booking.enrolledStudentId });
+      }
+      if (!student) {
+        student = await Student.findOne({ enrolledFromBookingId: booking._id });
+      }
+      if (!student && booking.email) {
+        student = await Student.findOne({
+          email: { $regex: new RegExp(`^${escapeRegex(booking.email.trim())}$`, "i") },
+        });
+      }
+      if (student) {
+        await Student.findByIdAndDelete(student._id);
+        emitRealtimeEvent("student:deleted", { id: student.id });
+      }
+    }
+
+    await Booking.findByIdAndDelete(booking._id);
+    emitRealtimeEvent("booking:deleted", { id: booking._id });
+    emitRealtimeEvent("stats:updated", {});
+
+    return res.json({
+      success: true,
+      message: `Booking ${booking.bookingRef || booking.name} deleted successfully.`,
+    });
+  } catch (error) {
+    console.error("Error deleting booking:", error);
+    return res.status(500).json({ error: "Failed to delete booking." });
   }
 }
 

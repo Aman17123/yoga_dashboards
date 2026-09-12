@@ -112,7 +112,33 @@ export async function enrollStudent(req, res) {
       classType === "group"
         ? (customData.groupName || targetBooking?.groupCohort || "Standard Cohort").trim()
         : null;
-    const instructor = (customData.instructor || targetBooking?.instructorPreference || "Rohan Mehta").trim();
+    // Instructor assignment
+    let instructor = "Matching in Progress";
+    let instructorStatus = "matching_in_progress";
+
+    const requestedInstructor = customData.instructor ? String(customData.instructor).trim() : "";
+    if (requestedInstructor && requestedInstructor !== "Matching in Progress" && requestedInstructor !== "matching_in_progress") {
+      instructor = requestedInstructor;
+      instructorStatus = "assigned";
+    } else if (customData.instructorStatus === "assigned" && requestedInstructor) {
+      instructor = requestedInstructor;
+      instructorStatus = "assigned";
+    } else if (targetBooking?.instructorPreference && targetBooking.instructorPreference !== "Any" && targetBooking.instructorPreference !== "Matching in Progress") {
+      instructor = targetBooking.instructorPreference.trim();
+      instructorStatus = "assigned";
+    } else if (targetEnquiry?.instructorPreference && targetEnquiry.instructorPreference !== "Any" && targetEnquiry.instructorPreference !== "Matching in Progress") {
+      if (targetEnquiry.instructorPreference === "Female") {
+        instructor = "Priya Nair";
+      } else if (targetEnquiry.instructorPreference === "Male") {
+        instructor = "Rohan Mehta";
+      } else {
+        instructor = targetEnquiry.instructorPreference.trim();
+      }
+      instructorStatus = "assigned";
+    }
+    const classLink = (customData.classLink || "").trim();
+    const goals = (customData.goals || targetBooking?.goals || targetEnquiry?.reason || targetBooking?.message || "").trim();
+    const language = (customData.language || targetBooking?.language || "English").trim();
     const fee =
       Number(customData.fee) ||
       Number(targetBooking?.fee) ||
@@ -149,10 +175,31 @@ export async function enrollStudent(req, res) {
       });
     }
 
-    // Auto-generate unique username and secure temporary password
-    const baseUsername = generateBaseUsername(name, email);
-    const username = await getUniqueUsername(baseUsername);
-    const temporaryPassword = generateSecurePassword();
+    // Use custom username/password if admin provided them; otherwise auto-generate
+    let username;
+    if (customData.username && String(customData.username).trim()) {
+      const requestedUsername = String(customData.username).trim().toLowerCase();
+      // Check if the custom username is already taken
+      const takenBy = await Student.findOne({ username: requestedUsername });
+      if (takenBy) {
+        return res.status(409).json({
+          error: `Username "${requestedUsername}" is already taken. Please choose a different one.`,
+        });
+      }
+      username = requestedUsername;
+    } else {
+      const baseUsername = generateBaseUsername(name, email);
+      username = await getUniqueUsername(baseUsername);
+    }
+
+    let temporaryPassword;
+    if (customData.password && String(customData.password).trim()) {
+      temporaryPassword = String(customData.password).trim();
+    } else {
+      temporaryPassword = generateSecurePassword();
+    }
+
+    console.log(`[Enrollment] Enrolling "${name}": username="${username}", password="${temporaryPassword}", instructor="${instructor}"`);
 
     // Hash password with bcrypt
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
@@ -169,7 +216,11 @@ export async function enrollStudent(req, res) {
       phone,
       classType,
       groupName,
-      instructor: instructor === "Any" ? "Rohan Mehta" : instructor,
+      instructor,
+      instructorStatus,
+      classLink,
+      goals,
+      language,
       country,
       timezone,
       duration: customData.duration || "1 Hour",
@@ -334,7 +385,7 @@ export async function resendWelcomeEmail(req, res) {
 // ─── Regular CRUD with Real-Time Events & Password Hashing ───────────────────
 export async function createStudent(req, res) {
   try {
-    const { enquiryId, ...formData } = req.body;
+    const { enquiryId, sendWelcomeEmail: shouldSendEmail, ...formData } = req.body;
 
     // Check duplicate username
     const existing = await Student.findOne({ username: formData.username });
@@ -356,10 +407,14 @@ export async function createStudent(req, res) {
       }
     }
 
-    // Hash password if provided
-    let passwordToStore = formData.password || generateSecurePassword();
+    // Capture plain-text password BEFORE hashing so we can include it in the welcome email
+    let plainTextPassword = (formData.password || "").trim() || generateSecurePassword();
+    let passwordToStore = plainTextPassword;
     if (!passwordToStore.startsWith("$2a$") && !passwordToStore.startsWith("$2b$")) {
       passwordToStore = await bcrypt.hash(passwordToStore, 10);
+    } else {
+      // Already hashed — we can't recover the plain-text; skip emailing
+      plainTextPassword = null;
     }
 
     // Get highest current ID
@@ -370,6 +425,7 @@ export async function createStudent(req, res) {
       id: nextId,
       ...formData,
       password: passwordToStore,
+      welcomeEmailStatus: "pending",
       attendance: {},
       paymentHistory: formData.lastPaymentDate
         ? [
@@ -393,11 +449,51 @@ export async function createStudent(req, res) {
       );
     }
 
+    // Send welcome email with login credentials if requested
+    let emailResult = null;
+    if (shouldSendEmail && plainTextPassword && newStudent.email) {
+      try {
+        emailResult = await sendStudentWelcomeEmail({
+          student: newStudent,
+          temporaryPassword: plainTextPassword,
+          loginUrl: process.env.DASHBOARD_URL || "http://localhost:5173",
+        });
+
+        if (emailResult.success) {
+          newStudent.welcomeEmailStatus = "sent";
+          newStudent.welcomeEmailSentAt = new Date();
+          newStudent.welcomeEmailError = null;
+        } else {
+          newStudent.welcomeEmailStatus = "failed";
+          newStudent.welcomeEmailError = emailResult.error || "Email delivery failed";
+        }
+        await newStudent.save();
+      } catch (err) {
+        console.error("[createStudent] Error during email dispatch:", err);
+        emailResult = { success: false, error: err.message };
+        newStudent.welcomeEmailStatus = "failed";
+        newStudent.welcomeEmailError = err.message;
+        await newStudent.save();
+      }
+    } else {
+      newStudent.welcomeEmailStatus = "pending";
+      await newStudent.save();
+    }
+
     const studentJson = newStudent.toJSON();
-    emitRealtimeEvent("student:enrolled", { student: studentJson });
+    emitRealtimeEvent("student:enrolled", { student: studentJson, emailStatus: emailResult });
     emitRealtimeEvent("stats:updated", {});
 
-    return res.status(201).json(studentJson);
+    return res.status(201).json({
+      success: true,
+      student: studentJson,
+      emailStatus: emailResult,
+      message: shouldSendEmail
+        ? emailResult?.success
+          ? `Student enrolled successfully. Login credentials have been sent to ${newStudent.email}.`
+          : `Student enrolled, but welcome email failed to send: ${emailResult?.error || "Check SMTP settings."}`
+        : "Student enrolled successfully.",
+    });
   } catch (error) {
     console.error("Error creating student:", error);
     return res.status(500).json({ error: "Failed to create student record." });
@@ -422,9 +518,21 @@ export async function updateStudent(req, res) {
       }
     }
 
-    // Hash password if updating password
-    if (formData.password && !formData.password.startsWith("$2a$") && !formData.password.startsWith("$2b$")) {
-      formData.password = await bcrypt.hash(formData.password, 10);
+    // Hash password if updating password (guard against blank password wiping existing hash)
+    if (formData.password && typeof formData.password === "string" && formData.password.trim()) {
+      if (!formData.password.startsWith("$2a$") && !formData.password.startsWith("$2b$")) {
+        formData.password = await bcrypt.hash(formData.password.trim(), 10);
+      }
+    } else {
+      delete formData.password;
+    }
+
+    if (formData.instructor !== undefined) {
+      if (formData.instructor && formData.instructor !== "Matching in Progress") {
+        formData.instructorStatus = "assigned";
+      } else {
+        formData.instructorStatus = "matching_in_progress";
+      }
     }
 
     const updated = await Student.findOneAndUpdate({ id }, formData, {
@@ -464,26 +572,192 @@ export async function deleteStudent(req, res) {
       return res.status(404).json({ error: "Student not found." });
     }
 
-    // Clean up references in Bookings and Enquiries
-    await Booking.updateMany(
-      { enrolledStudentId: deleted.id },
-      { $set: { enrolledStudentId: null } }
-    ).catch(() => {});
-    await Enquiry.updateMany(
-      { convertedStudentId: deleted.id },
-      { $set: { convertedStudentId: null } }
-    ).catch(() => {});
+    // Clean up and restore references in Bookings
+    try {
+      const linkedBookings = await Booking.find({
+        $or: [
+          { enrolledStudentId: deleted.id },
+          ...(deleted.enrolledFromBookingId ? [{ _id: deleted.enrolledFromBookingId }] : []),
+        ],
+      });
+
+      for (const b of linkedBookings) {
+        b.enrolledStudentId = null;
+        if (b.status === "converted") {
+          b.status = "confirmed";
+        }
+        b.enrollmentEmailStatus = "none";
+        b.enrollmentEmailError = null;
+        await b.save();
+        emitRealtimeEvent("booking:updated", { booking: b.toJSON() });
+      }
+    } catch (err) {
+      console.error("Error unlinking booking on student delete:", err);
+    }
+
+    // Clean up and restore references in Enquiries
+    try {
+      const linkedEnquiries = await Enquiry.find({
+        $or: [
+          { convertedStudentId: deleted.id },
+          ...(deleted.enrolledFromEnquiryId ? [{ id: deleted.enrolledFromEnquiryId }] : []),
+        ],
+      });
+
+      for (const eq of linkedEnquiries) {
+        eq.convertedStudentId = null;
+        if (eq.status === "accepted") {
+          eq.status = "pending";
+        }
+        await eq.save();
+        emitRealtimeEvent("enquiry:updated", { enquiry: eq.toJSON() });
+      }
+    } catch (err) {
+      console.error("Error unlinking enquiry on student delete:", err);
+    }
 
     emitRealtimeEvent("student:deleted", { id: deleted.id });
     emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,
-      message: `${deleted.name} and their user login account were permanently deleted.`,
+      message: `${deleted.name} and their user login account (username: ${deleted.username}) were permanently deleted.`,
     });
   } catch (error) {
     console.error("Error deleting student:", error);
     return res.status(500).json({ error: "Failed to delete student record." });
+  }
+}
+
+export async function resetStudentPassword(req, res) {
+  try {
+    const id = Number(req.params.id);
+    const { newPassword, password, username } = req.body;
+
+    const student = await Student.findOne({ id });
+    if (!student) {
+      return res.status(404).json({ error: "Student not found." });
+    }
+
+    let usernameUpdated = false;
+    let passwordUpdated = false;
+    let rawPassword = null;
+
+    // Handle username update if provided
+    if (username !== undefined && username !== null) {
+      const cleanUsername = String(username).trim().toLowerCase();
+      if (!cleanUsername || cleanUsername.length < 3) {
+        return res.status(400).json({ error: "Username must be at least 3 characters long." });
+      }
+      if (!/^[a-z0-9_.-]+$/.test(cleanUsername)) {
+        return res.status(400).json({
+          error: "Username can only contain lowercase letters, numbers, dots, hyphens, and underscores.",
+        });
+      }
+
+      if (cleanUsername !== student.username) {
+        const existing = await Student.findOne({
+          username: cleanUsername,
+          id: { $ne: id },
+        });
+        if (existing) {
+          return res.status(409).json({
+            error: `Username "${cleanUsername}" is already taken by another student.`,
+          });
+        }
+        student.username = cleanUsername;
+        usernameUpdated = true;
+      }
+    }
+
+    // Handle password update if provided
+    const passCandidate = (newPassword || password || "").trim();
+    if (passCandidate) {
+      if (passCandidate.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters long." });
+      }
+      rawPassword = passCandidate;
+      student.password = await bcrypt.hash(rawPassword, 10);
+      passwordUpdated = true;
+    }
+
+    if (!usernameUpdated && !passwordUpdated) {
+      if (newPassword === undefined && password === undefined && !username) {
+        rawPassword = generateSecurePassword();
+        student.password = await bcrypt.hash(rawPassword, 10);
+        passwordUpdated = true;
+      }
+    }
+
+    await student.save();
+
+    const studentJson = student.toJSON();
+    emitRealtimeEvent("student:updated", { student: studentJson });
+
+    let message = "Credentials updated successfully.";
+    if (usernameUpdated && passwordUpdated) {
+      message = `Username updated to "${student.username}" and new password set successfully.`;
+    } else if (usernameUpdated) {
+      message = `Username updated to "${student.username}".`;
+    } else if (passwordUpdated) {
+      message = `Password updated successfully for ${student.name} (${student.username}).`;
+    }
+
+    return res.json({
+      success: true,
+      message,
+      student: studentJson,
+      temporaryPassword: rawPassword,
+    });
+  } catch (error) {
+    console.error("Error resetting student credentials:", error);
+    return res.status(500).json({ error: "Failed to update student credentials.", detail: error.message });
+  }
+}
+
+export async function changeStudentPassword(req, res) {
+  try {
+    const id = Number(req.params.id);
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "Both current password and new password are required." });
+    }
+
+    if (newPassword.trim().length < 6) {
+      return res.status(400).json({ error: "New password must be at least 6 characters long." });
+    }
+
+    const student = await Student.findOne({ id });
+    if (!student) {
+      return res.status(404).json({ error: "Student not found." });
+    }
+
+    // Verify current password
+    let isMatch = false;
+    if (student.password.startsWith("$2a$") || student.password.startsWith("$2b$")) {
+      isMatch = await bcrypt.compare(currentPassword, student.password);
+    } else {
+      isMatch = student.password === currentPassword;
+    }
+
+    if (!isMatch) {
+      return res.status(401).json({ error: "Your current password does not match our records." });
+    }
+
+    // Hash and update with new password
+    student.password = await bcrypt.hash(newPassword.trim(), 10);
+    await student.save();
+
+    emitRealtimeEvent("student:updated", { student: student.toJSON() });
+
+    return res.json({
+      success: true,
+      message: "Password changed successfully. You can now use your new password.",
+    });
+  } catch (error) {
+    console.error("Error changing student password:", error);
+    return res.status(500).json({ error: "Failed to change password.", detail: error.message });
   }
 }
 

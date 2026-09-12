@@ -54,6 +54,36 @@ export const api = {
       request(`/students/${id}/resend-welcome-email`, {
         method: "POST",
       }),
+    resetPassword: (studentOrId, payload) => {
+      const id =
+        typeof studentOrId === "object" && studentOrId !== null
+          ? studentOrId.id !== undefined
+            ? studentOrId.id
+            : studentOrId._id
+          : studentOrId;
+      const body = typeof payload === "string" ? { newPassword: payload } : payload || {};
+      return request(`/students/${id}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    },
+    updateCredentials: (studentOrId, credentials) => {
+      const id =
+        typeof studentOrId === "object" && studentOrId !== null
+          ? studentOrId.id !== undefined
+            ? studentOrId.id
+            : studentOrId._id
+          : studentOrId;
+      return request(`/students/${id}/credentials`, {
+        method: "PUT",
+        body: JSON.stringify(credentials),
+      });
+    },
+    changePassword: (id, currentPassword, newPassword) =>
+      request(`/students/${id}/change-password`, {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }),
     update: (id, studentData) =>
       request(`/students/${id}`, {
         method: "PUT",
@@ -87,6 +117,14 @@ export const api = {
         method: "PATCH",
         body: JSON.stringify({ status }),
       }),
+    deleteEnrolledStudent: (id, alsoDeleteEnquiry = false) =>
+      request(`/enquiries/${id}/enrolled-student?alsoDeleteEnquiry=${Boolean(alsoDeleteEnquiry)}`, {
+        method: "DELETE",
+      }),
+    delete: (id, deleteStudent = false) =>
+      request(`/enquiries/${id}?deleteStudent=${Boolean(deleteStudent)}`, {
+        method: "DELETE",
+      }),
   },
 
   settings: {
@@ -109,6 +147,14 @@ export const api = {
       request(`/bookings/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status, adminNotes }),
+      }),
+    deleteEnrolledStudent: (id, alsoDeleteBooking = false) =>
+      request(`/bookings/${id}/enrolled-student?alsoDeleteBooking=${Boolean(alsoDeleteBooking)}`, {
+        method: "DELETE",
+      }),
+    delete: (id, deleteStudent = false) =>
+      request(`/bookings/${id}?deleteStudent=${Boolean(deleteStudent)}`, {
+        method: "DELETE",
       }),
   },
 };

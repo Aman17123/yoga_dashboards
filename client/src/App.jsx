@@ -15,6 +15,9 @@ import {
   BookingDetailModal,
   ReceiptModal,
   EnrollStudentConfirmModal,
+  DeleteEnrolledStudentModal,
+  ResetStudentPasswordModal,
+  DeleteRecordModal,
 } from "./components/Modals";
 import {
   ADMIN_ACCOUNT,
@@ -47,6 +50,7 @@ export default function App() {
       return null;
     }
   }); // { role: "admin" } or { role: "student", id: 1 }
+  const [currentView, setCurrentView] = useState("dashboard"); // "dashboard" | "home"
   const [activeAdminTab, setActiveAdminTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
@@ -61,6 +65,8 @@ export default function App() {
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState(null);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   // Live 1-second clock
   useEffect(() => {
@@ -209,6 +215,10 @@ export default function App() {
       );
     };
 
+    const handleBookingDeleted = ({ id }) => {
+      setBookings((prev) => prev.filter((b) => b._id !== id));
+    };
+
     const handleEnquiryCreated = ({ enquiry }) => {
       if (!enquiry) return;
       setEnquiries((prev) => {
@@ -225,6 +235,10 @@ export default function App() {
       );
     };
 
+    const handleEnquiryDeleted = ({ id }) => {
+      setEnquiries((prev) => prev.filter((q) => q.id !== id));
+    };
+
     const handleStatsUpdated = () => {
       // Background re-fetch to ensure exact consistency
       loadDatabaseData(true);
@@ -235,8 +249,10 @@ export default function App() {
     socket.on("student:deleted", handleStudentDeleted);
     socket.on("booking:created", handleBookingCreated);
     socket.on("booking:updated", handleBookingUpdated);
+    socket.on("booking:deleted", handleBookingDeleted);
     socket.on("enquiry:created", handleEnquiryCreated);
     socket.on("enquiry:updated", handleEnquiryUpdated);
+    socket.on("enquiry:deleted", handleEnquiryDeleted);
     socket.on("stats:updated", handleStatsUpdated);
 
     return () => {
@@ -246,8 +262,10 @@ export default function App() {
       socket.off("student:deleted", handleStudentDeleted);
       socket.off("booking:created", handleBookingCreated);
       socket.off("booking:updated", handleBookingUpdated);
+      socket.off("booking:deleted", handleBookingDeleted);
       socket.off("enquiry:created", handleEnquiryCreated);
       socket.off("enquiry:updated", handleEnquiryUpdated);
+      socket.off("enquiry:deleted", handleEnquiryDeleted);
       socket.off("stats:updated", handleStatsUpdated);
     };
   }, [loadDatabaseData]);
@@ -282,6 +300,14 @@ export default function App() {
       if (res?.success) {
         setSession(res.session);
         localStorage.setItem("yoga_session", JSON.stringify(res.session));
+        if (res.session.role === "student") {
+          setCurrentView("home");
+          const sName = res.session.name || "Student";
+          showToast(`Welcome back, ${sName}! You are logged into your student account.`);
+        } else {
+          setCurrentView("dashboard");
+          showToast("Logged in as Studio Administrator.");
+        }
         return true;
       }
     } catch (err) {
@@ -296,6 +322,8 @@ export default function App() {
       const adminSess = { role: "admin" };
       setSession(adminSess);
       localStorage.setItem("yoga_session", JSON.stringify(adminSess));
+      setCurrentView("dashboard");
+      showToast("Logged in as Studio Administrator.");
       return true;
     }
     const foundStudent = students.find(
@@ -305,6 +333,8 @@ export default function App() {
       const studentSess = { role: "student", id: foundStudent.id };
       setSession(studentSess);
       localStorage.setItem("yoga_session", JSON.stringify(studentSess));
+      setCurrentView("home");
+      showToast(`Welcome back, ${foundStudent.name}! You are logged into your student account.`);
       return true;
     }
     return false;
@@ -316,6 +346,13 @@ export default function App() {
       if (res?.success) {
         setSession(res.session);
         localStorage.setItem("yoga_session", JSON.stringify(res.session));
+        if (res.session.role === "student") {
+          setCurrentView("home");
+          showToast("Logged in as Student.");
+        } else {
+          setCurrentView("dashboard");
+          showToast("Logged in as Studio Administrator.");
+        }
         return;
       }
     } catch (err) {
@@ -326,11 +363,15 @@ export default function App() {
       const adminSess = { role: "admin" };
       setSession(adminSess);
       localStorage.setItem("yoga_session", JSON.stringify(adminSess));
+      setCurrentView("dashboard");
+      showToast("Logged in as Studio Administrator.");
     } else {
       const studentId = students[0]?.id || 1;
       const studentSess = { role: "student", id: studentId };
       setSession(studentSess);
       localStorage.setItem("yoga_session", JSON.stringify(studentSess));
+      setCurrentView("home");
+      showToast("Logged in as Student.");
     }
   };
 
@@ -338,6 +379,7 @@ export default function App() {
     setSession(null);
     localStorage.removeItem("yoga_session");
     setActiveModal(null);
+    setCurrentView("home");
   };
 
   // Attendance Toggling (persists to backend API)
@@ -394,8 +436,6 @@ export default function App() {
     }
   };
 
-  // Add / Edit Student (persists to backend API)
-  // Add / Edit Student (persists to backend API)
   const handleSaveStudent = async (formData, existingId, linkedEnquiryId, linkedBookingId) => {
     const duplicate = students.find(
       (s) => s.username === formData.username && s.id !== existingId
@@ -413,10 +453,14 @@ export default function App() {
         );
         showToast(`${formData.name}'s profile was updated.`);
       } else {
-        const created = await api.students.create({
+        const res = await api.students.create({
           ...formData,
           enquiryId: linkedEnquiryId,
         });
+
+        // New API returns { success, student, emailStatus, message }
+        const created = res.student || res;
+
         setStudents((prev) => [...prev, created]);
 
         if (linkedEnquiryId) {
@@ -427,23 +471,21 @@ export default function App() {
                 : q
             )
           );
-          showToast(
-            `${created.name} was enrolled into studio roster.`
-          );
         } else if (linkedBookingId || activeModal?.bookingId) {
           const bId = linkedBookingId || activeModal?.bookingId;
           await api.bookings.updateStatus(bId, "converted").catch(console.warn);
           setBookings((prev) =>
             prev.map((b) => (b._id === bId ? { ...b, status: "converted" } : b))
           );
-          showToast(
-            `${created.name} was successfully enrolled from online booking.`
-          );
-        } else {
-          showToast(
-            `${created.name} was successfully enrolled.`
-          );
         }
+
+        // Show the backend message which includes email delivery status
+        showToast(
+          res.message ||
+          (res.emailStatus?.success
+            ? `${created.name} enrolled. Login credentials sent to ${created.email}.`
+            : `${created.name} enrolled successfully.`)
+        );
       }
       setActiveModal(null);
     } catch (err) {
@@ -457,13 +499,234 @@ export default function App() {
     try {
       await api.students.delete(studentId);
       setStudents((prev) => prev.filter((s) => s.id !== studentId));
-      showToast(`${target ? target.name : "Student"} was removed.`);
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.enrolledStudentId === studentId
+            ? { ...b, status: "confirmed", enrolledStudentId: null, enrollmentEmailStatus: "none", enrollmentEmailError: null }
+            : b
+        )
+      );
+      setEnquiries((prev) =>
+        prev.map((q) =>
+          q.convertedStudentId === studentId
+            ? { ...q, status: "pending", convertedStudentId: null }
+            : q
+        )
+      );
+      showToast(`${target ? target.name : "Student"} and user credentials were permanently deleted.`);
     } catch (err) {
       console.error("Database delete error:", err);
-      setStudents((prev) => prev.filter((s) => s.id !== studentId));
-      showToast(`${target ? target.name : "Student"} was removed.`);
+      showToast(err?.message || "Failed to delete student record.");
     }
     setActiveModal(null);
+  };
+
+  const handleRequestDeleteStudent = (student) => {
+    setActiveModal({
+      type: "deleteEnrolledStudent",
+      student,
+    });
+  };
+
+  const handleRequestDeleteEnrolledStudentFromRecord = (record, recordType) => {
+    let student = null;
+    if (recordType === "booking") {
+      student = students.find(
+        (s) =>
+          s.id === record.enrolledStudentId ||
+          (record.email && s.email?.toLowerCase() === record.email?.toLowerCase())
+      );
+      setActiveModal({
+        type: "deleteEnrolledStudent",
+        booking: record,
+        student,
+      });
+    } else if (recordType === "enquiry") {
+      student = students.find(
+        (s) =>
+          s.id === record.convertedStudentId ||
+          (record.email && s.email?.toLowerCase() === record.email?.toLowerCase())
+      );
+      setActiveModal({
+        type: "deleteEnrolledStudent",
+        enquiry: record,
+        student,
+      });
+    }
+  };
+
+  const handleConfirmDeleteEnrolledStudent = async ({ student, booking, enquiry, alsoDeleteRecord }) => {
+    setIsDeletingStudent(true);
+    try {
+      if (booking) {
+        const bookingKey = booking._id || booking.id || booking.bookingRef;
+        const res = await api.bookings.deleteEnrolledStudent(bookingKey, alsoDeleteRecord);
+        if (alsoDeleteRecord) {
+          setBookings((prev) =>
+            prev.filter((b) => (b._id || b.bookingRef) !== (booking._id || booking.bookingRef))
+          );
+        } else if (res?.booking) {
+          setBookings((prev) =>
+            prev.map((b) =>
+              (b._id || b.bookingRef) === (booking._id || booking.bookingRef) ? res.booking : b
+            )
+          );
+        } else {
+          setBookings((prev) =>
+            prev.map((b) =>
+              (b._id || b.bookingRef) === (booking._id || booking.bookingRef)
+                ? { ...b, status: "confirmed", enrolledStudentId: null, enrollmentEmailStatus: "none", enrollmentEmailError: null }
+                : b
+            )
+          );
+        }
+        if (student || booking.enrolledStudentId) {
+          const sId = student?.id || booking.enrolledStudentId;
+          setStudents((prev) => prev.filter((s) => s.id !== sId));
+        }
+        showToast(res?.message || "Enrolled student account (username & password) deleted.");
+      } else if (enquiry) {
+        const enquiryKey = enquiry.id || enquiry._id;
+        const res = await api.enquiries.deleteEnrolledStudent(enquiryKey, alsoDeleteRecord);
+        if (alsoDeleteRecord) {
+          setEnquiries((prev) =>
+            prev.filter((q) => (q.id || q._id) !== (enquiry.id || enquiry._id))
+          );
+        } else if (res?.enquiry) {
+          setEnquiries((prev) =>
+            prev.map((q) => ((q.id || q._id) === (enquiry.id || enquiry._id) ? res.enquiry : q))
+          );
+        } else {
+          setEnquiries((prev) =>
+            prev.map((q) =>
+              (q.id || q._id) === (enquiry.id || enquiry._id)
+                ? { ...q, status: "pending", convertedStudentId: null }
+                : q
+            )
+          );
+        }
+        if (student || enquiry.convertedStudentId) {
+          const sId = student?.id || enquiry.convertedStudentId;
+          setStudents((prev) => prev.filter((s) => s.id !== sId));
+        }
+        showToast(res?.message || "Enrolled student account (username & password) deleted.");
+      } else if (student) {
+        const sKey = student.id !== undefined ? student.id : student._id;
+        await api.students.delete(sKey);
+        setStudents((prev) => prev.filter((s) => s.id !== student.id && s._id !== student._id));
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.enrolledStudentId === student.id
+              ? { ...b, status: "confirmed", enrolledStudentId: null, enrollmentEmailStatus: "none", enrollmentEmailError: null }
+              : b
+          )
+        );
+        setEnquiries((prev) =>
+          prev.map((q) =>
+            q.convertedStudentId === student.id
+              ? { ...q, status: "pending", convertedStudentId: null }
+              : q
+          )
+        );
+        showToast(`Student ${student.name} and user login credentials were deleted.`);
+      }
+      setActiveModal(null);
+    } catch (err) {
+      console.error("Error deleting enrolled student:", err);
+      showToast(err?.message || "Failed to delete student account.");
+    } finally {
+      setIsDeletingStudent(false);
+    }
+  };
+
+  const handleDeleteBooking = (booking) => {
+    const linkedStudent = students.find(
+      (s) =>
+        s.id === booking.enrolledStudentId ||
+        (booking.email && s.email?.toLowerCase() === booking.email?.toLowerCase())
+    );
+    setActiveModal({
+      type: "deleteRecord",
+      record: booking,
+      recordType: "booking",
+      linkedStudent,
+    });
+  };
+
+  const handleDeleteEnquiry = (enquiry) => {
+    const linkedStudent = students.find(
+      (s) =>
+        s.id === enquiry.convertedStudentId ||
+        (enquiry.email && s.email?.toLowerCase() === enquiry.email?.toLowerCase())
+    );
+    setActiveModal({
+      type: "deleteRecord",
+      record: enquiry,
+      recordType: "enquiry",
+      linkedStudent,
+    });
+  };
+
+  const handleConfirmDeleteRecord = async ({ record, recordType, deleteStudent }) => {
+    setIsDeletingStudent(true);
+    try {
+      if (recordType === "booking") {
+        const id = record._id || record.id || record.bookingRef;
+        await api.bookings.delete(id, deleteStudent);
+        setBookings((prev) =>
+          prev.filter((b) => (b._id || b.bookingRef) !== (record._id || record.bookingRef))
+        );
+        if (deleteStudent && record.enrolledStudentId) {
+          setStudents((prev) => prev.filter((s) => s.id !== record.enrolledStudentId));
+        }
+        showToast(`Booking ${record.bookingRef || record.name} permanently deleted.`);
+      } else if (recordType === "enquiry") {
+        const id = record.id !== undefined ? record.id : record._id;
+        await api.enquiries.delete(id, deleteStudent);
+        setEnquiries((prev) =>
+          prev.filter((q) => (q.id || q._id) !== (record.id || record._id))
+        );
+        if (deleteStudent && record.convertedStudentId) {
+          setStudents((prev) => prev.filter((s) => s.id !== record.convertedStudentId));
+        }
+        showToast(`Inquiry #${record.id || ""} (${record.name}) permanently deleted.`);
+      }
+      setActiveModal(null);
+    } catch (err) {
+      console.error("Error deleting record:", err);
+      showToast(err?.message || "Failed to delete record.");
+    } finally {
+      setIsDeletingStudent(false);
+    }
+  };
+
+  const handleSaveStudentCredentials = async (studentOrId, credentials) => {
+    setIsSavingPassword(true);
+    try {
+      const id =
+        typeof studentOrId === "object" && studentOrId !== null
+          ? studentOrId.id !== undefined
+            ? studentOrId.id
+            : studentOrId._id
+          : studentOrId;
+
+      const payload =
+        typeof credentials === "string" ? { newPassword: credentials } : credentials;
+      const res = await api.students.resetPassword(id, payload);
+
+      if (res?.student) {
+        setStudents((prev) =>
+          prev.map((s) => (s.id === res.student.id ? { ...s, ...res.student } : s))
+        );
+      }
+      showToast(res?.message || "Student credentials updated successfully.");
+      setActiveModal(null);
+    } catch (err) {
+      console.error("Error updating student credentials:", err);
+      showToast(err?.message || "Failed to update credentials.");
+    } finally {
+      setIsSavingPassword(false);
+    }
   };
 
   // Enquiries (persists to backend API)
@@ -510,10 +773,22 @@ export default function App() {
     setIsEnrolling(true);
     setEnrollError(null);
     try {
+      // Build payload — include credentials and instructor data from the modal
+      const basePayload = {
+        instructor: target.instructor,
+        instructorStatus: target.instructorStatus,
+        classLink: target.classLink,
+        goals: target.goals,
+        language: target.language,
+        timezone: target.timezone,
+        ...(target.username ? { username: target.username } : {}),
+        ...(target.password ? { password: target.password } : {}),
+      };
+
       const payload =
         itemType === "booking"
-          ? { bookingId: target._id }
-          : { enquiryId: target.id };
+          ? { bookingId: target._id, ...basePayload }
+          : { enquiryId: target.id, ...basePayload };
 
       const res = await api.students.enroll(payload);
 
@@ -550,8 +825,11 @@ export default function App() {
         );
       }
 
+      // Automatically switch to permanent students roster view
+      setActiveAdminTab("students");
+
       if (res.emailStatus?.success) {
-        showToast("Student enrolled successfully. Login credentials have been sent to the student’s email.");
+        showToast(`${res.student?.name || "Student"} enrolled. Login credentials sent to ${res.student?.email || "their email"}.`);
       } else {
         showToast(
           `Student enrolled, but welcome email failed: ${res.emailStatus?.error || "Check email service"}`
@@ -613,21 +891,25 @@ export default function App() {
     }
   };
 
-  // If not logged in, display the yogaonlive Home Page
-  if (!session) {
+  // Active student for student view
+  const currentStudent =
+    session?.role === "student"
+      ? students.find((s) => s.id === session.id) || students[0]
+      : null;
+
+  // If not logged in or user chose to view homepage, display the yogaonlive Home Page
+  if (!session || currentView === "home") {
     return (
       <HomePage
+        session={session}
+        currentStudent={currentStudent}
         onLogin={handleLogin}
         onQuickLogin={handleQuickLogin}
+        onLogout={handleLogout}
+        onNavigateDashboard={() => setCurrentView("dashboard")}
       />
     );
   }
-
-  // Active student for student view
-  const currentStudent =
-    session.role === "student"
-      ? students.find((s) => s.id === session.id) || students[0]
-      : null;
 
   const pendingEnquiryCount =
     enquiries.filter((q) => q.status === "pending").length +
@@ -641,6 +923,7 @@ export default function App() {
         activeAdminTab={activeAdminTab}
         onSwitchAdminTab={setActiveAdminTab}
         onLogout={handleLogout}
+        onVisitWebsite={() => setCurrentView("home")}
         currentTime={currentTime}
         student={currentStudent}
         pendingEnquiryCount={pendingEnquiryCount}
@@ -666,8 +949,21 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Action: Notification Center Bell */}
-          <div className="flex items-center gap-3">
+          {/* Right Action: Live Home Page shortcut & Notification Center Bell */}
+          <div className="flex items-center gap-2.5">
+            {session.role === "student" && (
+              <button
+                type="button"
+                onClick={() => setCurrentView("home")}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] border text-xs font-semibold bg-[var(--surface)] hover:bg-[var(--bg-alt)] text-[var(--ink)] cursor-pointer transition-colors shadow-2xs"
+                style={{ borderColor: "var(--border)" }}
+                title="Return to live website"
+              >
+                <span>🏠</span>
+                <span className="hidden sm:inline">Live Home Page</span>
+              </button>
+            )}
+
             <NotificationCenter
               students={students}
               enquiries={enquiries}
@@ -697,6 +993,7 @@ export default function App() {
             <StudentDashboard
               student={currentStudent}
               currentTime={currentTime}
+              paymentSettings={paymentSettings}
               onPayNow={(student) => setActiveModal({ type: "payNow", student })}
               onToggleAttendance={handleToggleAttendance}
               onOpenReceipt={(student) => setActiveModal({ type: "receipt", student })}
@@ -715,6 +1012,7 @@ export default function App() {
                     setActiveModal({ type: "addEditStudent", student })
                   }
                   onDeleteStudent={handleDeleteStudent}
+                  onRequestDeleteStudent={handleRequestDeleteStudent}
                   onAddStudent={() =>
                     setActiveModal({ type: "addEditStudent", student: null })
                   }
@@ -742,6 +1040,9 @@ export default function App() {
                   }
                   onEnrollBooking={handleEnrollBooking}
                   onRetryEnrollEmail={handleRetryBookingEmail}
+                  onDeleteEnrolledStudent={handleRequestDeleteEnrolledStudentFromRecord}
+                  onDeleteBooking={handleDeleteBooking}
+                  onDeleteEnquiry={handleDeleteEnquiry}
                   onRefresh={() => loadDatabaseData(false)}
                   isRefreshing={isRefreshing}
                   onUpdateBookingStatus={async (id, status) => {
@@ -793,7 +1094,7 @@ export default function App() {
       </div>
 
       {/* Modals Container */}
-        {activeModal?.type === "studentDetail" && (
+      {activeModal?.type === "studentDetail" && (
         <StudentDetailModal
           student={students.find((s) => s.id === activeModal.student.id) || activeModal.student}
           currentTime={currentTime}
@@ -802,10 +1103,17 @@ export default function App() {
             setActiveModal({ type: "addEditStudent", student: s })
           }
           onDeleteStudent={handleDeleteStudent}
+          onRequestDeleteStudent={handleRequestDeleteStudent}
+          onResetPassword={(s) => setActiveModal({ type: "resetPassword", student: s })}
           onUpdatePayment={handleUpdatePayment}
           onOpenReceipt={(s) => setActiveModal({ type: "receipt", student: s })}
           onResendWelcomeEmail={handleResendWelcomeEmail}
           isResendingEmail={isResendingEmail}
+          onUpdateStudent={async (id, updates) => {
+            const current = students.find((s) => s.id === id) || activeModal.student;
+            await handleSaveStudent({ ...current, ...updates }, id);
+          }}
+          paymentSettings={paymentSettings}
         />
       )}
 
@@ -818,6 +1126,7 @@ export default function App() {
           onClose={() => setActiveModal(null)}
           onSave={handleSaveStudent}
           onDelete={handleDeleteStudent}
+          onRequestDelete={handleRequestDeleteStudent}
         />
       )}
 
@@ -832,6 +1141,37 @@ export default function App() {
           onConfirmEnroll={handleConfirmEnrollStudent}
           isEnrolling={isEnrolling}
           error={enrollError}
+        />
+      )}
+
+      {activeModal?.type === "deleteEnrolledStudent" && (
+        <DeleteEnrolledStudentModal
+          student={activeModal.student}
+          booking={activeModal.booking}
+          enquiry={activeModal.enquiry}
+          onClose={() => setActiveModal(null)}
+          onConfirm={handleConfirmDeleteEnrolledStudent}
+          isDeleting={isDeletingStudent}
+        />
+      )}
+
+      {activeModal?.type === "deleteRecord" && (
+        <DeleteRecordModal
+          record={activeModal.record}
+          recordType={activeModal.recordType}
+          linkedStudent={activeModal.linkedStudent}
+          onClose={() => setActiveModal(null)}
+          onConfirm={handleConfirmDeleteRecord}
+          isDeleting={isDeletingStudent}
+        />
+      )}
+
+      {activeModal?.type === "resetPassword" && (
+        <ResetStudentPasswordModal
+          student={activeModal.student}
+          onClose={() => setActiveModal(null)}
+          onSave={handleSaveStudentCredentials}
+          isSaving={isSavingPassword}
         />
       )}
 
@@ -859,6 +1199,8 @@ export default function App() {
           onClose={() => setActiveModal(null)}
           onUpdateStatus={handleUpdateEnquiryStatus}
           onAcceptEnquiry={handleAcceptEnquiry}
+          onDeleteEnrolledStudent={(enquiry) => handleRequestDeleteEnrolledStudentFromRecord(enquiry, "enquiry")}
+          onDeleteEnquiry={handleDeleteEnquiry}
         />
       )}
 
@@ -883,6 +1225,8 @@ export default function App() {
             handleEnrollBooking(booking);
           }}
           onRetryEnrollEmail={handleRetryBookingEmail}
+          onDeleteEnrolledStudent={(booking) => handleRequestDeleteEnrolledStudentFromRecord(booking, "booking")}
+          onDeleteBooking={handleDeleteBooking}
         />
       )}
 

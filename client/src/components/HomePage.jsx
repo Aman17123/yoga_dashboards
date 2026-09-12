@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getWallTime, digital12 } from "../utils/dateUtils";
+import Navbar from "./Navbar";
 
 // Brand Sun Logo
 function SunLogo({ size = 32 }) {
@@ -12,23 +12,21 @@ function SunLogo({ size = 32 }) {
   );
 }
 
-export default function HomePage({ onLogin, onQuickLogin }) {
-  // Studio login modal state
+export default function HomePage({
+  onLogin,
+  onQuickLogin,
+  session,
+  currentStudent,
+  onLogout,
+  onNavigateDashboard,
+}) {
+  // Login modal state
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-
-  // Live IST reference clock
-  const [currentTime, setCurrentTime] = useState(new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const istWall = getWallTime("Asia/Kolkata", currentTime);
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
@@ -42,6 +40,8 @@ export default function HomePage({ onLogin, onQuickLogin }) {
       const success = await onLogin(username.trim(), password);
       if (!success) {
         setLoginError("Invalid username or password.");
+      } else {
+        setShowLoginModal(false);
       }
     } catch (err) {
       setLoginError(err?.message || "Invalid credentials. Please try again.");
@@ -53,53 +53,46 @@ export default function HomePage({ onLogin, onQuickLogin }) {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#FCFAF7] text-[#171A32] font-sans antialiased selection:bg-[#F2994A]/20 selection:text-[#171A32]">
       {/* ═══ TOP NAVBAR ═══ */}
-      <header className="sticky top-0 z-40 bg-[#FCFAF7]/95 backdrop-blur-md border-b border-[#E7E4DC] transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
-          {/* Brand */}
-          <a href="/" className="flex items-center gap-3 no-underline">
-            <SunLogo size={36} />
-            <div className="flex flex-col">
-              <span
-                className="text-2xl font-bold tracking-tight text-[#171A32] leading-none"
-                style={{ fontFamily: "var(--font-display)" }}
+      <Navbar
+        session={session}
+        currentStudent={currentStudent}
+        onLoginClick={() => setShowLoginModal(true)}
+        onLogout={onLogout}
+        onNavigateDashboard={onNavigateDashboard}
+        showBookNow={true}
+      />
+
+      {/* ═══ LOGGED-IN STUDENT WELCOME BANNER ═══ */}
+      {session?.role === "student" && currentStudent && (
+        <div className="bg-gradient-to-r from-[#EEF2FD] via-[#F4F1FB] to-[#FFF8F0] border-b border-[#E2E6FA] py-3 px-4 sm:px-8 transition-all">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🧘‍♀️</span>
+              <div>
+                <div className="text-xs sm:text-sm font-bold text-[#171A32]">
+                  Welcome back, {currentStudent.name}!
+                </div>
+                <div className="text-[11px] text-[#6B7089]">
+                  {currentStudent.classType === "group" ? "Group Cohort" : "Private 1-on-1 Practice"} · Instructor:{" "}
+                  <strong className="text-[#4C5FD5]">{currentStudent.instructor || "Assigned"}</strong> · Daily Slot:{" "}
+                  <strong>{currentStudent.classTimeIST || "19:00"} IST</strong>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                id="banner-open-dashboard-btn"
+                onClick={onNavigateDashboard}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[8px] bg-[#4C5FD5] hover:bg-[#3B4DBF] text-white text-xs font-bold tracking-wide shadow-sm hover:shadow transition-all cursor-pointer"
               >
-                yogaonlive
-              </span>
-              <span className="text-[11px] font-semibold tracking-wider text-[#7B8098] uppercase mt-0.5">
-                Live Online Yoga Studio
-              </span>
+                <span>Go to My Dashboard</span>
+                <span>→</span>
+              </button>
             </div>
-          </a>
-
-          {/* Actions: Live IST Clock + Studio Login + Book Now CTA */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="hidden sm:flex items-center gap-2 font-mono text-[11px] text-[#6B7089] border border-[#DCD8D0] bg-[#FFFFFF] px-3 py-1.5 rounded-full shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-[#1E9E63] animate-pulse" />
-              <span>IST {digital12(istWall.h, istWall.m)}</span>
-            </div>
-
-            {/* Studio Workspace / Sign In Button */}
-            <button
-              type="button"
-              onClick={() => setShowLoginModal(true)}
-              className="text-xs font-semibold text-[#5B607A] hover:text-[#171A32] border border-[#DCD8D0] hover:border-[#A3A8C3] bg-[#FFFFFF] px-3.5 py-2 rounded-[8px] transition-all cursor-pointer"
-            >
-              Studio Login
-            </button>
-
-            {/* Primary Book Now Button */}
-            <a
-              href="/book"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[8px] bg-[#4C5FD5] hover:bg-[#3B4DBF] text-white text-xs sm:text-sm font-bold tracking-wide shadow-md shadow-[#4C5FD5]/20 hover:shadow-lg hover:shadow-[#4C5FD5]/30 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer no-underline"
-            >
-              <span>Book Now</span>
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </a>
           </div>
         </div>
-      </header>
+      )}
 
       {/* ═══ HERO SECTION ═══ */}
       <section className="relative overflow-hidden flex-1 flex items-center justify-center py-16 sm:py-24">
@@ -127,15 +120,29 @@ export default function HomePage({ onLogin, onQuickLogin }) {
 
           {/* Primary & Secondary Action CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-12">
-            <a
-              href="/book"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-[10px] bg-gradient-to-r from-[#4C5FD5] to-[#6B3FA8] hover:from-[#3D4EC4] hover:to-[#5B3195] text-white text-base font-bold shadow-xl shadow-[#4C5FD5]/25 hover:shadow-2xl hover:shadow-[#4C5FD5]/35 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer no-underline"
-            >
-              <span>Book Your Free Trial Class</span>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </a>
+            {session?.role === "student" ? (
+              <button
+                type="button"
+                id="hero-student-dashboard-btn"
+                onClick={onNavigateDashboard}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-[10px] bg-gradient-to-r from-[#4C5FD5] to-[#6B3FA8] hover:from-[#3D4EC4] hover:to-[#5B3195] text-white text-base font-bold shadow-xl shadow-[#4C5FD5]/25 hover:shadow-2xl hover:shadow-[#4C5FD5]/35 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+              >
+                <span>🧘 Open My Student Dashboard</span>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            ) : (
+              <a
+                href="/book"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-[10px] bg-gradient-to-r from-[#4C5FD5] to-[#6B3FA8] hover:from-[#3D4EC4] hover:to-[#5B3195] text-white text-base font-bold shadow-xl shadow-[#4C5FD5]/25 hover:shadow-2xl hover:shadow-[#4C5FD5]/35 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer no-underline"
+              >
+                <span>Book Your Free Trial Class</span>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </a>
+            )}
           </div>
 
           {/* Social Proof Trust Badges */}
@@ -196,7 +203,7 @@ export default function HomePage({ onLogin, onQuickLogin }) {
             <div className="flex items-center gap-2.5 mb-4">
               <SunLogo size={30} />
               <span className="font-bold text-xl text-[#171A32]" style={{ fontFamily: "var(--font-display)" }}>
-                yogaonlive Studio Login
+                yogaonlive Login
               </span>
             </div>
 

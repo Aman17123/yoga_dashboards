@@ -28,6 +28,7 @@ export default function AdminDashboard({
   onViewStudent,
   onEditStudent,
   onDeleteStudent,
+  onRequestDeleteStudent,
   onAddStudent,
   onOpenPaymentSettings,
   onResendWelcomeEmail,
@@ -35,8 +36,6 @@ export default function AdminDashboard({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [sortBy, setSortBy] = useState("days");
-  const [studentToDelete, setStudentToDelete] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
 
   // Compute stats
@@ -234,6 +233,7 @@ export default function AdminDashboard({
               <th>Student</th>
               <th>Type</th>
               <th>Instructor</th>
+              <th>Class Link</th>
               <th>Country</th>
               <th>Class time</th>
               <th>Fee</th>
@@ -248,7 +248,7 @@ export default function AdminDashboard({
           <tbody>
             {filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={12} className="empty-row">
+                <td colSpan={13} className="empty-row">
                   No students match this search.
                 </td>
               </tr>
@@ -298,7 +298,12 @@ export default function AdminDashboard({
                         >
                           {getInitials(s.name)}
                         </span>
-                        <span>{s.name}</span>
+                        <div className="flex flex-col text-left">
+                          <span className="font-semibold text-[var(--ink)] leading-snug">{s.name}</span>
+                          <span className="font-mono text-[10.5px] text-[var(--ink-soft)] leading-tight">
+                            @{s.username || `student${s.id}`}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -306,7 +311,39 @@ export default function AdminDashboard({
                         {typeLabel}
                       </span>
                     </td>
-                    <td>{s.instructor || "—"}</td>
+                    <td>
+                      {s.instructorStatus === "matching_in_progress" || !s.instructor ? (
+                        <span className="tag tag--soon text-[10px]" title="Instructor matching in progress (24-hour SLA)">
+                          ⏳ Matching (24h)
+                        </span>
+                      ) : (
+                        <span className="font-medium text-[var(--ink)]">{s.instructor}</span>
+                      )}
+                    </td>
+                    <td>
+                      {s.classType === "private" ? (
+                        s.classLink ? (
+                          <a
+                            href={s.classLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 font-mono text-[10.5px] px-2 py-0.5 rounded bg-[var(--dusk-soft)] text-[var(--dusk)] hover:underline"
+                            title={s.classLink}
+                          >
+                            🔗 Link Set
+                          </a>
+                        ) : (
+                          <span className="tag tag--urgent text-[10px]" title="Private meeting link not set yet">
+                            ⚠️ Needed
+                          </span>
+                        )
+                      ) : (
+                        <span className="tag tag--muted text-[10px]" title="Inherited from cohort settings">
+                          👥 Cohort Link
+                        </span>
+                      )}
+                    </td>
                     <td>{s.country}</td>
                     <td className="mono">{formatISTTime(s.classTimeIST)} IST</td>
                     <td className="mono">₹{s.fee.toLocaleString("en-IN")}</td>
@@ -356,7 +393,11 @@ export default function AdminDashboard({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setStudentToDelete(s);
+                          if (onRequestDeleteStudent) {
+                            onRequestDeleteStudent(s);
+                          } else if (onDeleteStudent) {
+                            onDeleteStudent(s.id);
+                          }
                         }}
                         aria-label={`Delete ${s.name}`}
                         title={`Delete ${s.name}'s account and records`}
@@ -399,85 +440,6 @@ export default function AdminDashboard({
           </tbody>
         </table>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {studentToDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn"
-          onClick={() => !isDeleting && setStudentToDelete(null)}
-        >
-          <div
-            className="bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] p-6 max-w-md w-full shadow-2xl relative"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-3.5 mb-4">
-              <div className="w-10 h-10 rounded-full bg-[var(--danger-soft)] text-[var(--danger)] flex items-center justify-center flex-none">
-                <TrashIcon className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-base font-bold text-[var(--ink)] leading-snug">
-                  Delete Student &amp; Account?
-                </h3>
-                <p className="text-xs text-[var(--ink-soft)] mt-1">
-                  Permanently remove this student and their login credentials from the studio.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-[var(--bg-alt)] border border-[var(--border)] rounded-[var(--radius-sm)] p-3.5 mb-4 space-y-2 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-[var(--ink-soft)] font-medium">Student Name:</span>
-                <span className="font-bold text-[var(--ink)]">{studentToDelete.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[var(--ink-soft)] font-medium">Username / Login:</span>
-                <span className="font-mono font-semibold text-[var(--ink)]">{studentToDelete.username}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[var(--ink-soft)] font-medium">Email:</span>
-                <span className="text-[var(--ink)]">{studentToDelete.email || "—"}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[var(--ink-soft)] font-medium">Class Type:</span>
-                <span className="capitalize text-[var(--ink)]">{studentToDelete.classType}</span>
-              </div>
-            </div>
-
-            <div className="text-xs text-[var(--danger)] bg-[var(--danger-soft)] p-3 rounded-[var(--radius-sm)] mb-5 leading-relaxed font-medium">
-              ⚠️ <strong>Warning:</strong> This student will no longer be able to log in to the student portal. All attendance history and payment ledgers will be permanently deleted.
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => setStudentToDelete(null)}
-                className="btn"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={async () => {
-                  if (!onDeleteStudent) return;
-                  setIsDeleting(true);
-                  try {
-                    await onDeleteStudent(studentToDelete.id);
-                    setStudentToDelete(null);
-                  } finally {
-                    setIsDeleting(false);
-                  }
-                }}
-                className="btn btn--danger flex items-center gap-1.5"
-              >
-                <TrashIcon className="w-3.5 h-3.5" />
-                <span>{isDeleting ? "Deleting…" : "Yes, Delete Account"}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }

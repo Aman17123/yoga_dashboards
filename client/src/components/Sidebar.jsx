@@ -7,6 +7,7 @@ export default function Sidebar({
   activeAdminTab,
   onSwitchAdminTab,
   onLogout,
+  onVisitWebsite,
   currentTime,
   student,
   pendingEnquiryCount = 0,
@@ -141,11 +142,25 @@ export default function Sidebar({
             </button>
           </>
         ) : (
-          <div className="flex items-center gap-2.5 w-full p-[10px_12px] text-left text-sm font-semibold rounded-[var(--radius-sm)] bg-[var(--dusk-soft)] text-[var(--dusk)]">
-            <span className="w-[18px] h-[18px] flex-none">
-              <UserIcon className="w-full h-full" />
-            </span>
-            <span>My Dashboard</span>
+          <div className="flex flex-col gap-1.5 w-full">
+            <div className="flex items-center gap-2.5 w-full p-[10px_12px] text-left text-sm font-semibold rounded-[var(--radius-sm)] bg-[var(--dusk-soft)] text-[var(--dusk)]">
+              <span className="w-[18px] h-[18px] flex-none">
+                <UserIcon className="w-full h-full" />
+              </span>
+              <span>My Practice Desk</span>
+            </div>
+
+            {onVisitWebsite && (
+              <button
+                type="button"
+                onClick={onVisitWebsite}
+                className="flex items-center gap-2.5 w-full p-[10px_12px] text-left text-sm font-semibold rounded-[var(--radius-sm)] text-[var(--ink-soft)] hover:bg-[var(--bg-alt)] hover:text-[var(--ink)] cursor-pointer transition-colors border border-transparent hover:border-[var(--border)]"
+                title="Return to the live studio home page"
+              >
+                <span className="text-base">🏠</span>
+                <span>Live Home Page</span>
+              </button>
+            )}
           </div>
         )}
       </nav>

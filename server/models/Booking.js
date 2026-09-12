@@ -28,6 +28,7 @@ const bookingSchema = new mongoose.Schema(
     fee: { type: Number, default: 0 },
 
     // Schedule & Notes
+    goals: { type: String, default: "", trim: true },
     joiningDate: { type: String, default: "", trim: true },
     message: { type: String, default: "", trim: true },
 

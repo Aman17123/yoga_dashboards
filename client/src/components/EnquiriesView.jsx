@@ -9,6 +9,7 @@ import {
   UndoIcon,
   CalendarIcon,
   UserIcon,
+  TrashIcon,
 } from "./Icons";
 import {
   formatDateHuman,
@@ -106,12 +107,15 @@ export default function EnquiriesView({
   onViewBooking,
   onEnrollBooking,
   onRetryEnrollEmail,
+  onDeleteEnrolledStudent,
+  onDeleteBooking,
+  onDeleteEnquiry,
   onRefresh,
   isRefreshing = false,
 }) {
   const [activeTab, setActiveTab] = useState("bookings");
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("active");
 
   // ── Enquiry stats ──
   const enquiryStats = useMemo(() => ({
@@ -136,7 +140,11 @@ export default function EnquiriesView({
   const filteredEnquiries = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let list = enquiries.filter((e) => {
-      if (statusFilter !== "all" && e.status !== statusFilter) return false;
+      if (statusFilter === "active") {
+        if (e.status !== "pending" && e.status !== "in_progress") return false;
+      } else if (statusFilter !== "all" && e.status !== statusFilter) {
+        return false;
+      }
       if (q && !(
         e.name.toLowerCase().includes(q) ||
         (e.email && e.email.toLowerCase().includes(q)) ||
@@ -156,7 +164,11 @@ export default function EnquiriesView({
   const filteredBookings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let list = bookings.filter((b) => {
-      if (statusFilter !== "all" && b.status !== statusFilter) return false;
+      if (statusFilter === "active") {
+        if (b.status === "converted" || b.status === "declined") return false;
+      } else if (statusFilter !== "all" && b.status !== statusFilter) {
+        return false;
+      }
       if (q && !(
         b.name.toLowerCase().includes(q) ||
         (b.email && b.email.toLowerCase().includes(q)) ||
@@ -220,7 +232,7 @@ export default function EnquiriesView({
   const switchTab = (tab) => {
     setActiveTab(tab);
     setSearchQuery("");
-    setStatusFilter("all");
+    setStatusFilter("active");
   };
 
   const pendingEnquiries = enquiryStats.pending + enquiryStats.inProgress;
@@ -362,11 +374,12 @@ export default function EnquiriesView({
               className="border rounded-[var(--radius-sm)] bg-[var(--surface)] px-3 text-sm font-semibold cursor-pointer"
               style={{ borderColor: "var(--border-strong)", color: "var(--ink)" }}
             >
-              <option value="all">All statuses</option>
+              <option value="active">Active enquiries (Pending &amp; In progress)</option>
               <option value="pending">Pending</option>
               <option value="in_progress">In progress</option>
-              <option value="accepted">Accepted</option>
+              <option value="accepted">Enrolled students (Accepted)</option>
               <option value="declined">Declined</option>
+              <option value="all">All statuses</option>
             </select>
           </div>
 
@@ -413,13 +426,38 @@ export default function EnquiriesView({
                         <td className="mono">{q.submittedDate ? formatDateHuman(parseDateOnly(q.submittedDate)) : "—"}</td>
                         <td><span className={`tag tag--${ENQUIRY_STATUS_TAG[q.status]}`}>{ENQUIRY_STATUS_LABEL[q.status]}</span></td>
                         <td>
-                          <div className="flex gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex gap-1.5 items-center flex-wrap" onClick={(e) => e.stopPropagation()}>
                             {q.status === "accepted" ? (
-                              <span className="tag tag--safe"><CheckIcon className="w-3.5 h-3.5" />Enrolled</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="tag tag--safe"><CheckIcon className="w-3.5 h-3.5" />Enrolled</span>
+                                {onDeleteEnrolledStudent && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onDeleteEnrolledStudent(q, "enquiry")}
+                                    className="btn btn--sm btn--danger text-xs py-0.5 px-2 flex items-center gap-1"
+                                    title="Delete enrolled student and revoke credentials"
+                                  >
+                                    <TrashIcon className="w-3 h-3" />
+                                    <span>Delete Student</span>
+                                  </button>
+                                )}
+                              </div>
                             ) : q.status === "declined" ? (
-                              <button type="button" onClick={() => onUpdateEnquiryStatus(q.id, "pending")} className="btn btn--sm gap-1">
-                                <UndoIcon className="w-3 h-3" /><span>Reopen</span>
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button type="button" onClick={() => onUpdateEnquiryStatus(q.id, "pending")} className="btn btn--sm gap-1">
+                                  <UndoIcon className="w-3 h-3" /><span>Reopen</span>
+                                </button>
+                                {onDeleteEnquiry && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onDeleteEnquiry(q)}
+                                    className="icon-btn icon-btn--danger"
+                                    title="Delete this inquiry record"
+                                  >
+                                    <TrashIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             ) : (
                               <>
                                 <button type="button" onClick={() => onUpdateEnquiryStatus(q.id, "in_progress")} disabled={q.status === "in_progress"} className="btn btn--sm">In progress</button>
@@ -502,12 +540,13 @@ export default function EnquiriesView({
               className="border rounded-[var(--radius-sm)] bg-[var(--surface)] px-3 text-sm font-semibold cursor-pointer"
               style={{ borderColor: "var(--border-strong)", color: "var(--ink)" }}
             >
-              <option value="all">All statuses</option>
+              <option value="active">Active bookings (Pending, Contacted, Confirmed)</option>
               <option value="pending">Pending</option>
               <option value="contacted">Contacted</option>
               <option value="confirmed">Confirmed</option>
-              <option value="converted">Enrolled</option>
+              <option value="converted">Enrolled students (Converted)</option>
               <option value="declined">Declined</option>
+              <option value="all">All bookings</option>
             </select>
           </div>
 
@@ -654,12 +693,35 @@ export default function EnquiriesView({
                                     Retry Email
                                   </button>
                                 )}
+                                {onDeleteEnrolledStudent && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onDeleteEnrolledStudent(b, "booking")}
+                                    className="btn btn--sm btn--danger text-xs py-0.5 px-2 flex items-center gap-1"
+                                    title="Delete enrolled student profile, username and password"
+                                  >
+                                    <TrashIcon className="w-3 h-3" />
+                                    <span>Delete Student</span>
+                                  </button>
+                                )}
                               </div>
                             )}
                             {b.status === "declined" && (
-                              <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "pending")} className="btn btn--sm gap-1">
-                                <UndoIcon className="w-3 h-3" /> Reopen
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button type="button" onClick={() => onUpdateBookingStatus && onUpdateBookingStatus(b._id, "pending")} className="btn btn--sm gap-1">
+                                  <UndoIcon className="w-3 h-3" /> Reopen
+                                </button>
+                                {onDeleteBooking && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onDeleteBooking(b)}
+                                    className="icon-btn icon-btn--danger"
+                                    title="Delete this booking record"
+                                  >
+                                    <TrashIcon className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </td>

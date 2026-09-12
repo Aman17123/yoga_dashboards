@@ -1,9 +1,11 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import CountrySelect from "../components/CountrySelect";
 import PhoneInputWithFlag from "../components/PhoneInputWithFlag";
 import CountryFlag from "../components/CountryFlag";
+import Navbar from "../components/Navbar";
 import { findCountry } from "../constants/countries";
+import { api } from "../services/api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TIMEZONES = [
@@ -30,7 +32,18 @@ const TIMEZONES = [
   { value: "Asia/Riyadh", label: "Saudi Arabia (AST — UTC+3)", flag: "🇸🇦" },
 ];
 
-// Group Class Cohorts & Slots specified by user
+const YOGA_GOALS = [
+  "Weight Loss & Toning",
+  "Flexibility & Posture",
+  "Stress Relief & Meditation",
+  "Back & Neck Pain Relief",
+  "Core & Body Strength",
+  "Pranayama & Breathwork",
+  "Pre / Postnatal Care",
+  "Beginner Fundamentals",
+];
+
+// Group Class Cohorts & Slots
 const GROUP_COHORTS = {
   hindi: {
     id: "hindi",
@@ -63,7 +76,7 @@ const GROUP_COHORTS = {
   },
 };
 
-// Private 1:1 IST Time Slots (Student can select 2 time slots)
+// Private 1:1 IST Time Slots
 const PRIVATE_TIME_SLOTS = [
   "5:00 am - 6:00 am IST",
   "6:00 am - 7:00 am IST",
@@ -79,17 +92,6 @@ const PRIVATE_TIME_SLOTS = [
   "7:30 pm - 8:30 pm IST",
   "8:30 pm - 9:30 pm IST",
 ];
-
-// Helper components
-function SunLogo({ size = 32 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
-      <circle cx="17" cy="17" r="5.5" fill="#F2994A" />
-      <circle cx="17" cy="17" r="11" stroke="#F2994A" strokeWidth="1.5" strokeDasharray="3.5 2.8" fill="none" />
-      <path d="M17 3.5v3M17 27.5v3M3.5 17h3M27.5 17h3M7.2 7.2l2 2M24.8 24.8l2 2M24.8 7.2l-2 2M7.2 24.8l2-2" stroke="#F2994A" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function Field({ label, required, error, children, id }) {
   return (
@@ -144,46 +146,86 @@ function ReviewCard({ title, children }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function BookingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const source = searchParams.get("source") || "direct";
   const referralUrl = typeof document !== "undefined" ? document.referrer : "";
 
-  // View mode: "form" (1 form to fill) or "review" (1 review look)
+  // Auth session for navbar state
+  const [session, setSession] = useState(() => {
+    try {
+      const saved = localStorage.getItem("yoga_session");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const handleNavbarLogin = async (e) => {
+    e.preventDefault();
+    setLoginError("");
+    if (!loginUsername.trim() || !loginPassword) {
+      setLoginError("Please enter both username and password.");
+      return;
+    }
+    setLoginLoading(true);
+    try {
+      const res = await api.auth.login(loginUsername.trim(), loginPassword);
+      if (res?.success) {
+        setSession(res.session);
+        localStorage.setItem("yoga_session", JSON.stringify(res.session));
+        setShowLoginModal(false);
+      } else {
+        setLoginError("Invalid username or password.");
+      }
+    } catch (err) {
+      setLoginError(err?.message || "Invalid credentials.");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setSession(null);
+    localStorage.removeItem("yoga_session");
+  };
+
+  // View mode: "form" or "review"
   const [viewMode, setViewMode] = useState("form");
   const [errors, setErrors] = useState({});
   const [globalError, setGlobalError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Today's date in YYYY-MM-DD for min joining date
   const todayStr = new Date().toISOString().split("T")[0];
 
-  // Exact fields specified by user
   const [form, setForm] = useState({
     name: "",
     email: "",
     age: "",
-    gender: "Female", // Female / Male / Other
+    gender: "Female",
     phone: "",
     country: "India",
     timezone: "Asia/Kolkata",
-    language: "English", // Hindi / English
-    classType: "group", // "private" / "group"
-    // If Private
+    language: "English",
+    classType: "group",
+    goals: ["Flexibility & Posture", "Stress Relief & Meditation"],
     preferredTime1: "7:00 am - 8:00 am IST",
     preferredTime2: "6:00 pm - 7:00 pm IST",
-    instructorPreference: "Any", // Male / Female / Any
-    // If Group
-    groupCohortId: "english", // "hindi" or "english"
+    instructorPreference: "Any",
+    groupCohortId: "english",
     groupTimeSlot: "7:00 am - 8:00 am IST",
-    // Schedule & Note
     joiningDate: todayStr,
     message: "",
   });
 
-  const rightPanelRef = useRef(null);
+  const topRef = useRef(null);
 
   const set = (key, val) => {
     setForm((f) => ({ ...f, [key]: val }));
@@ -192,7 +234,19 @@ export default function BookingPage() {
     }
   };
 
-  // When language changes, sync default group cohort if in group mode
+  const handleToggleGoal = (goal) => {
+    setForm((prev) => {
+      const curr = prev.goals || [];
+      const updated = curr.includes(goal)
+        ? curr.filter((g) => g !== goal)
+        : [...curr, goal];
+      return { ...prev, goals: updated };
+    });
+    if (errors.goals) {
+      setErrors((prev) => ({ ...prev, goals: null }));
+    }
+  };
+
   const handleLanguageChange = (lang) => {
     set("language", lang);
     if (lang === "Hindi" && form.groupCohortId === "english") {
@@ -200,19 +254,18 @@ export default function BookingPage() {
         ...prev,
         language: "Hindi",
         groupCohortId: "hindi",
-        groupTimeSlot: GROUP_COHORTS.hindi.slots[1], // 6-7 am
+        groupTimeSlot: GROUP_COHORTS.hindi.slots[1],
       }));
     } else if (lang === "English" && form.groupCohortId === "hindi") {
       setForm((prev) => ({
         ...prev,
         language: "English",
         groupCohortId: "english",
-        groupTimeSlot: GROUP_COHORTS.english.slots[0], // 7-8 am
+        groupTimeSlot: GROUP_COHORTS.english.slots[0],
       }));
     }
   };
 
-  // When group cohort changes
   const handleGroupCohortChange = (cohortId) => {
     setForm((prev) => ({
       ...prev,
@@ -222,7 +275,6 @@ export default function BookingPage() {
     }));
   };
 
-  // Country change - only updates Country of Origin, keeping phone code and timezone independent
   const handleCountryChange = (countryName) => {
     set("country", countryName);
     if (errors.country) {
@@ -234,9 +286,7 @@ export default function BookingPage() {
     }
   };
 
-  // Age input validation handler
   const handleAgeChange = (val) => {
-    // Only allow whole numeric digits
     const cleaned = val.replace(/\D/g, "");
     if (cleaned === "") {
       setForm((f) => ({ ...f, age: "" }));
@@ -244,7 +294,6 @@ export default function BookingPage() {
       return;
     }
     const num = parseInt(cleaned, 10);
-    // Prevent typing or pasting unrealistic ages like 234
     if (num > 100) {
       setForm((f) => ({ ...f, age: "100" }));
       setErrors((prev) => ({ ...prev, age: "Maximum age allowed is 100 years." }));
@@ -273,7 +322,6 @@ export default function BookingPage() {
     }
   };
 
-  // Validate the single form
   const validateForm = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = "Full name is required.";
@@ -287,7 +335,6 @@ export default function BookingPage() {
       errs.age = "Age must be between 5 and 100 years.";
     }
 
-    // Proper phone number validation (ITU-T E.164 compliant)
     const rawPhone = (form.phone || "").trim();
     if (!rawPhone) {
       errs.phone = "Phone number is required.";
@@ -309,6 +356,7 @@ export default function BookingPage() {
     if (!form.country) {
       errs.country = "Please select your country.";
     }
+
     if (form.classType === "private") {
       if (!form.preferredTime1) errs.preferredTime1 = "Please select your primary time slot.";
       if (!form.preferredTime2) errs.preferredTime2 = "Please select your secondary time slot.";
@@ -323,21 +371,17 @@ export default function BookingPage() {
     return Object.keys(errs).length === 0;
   };
 
-  // Move to review look
   const handleProceedToReview = () => {
     setGlobalError("");
     if (!validateForm()) {
       setGlobalError("Please review and fill in all required fields.");
       window.scrollTo({ top: 0, behavior: "smooth" });
-      rightPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     setViewMode("review");
     window.scrollTo({ top: 0, behavior: "smooth" });
-    rightPanelRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Final submission to API
   const handleSubmitBooking = async () => {
     setGlobalError("");
     setLoading(true);
@@ -354,11 +398,10 @@ export default function BookingPage() {
       timezone: form.timezone,
       language: form.language,
       classType: form.classType,
-      // Private times
+      goals: Array.isArray(form.goals) ? form.goals.join(", ") : (form.goals || ""),
       preferredTime: form.classType === "private" ? form.preferredTime1 : form.groupTimeSlot,
       preferredTime2: form.classType === "private" ? form.preferredTime2 : "",
       instructorPreference: form.classType === "private" ? form.instructorPreference : "Any",
-      // Group info
       groupCohort: selectedCohort ? `${selectedCohort.name} (${selectedCohort.priceLabel})` : "",
       fee: selectedCohort ? selectedCohort.price : 0,
       joiningDate: form.joiningDate,
@@ -375,7 +418,6 @@ export default function BookingPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Submission failed.");
-      // Production-ready: pass only the booking reference in URL (no PII like name or email)
       navigate(`/book/success?ref=${encodeURIComponent(data.bookingRef)}`);
     } catch (err) {
       setGlobalError(err.message || "Something went wrong. Please try again.");
@@ -387,89 +429,50 @@ export default function BookingPage() {
   const activeCohort = GROUP_COHORTS[form.groupCohortId];
 
   return (
-    <div className="booking-page-container">
-      {/* ═══ LEFT HERO PANEL — NO SCROLLBAR ═══ */}
-      <div className="booking-left-panel">
-        <div className="left-glow-orb-1" />
-        <div className="left-glow-orb-2" />
+    <div className="booking-page-root" ref={topRef}>
+      {/* ═══ TOP NAVBAR ═══ */}
+      <Navbar
+        session={session}
+        onLoginClick={() => setShowLoginModal(true)}
+        onLogout={handleLogout}
+        showBookNow={false}
+      />
 
-        <div className="booking-left-panel-content">
-          {/* Brand header */}
-          <div className="brand-header">
-            <div className="brand-logo-wrap">
-              <SunLogo size={32} />
-              <span className="brand-title">yogaonlive</span>
-            </div>
-            <span className="trial-badge">Free Trial Session</span>
-          </div>
-
-          {/* Hero details */}
-          <div className="hero-content">
-            <div className="hero-eyebrow">Interactive Live Online Yoga</div>
-            <h1 className="hero-heading">
-              Start your yoga<br className="desktop-break" /> practice today
-            </h1>
-            <p className="hero-subtitle">
-              Enroll now for live 1-on-1 private sessions or join small group cohorts with certified yoga masters.
-            </p>
-
-            {/* Quick badges */}
-            <div className="perks-pills">
-              <span className="perk-pill">🧘 Private 1:1 or Group</span>
-              <span className="perk-pill">🌍 Worldwide Timezones</span>
-              <span className="perk-pill">🎁 Free First Trial Class</span>
-              <span className="perk-pill">⏱️ Flexible Rescheduling</span>
-            </div>
-
-            {/* Studio highlights */}
-            <ul className="bullet-list">
-              {[
-                "Experienced certified yoga masters (Male & Female instructors)",
-                "Hindi & English live interactive cohorts with instant corrections",
-                "Convenient IST early morning, afternoon & evening batches",
-                "Full attendance tracking and cycle management",
-                "No upfront payment required for trial enrollment",
-              ].map((b) => (
-                <li key={b} className="bullet-item">
-                  <span className="bullet-dot" />
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
-
-            {/* Student quote card */}
-            <div className="testimonial-card">
-              <p className="testimonial-text">
-                "The flexibility of morning and evening IST batches made it so easy to maintain my daily practice even while traveling."
-              </p>
-              <div className="testimonial-author">
-                <div className="testimonial-avatar">A</div>
-                <div>
-                  <div className="author-name">Ananya R.</div>
-                  <div className="author-meta">
-                    Student · Group &amp; Private Sessions <CountryFlag country="India" size="xs" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ RIGHT FORM PANEL ═══ */}
-      <div ref={rightPanelRef} className="booking-right-panel">
+      {/* ═══ CENTERED BOOKING CONTAINER (SIMPLIFIED FULLY-FOCUSED PAGE) ═══ */}
+      <main className="booking-centered-shell">
         <div className="booking-form-wrapper">
 
-          {/* View Mode Indicator */}
-          <div className="flow-steps-pill">
+          {/* Page Hero Header */}
+          <div className="booking-page-header">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#E7E4DC] text-xs font-bold uppercase tracking-wider text-[#F2994A] shadow-2xs mb-3">
+              <span>✨ Interactive Live Online Yoga · Free Trial Class</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#171A32] leading-tight mb-2.5" style={{ fontFamily: "var(--font-display)" }}>
+              Student Enrollment Form
+            </h1>
+            <p className="text-sm sm:text-base text-[#5B607A] max-w-xl mx-auto leading-relaxed">
+              Reserve your trial session. Select your preferred timezone, batch timing, and practice goals below.
+            </p>
+
+            {/* 24h SLA Notice Banner (Requirement 1) */}
+            <div className="sla-banner-box">
+              <div className="sla-badge">⏱️ 24h SLA</div>
+              <p className="sla-banner-text">
+                <strong>Instructor Matching within 24 Hours:</strong> Our certified master team carefully reviews your goals, timezone, and class preferences to assign your ideal instructor. Once assigned, your instructor details and dedicated class link will automatically appear on your dashboard.
+              </p>
+            </div>
+          </div>
+
+          {/* View Step Indicator */}
+          <div className="flow-steps-pill mx-auto">
             <div className={`flow-step-item ${viewMode === "form" ? "active" : "done"}`}>
               <span className="flow-num">{viewMode === "review" ? "✓" : "1"}</span>
-              <span>Enrollment Details</span>
+              <span>1. Enrollment Details</span>
             </div>
             <div className="flow-divider" />
             <div className={`flow-step-item ${viewMode === "review" ? "active" : ""}`}>
               <span className="flow-num">2</span>
-              <span>Review &amp; Confirmation</span>
+              <span>2. Review &amp; Confirm</span>
             </div>
           </div>
 
@@ -484,24 +487,20 @@ export default function BookingPage() {
           )}
 
           {/* ═════════════════════════════════════════════════════════════
-              VIEW 1: SINGLE ENROLLMENT FORM TO FILL (ONLY REQUESTED FIELDS)
+              VIEW 1: CLEAN SINGLE ENROLLMENT FORM
              ═════════════════════════════════════════════════════════════ */}
           {viewMode === "form" && (
             <div className="form-step-container">
-              <div className="step-header">
-                <h2 className="step-title">Student Enrollment Form</h2>
-                <p className="step-subtitle">
-                  Fill in your details below to schedule your trial class and reserve your batch.
-                </p>
-              </div>
-
               {/* SECTION 1: Personal Details */}
               <div className="form-section-card">
-                <div className="section-card-title">1. Personal Information</div>
+                <div className="section-card-title">
+                  <span>1. Personal Information</span>
+                  <span className="text-xs font-normal text-[#7B8098]">Step 1 of 2</span>
+                </div>
 
                 {/* Name & Email */}
                 <div className="form-grid-2">
-                  <Field label="Name" required error={errors.name} id="name">
+                  <Field label="Full Name" required error={errors.name} id="name">
                     <Input
                       id="name"
                       value={form.name}
@@ -511,7 +510,7 @@ export default function BookingPage() {
                     />
                   </Field>
 
-                  <Field label="Email" required error={errors.email} id="email">
+                  <Field label="Email Address" required error={errors.email} id="email">
                     <Input
                       id="email"
                       type="email"
@@ -556,9 +555,9 @@ export default function BookingPage() {
                   </Field>
                 </div>
 
-                {/* Phone & Country of Origin */}
+                {/* Phone & Country */}
                 <div className="form-grid-2">
-                  <Field label="Phone Number (With flag and code)" required error={errors.phone}>
+                  <Field label="Phone / WhatsApp Number" required error={errors.phone}>
                     <PhoneInputWithFlag
                       id="phone"
                       value={form.phone}
@@ -568,19 +567,19 @@ export default function BookingPage() {
                     />
                   </Field>
 
-                  <Field label="Country of Origin" required error={errors.country}>
+                  <Field label="Country of Residence" required error={errors.country}>
                     <CountrySelect
                       value={form.country}
                       onChange={handleCountryChange}
                       error={!!errors.country}
-                      placeholder="Select country of origin…"
+                      placeholder="Select country…"
                     />
                   </Field>
                 </div>
 
-                {/* Student Timezone & Language */}
+                {/* Timezone & Language Preference */}
                 <div className="form-grid-2">
-                  <Field label="Student Timezone" required>
+                  <Field label="Your Timezone" required>
                     <Select value={form.timezone} onChange={(e) => set("timezone", e.target.value)}>
                       {TIMEZONES.map((tz) => (
                         <option key={tz.value} value={tz.value}>
@@ -590,7 +589,7 @@ export default function BookingPage() {
                     </Select>
                   </Field>
 
-                  <Field label="Select Language (Hindi, English)" required>
+                  <Field label="Language Preference" required>
                     <div className="pill-options-row">
                       <button
                         type="button"
@@ -604,96 +603,134 @@ export default function BookingPage() {
                         onClick={() => handleLanguageChange("English")}
                         className={`pill-option-btn ${form.language === "English" ? "selected" : ""}`}
                       >
-                        🇬🇧 English
+                        🌐 English
                       </button>
                     </div>
                   </Field>
                 </div>
               </div>
 
-              {/* SECTION 2: Class Type & Cohort Schedule */}
+              {/* SECTION 2: Class Type & Schedule */}
               <div className="form-section-card">
-                <div className="section-card-title">2. Class Type &amp; Schedule</div>
+                <div className="section-card-title">
+                  <span>2. Class Type &amp; Schedule</span>
+                  <span className="text-xs font-normal text-[#7B8098]">Step 2 of 2</span>
+                </div>
 
-                {/* Select Class Type: Private 1:1 or Group Class */}
-                <Field label="Select Class Type" required>
-                  <div className="class-type-select-grid">
+                {/* Class Type Selector */}
+                <Field label="Class Format" required>
+                  <div className="class-type-toggle-grid">
                     <button
                       type="button"
                       onClick={() => set("classType", "group")}
-                      className={`class-select-card ${form.classType === "group" ? "selected" : ""}`}
+                      className={`class-card-toggle ${form.classType === "group" ? "active" : ""}`}
                     >
-                      <div className="class-card-header">
-                        <span className="card-icon">👥</span>
-                        <div>
-                          <div className="card-title">Group Class</div>
-                          <div className="card-sub">Interactive cohorts with fixed daily IST batches</div>
-                        </div>
+                      <div className="card-toggle-top">
+                        <span className="card-toggle-icon">👥</span>
+                        <div className="card-toggle-badge">Cohort</div>
                       </div>
-                      <div className="card-tag">Starts @ ₹999 / mo</div>
+                      <div className="card-toggle-name">Group Class</div>
+                      <div className="card-toggle-desc">
+                        Interactive small cohorts with live instructor feedback.
+                      </div>
+                      <div className="card-toggle-price">Starting ₹999 / mo</div>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => set("classType", "private")}
-                      className={`class-select-card ${form.classType === "private" ? "selected" : ""}`}
+                      className={`class-card-toggle ${form.classType === "private" ? "active" : ""}`}
                     >
-                      <div className="class-card-header">
-                        <span className="card-icon">🧘</span>
-                        <div>
-                          <div className="card-title">Private 1:1 Class</div>
-                          <div className="card-sub">Dedicated 1-on-1 coaching adapted to your pace</div>
-                        </div>
+                      <div className="card-toggle-top">
+                        <span className="card-toggle-icon">🧘</span>
+                        <div className="card-toggle-badge popular">1-on-1</div>
                       </div>
-                      <div className="card-tag">Personalized Plan</div>
+                      <div className="card-toggle-name">Private 1:1 Coaching</div>
+                      <div className="card-toggle-desc">
+                        100% personalized attention tailored to your health goals.
+                      </div>
+                      <div className="card-toggle-price">Personalized Plan</div>
                     </button>
                   </div>
                 </Field>
 
-                {/* ── CASE A: IF PRIVATE 1:1 IS CHOSEN ── */}
-                {form.classType === "private" && (
-                  <div className="sub-section-box">
-                    <div className="sub-section-title">
-                      Private 1:1 Session Preferences
-                    </div>
-                    <p className="sub-section-desc">
-                      Choose 2 preferred IST time slots for maximum scheduling flexibility, and your instructor gender preference.
-                    </p>
+                {/* Conditional Sub-form: GROUP vs PRIVATE */}
+                {form.classType === "group" ? (
+                  <div className="group-options-wrap animate-fadeIn">
+                    <Field label="Select Group Cohort Tier" required>
+                      <div className="cohort-tiers-grid">
+                        {Object.values(GROUP_COHORTS).map((cohort) => (
+                          <div
+                            key={cohort.id}
+                            onClick={() => handleGroupCohortChange(cohort.id)}
+                            className={`cohort-tier-card ${form.groupCohortId === cohort.id ? "selected" : ""}`}
+                          >
+                            <div className="cohort-tier-radio">
+                              <span className={`radio-dot ${form.groupCohortId === cohort.id ? "checked" : ""}`} />
+                            </div>
+                            <div className="cohort-tier-content">
+                              <div className="cohort-name">{cohort.name}</div>
+                              <div className="cohort-lang">Language: {cohort.language}</div>
+                              <div className="cohort-price">{cohort.priceLabel}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Field>
 
+                    <Field label={`Available Batch Slots (${activeCohort.language} Cohort)`} required error={errors.groupTimeSlot}>
+                      <Select
+                        value={form.groupTimeSlot}
+                        onChange={(e) => set("groupTimeSlot", e.target.value)}
+                      >
+                        {activeCohort.slots.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </div>
+                ) : (
+                  <div className="private-options-wrap animate-fadeIn">
                     <div className="form-grid-2">
-                      <Field label="1st Preferred Time (IST)" required error={errors.preferredTime1}>
+                      <Field label="1st Preferred Time Slot (IST)" required error={errors.preferredTime1}>
                         <Select
                           value={form.preferredTime1}
                           onChange={(e) => set("preferredTime1", e.target.value)}
                         >
-                          {PRIVATE_TIME_SLOTS.map((slot) => (
-                            <option key={slot} value={slot}>{slot}</option>
+                          {PRIVATE_TIME_SLOTS.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
                           ))}
                         </Select>
                       </Field>
 
-                      <Field label="2nd Preferred Time (IST)" required error={errors.preferredTime2}>
+                      <Field label="2nd Preferred Time Slot (IST)" required error={errors.preferredTime2}>
                         <Select
                           value={form.preferredTime2}
                           onChange={(e) => set("preferredTime2", e.target.value)}
                         >
-                          {PRIVATE_TIME_SLOTS.map((slot) => (
-                            <option key={slot} value={slot}>{slot}</option>
+                          {PRIVATE_TIME_SLOTS.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
                           ))}
                         </Select>
                       </Field>
                     </div>
 
-                    <Field label="Select Instructor" required>
+                    <Field label="Instructor Preference">
                       <div className="pill-options-row">
-                        {["Male", "Female", "Any"].map((opt) => (
+                        {["Any", "Female", "Male"].map((p) => (
                           <button
-                            key={opt}
+                            key={p}
                             type="button"
-                            onClick={() => set("instructorPreference", opt)}
-                            className={`pill-option-btn ${form.instructorPreference === opt ? "selected" : ""}`}
+                            onClick={() => set("instructorPreference", p)}
+                            className={`pill-option-btn ${form.instructorPreference === p ? "selected" : ""}`}
                           >
-                            {opt === "Any" ? "🌟 Any (First Available)" : opt === "Female" ? "👩 Female Instructor" : "👨 Male Instructor"}
+                            {p === "Any" ? "Any (Male or Female)" : `${p} Instructor`}
                           </button>
                         ))}
                       </div>
@@ -701,72 +738,9 @@ export default function BookingPage() {
                   </div>
                 )}
 
-                {/* ── CASE B: IF GROUP CLASS IS CHOSEN ── */}
-                {form.classType === "group" && (
-                  <div className="sub-section-box">
-                    <div className="sub-section-title">
-                      Select Group Cohort &amp; Time Slot
-                    </div>
-                    <p className="sub-section-desc">
-                      Choose your preferred group tier and time slot:
-                    </p>
-
-                    {/* 2 Group Cohort Cards */}
-                    <div className="cohort-cards-grid">
-                      {/* Hindi & Large Group Size Class */}
-                      <button
-                        type="button"
-                        onClick={() => handleGroupCohortChange("hindi")}
-                        className={`cohort-card ${form.groupCohortId === "hindi" ? "active" : ""}`}
-                      >
-                        <div className="cohort-badge">🇮🇳 Hindi Cohort</div>
-                        <div className="cohort-name">Hindi &amp; Large Group Size Class</div>
-                        <div className="cohort-price">₹999 <span>/ month</span></div>
-                        <div className="cohort-meta">8 Available IST Batches</div>
-                      </button>
-
-                      {/* English & Small Group Size Class */}
-                      <button
-                        type="button"
-                        onClick={() => handleGroupCohortChange("english")}
-                        className={`cohort-card ${form.groupCohortId === "english" ? "active" : ""}`}
-                      >
-                        <div className="cohort-badge">🇬🇧 English Cohort</div>
-                        <div className="cohort-name">English &amp; Small Group Size Class</div>
-                        <div className="cohort-price">₹1,699 <span>/ month</span></div>
-                        <div className="cohort-meta">3 Available IST Batches</div>
-                      </button>
-                    </div>
-
-                    {/* Time Slot Picker for chosen cohort */}
-                    <Field
-                      label={`Available Time Slots for ${activeCohort.name}`}
-                      required
-                      error={errors.groupTimeSlot}
-                    >
-                      <div className="time-slots-pills-grid">
-                        {activeCohort.slots.map((slot) => {
-                          const isSelected = form.groupTimeSlot === slot;
-                          return (
-                            <button
-                              key={slot}
-                              type="button"
-                              onClick={() => set("groupTimeSlot", slot)}
-                              className={`slot-pill-btn ${isSelected ? "selected" : ""}`}
-                            >
-                              <span className="slot-clock">⏰</span>
-                              <span>{slot}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </Field>
-                  </div>
-                )}
-
-                {/* Joining Date / Trial Date */}
-                <div style={{ marginTop: 16 }}>
-                  <Field label="Joining Date / Trial Date" required error={errors.joiningDate} id="joiningDate">
+                {/* Preferred Trial Date */}
+                <div className="mt-4">
+                  <Field label="Preferred Trial / Joining Date" required error={errors.joiningDate} id="joiningDate">
                     <Input
                       id="joiningDate"
                       type="date"
@@ -777,36 +751,36 @@ export default function BookingPage() {
                   </Field>
                 </div>
 
-                {/* Message Section (Placed below Joining Date, 800-character max, production-ready) */}
-                <div style={{ marginTop: 18 }}>
-                  <Field label="Message &amp; Health Notes (Optional)">
-                    <div className="message-textarea-container">
-                      <textarea
-                        id="message"
-                        value={form.message}
-                        maxLength={800}
-                        onChange={(e) => set("message", e.target.value)}
-                        placeholder="Tell us about any specific health goals, physical conditions, back stiffness, past injuries, or personal preferences you'd like your instructor to know (up to 800 characters)..."
-                        className="booking-textarea"
-                        rows={4}
-                      />
-                      <div className="message-meta-bar">
-                        <span className="message-guidance-text">
-                          Share any injuries, flexibility goals, or medical conditions with your coach.
-                        </span>
-                        <span className={`char-counter-pill ${form.message.length >= 750 ? "near-max" : ""}`}>
-                          {form.message.length} / 800
-                        </span>
-                      </div>
-                    </div>
-                  </Field>
+                {/* Big Health Notes / Specific Inquiries Section (900 character limit) */}
+                <div className="mt-5 pt-4 border-t border-[#E7E4DC]">
+                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                    <label htmlFor="health-notes" className="field-label text-sm font-bold text-[#171A32] mb-0">
+                      Health Notes / Specific Inquiries (Optional)
+                    </label>
+                    <span className={`text-xs font-mono font-semibold ${form.message.length >= 850 ? "text-amber-600 font-bold" : "text-[#7B8098]"}`}>
+                      {form.message.length} / 900 characters
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5B607A] mb-3 leading-relaxed">
+                    Please share any medical conditions, injuries (e.g. back/neck/knee pain), recent surgeries, pregnancy, flexibility concerns, or specific practice goals. Our certified yoga masters review these notes prior to your first live trial session.
+                  </p>
+                  <textarea
+                    id="health-notes"
+                    rows={6}
+                    maxLength={900}
+                    value={form.message}
+                    onChange={(e) => set("message", e.target.value.slice(0, 900))}
+                    placeholder="e.g. Recovering from a lower back injury, working long desk hours, looking for gentle stretching, posture correction, and breathing exercises..."
+                    className="booking-textarea w-full p-3.5 rounded-xl border border-[#D5D8E4] focus:border-[#4C5FD5] focus:ring-2 focus:ring-[#4C5FD5]/20 text-sm text-[#171A32] placeholder-[#A0A4B8] bg-white transition-all outline-none resize-y min-h-[140px] leading-relaxed"
+                  />
                 </div>
               </div>
 
               {/* Submit CTA */}
-              <div className="step-actions">
+              <div className="step-actions mt-6">
                 <button
                   type="button"
+                  id="review-booking-btn"
                   className="btn-action-primary"
                   onClick={handleProceedToReview}
                 >
@@ -820,30 +794,40 @@ export default function BookingPage() {
           )}
 
           {/* ═════════════════════════════════════════════════════════════
-              VIEW 2: SINGLE REVIEW LOOK BEFORE SUBMISSION
+              VIEW 2: REVIEW LOOK BEFORE FINAL CONFIRMATION
              ═════════════════════════════════════════════════════════════ */}
           {viewMode === "review" && (
-            <div className="form-step-container">
-              <div className="step-header">
-                <h2 className="step-title">Review your enrollment</h2>
-                <p className="step-subtitle">
-                  Please verify your information below. Click "Confirm &amp; Book Trial Class" to reserve your spot.
+            <div className="form-step-container animate-fadeIn">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-[#171A32]" style={{ fontFamily: "var(--font-display)" }}>
+                  Review Your Enrollment
+                </h2>
+                <p className="text-xs text-[#5B607A] mt-1">
+                  Please confirm your information below before reserving your free trial session.
                 </p>
               </div>
 
-              {/* Review Card 1: Student Information */}
+              {/* 24-hour match callout */}
+              <div className="sla-banner-box mb-5">
+                <div className="sla-badge">⏱️ 24h Instructor Match</div>
+                <p className="sla-banner-text">
+                  Your certified yoga master will be paired within 24 hours based on your class schedule, language preference, and health inquiries.
+                </p>
+              </div>
+
+              {/* Card 1: Student Information */}
               <ReviewCard title="Student Information">
                 <ReviewRow label="Full Name" value={form.name} />
                 <ReviewRow label="Email Address" value={form.email} />
                 <ReviewRow label="Age" value={`${form.age} years`} />
                 <ReviewRow label="Gender" value={form.gender} />
-                <ReviewRow label="Phone Number">
+                <ReviewRow label="Phone / WhatsApp">
                   <div className="flex items-center gap-2 justify-end">
                     <CountryFlag country={currentCountryObj} size="xs" />
                     <span>{form.phone}</span>
                   </div>
                 </ReviewRow>
-                <ReviewRow label="Country of Origin">
+                <ReviewRow label="Country of Residence">
                   <div className="flex items-center gap-2 justify-end">
                     <CountryFlag country={currentCountryObj} size="sm" />
                     <span>{form.country}</span>
@@ -853,14 +837,14 @@ export default function BookingPage() {
                   label="Student Timezone"
                   value={TIMEZONES.find((t) => t.value === form.timezone)?.label || form.timezone}
                 />
-                <ReviewRow label="Language" value={form.language} />
+                <ReviewRow label="Language Preference" value={form.language} />
               </ReviewCard>
 
-              {/* Review Card 2: Class & Cohort Details */}
+              {/* Card 2: Class & Schedule Details */}
               <ReviewCard title="Class &amp; Schedule Details">
                 <ReviewRow
                   label="Class Type"
-                  value={form.classType === "private" ? "Private 1:1 Class" : "Group Class"}
+                  value={form.classType === "private" ? "Private 1:1 Coaching" : "Group Cohort"}
                 />
 
                 {form.classType === "private" ? (
@@ -871,7 +855,7 @@ export default function BookingPage() {
                       label="Instructor Preference"
                       value={form.instructorPreference === "Any" ? "Any (Male or Female)" : `${form.instructorPreference} Instructor`}
                     />
-                    <ReviewRow label="Tuition / Pricing" value="Personalized Plan (Trial is 100% Free)" />
+                    <ReviewRow label="Tuition" value="Personalized Plan (First Trial is 100% Free)" />
                   </>
                 ) : (
                   <>
@@ -882,17 +866,22 @@ export default function BookingPage() {
                   </>
                 )}
 
-                <ReviewRow label="Joining Date / Trial Date" value={form.joiningDate} />
+                <ReviewRow label="Trial / Joining Date" value={form.joiningDate} />
               </ReviewCard>
 
-              {form.message && (
-                <ReviewCard title="Your Message / Health Notes">
-                  <div className="review-message-text">"{form.message}"</div>
-                </ReviewCard>
-              )}
+              {/* Card 3: Health Notes & Specific Inquiries */}
+              <ReviewCard title="Health Notes &amp; Specific Inquiries">
+                {form.message ? (
+                  <div className="p-3.5 bg-[#F6F7FB] rounded-xl border border-[#E3E6F2] text-sm text-[#171A32] leading-relaxed whitespace-pre-wrap font-normal">
+                    "{form.message}"
+                  </div>
+                ) : (
+                  <div className="text-xs text-[#7B8098] italic">No specific health notes provided.</div>
+                )}
+              </ReviewCard>
 
               {/* Review Actions */}
-              <div className="step-actions dual-actions">
+              <div className="step-actions dual-actions mt-6">
                 <button
                   type="button"
                   className="btn-action-secondary"
@@ -907,6 +896,7 @@ export default function BookingPage() {
 
                 <button
                   type="button"
+                  id="confirm-booking-btn"
                   className="btn-action-submit"
                   onClick={handleSubmitBooking}
                   disabled={loading}
@@ -931,251 +921,157 @@ export default function BookingPage() {
           )}
 
           {/* Privacy Note */}
-          <div className="privacy-footer">
+          <div className="privacy-footer text-center mt-6">
             🔒 Your personal information is encrypted, securely stored, and never shared with external third parties.
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* ═══ RESPONSIVE CSS STYLES (WITH LEFT SCROLLBAR COMPLETELY REMOVED) ═══ */}
+      {/* Login Modal for Navbar if accessed from /book */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md bg-[#FFFFFF] rounded-[16px] border border-[#DCD8D0] p-7 sm:p-8 shadow-2xl relative">
+            <button
+              type="button"
+              onClick={() => setShowLoginModal(false)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 text-lg cursor-pointer p-1"
+            >
+              ✕
+            </button>
+
+            <h3 className="font-bold text-xl text-[#171A32] mb-1.5" style={{ fontFamily: "var(--font-display)" }}>
+              yogaonlive Login
+            </h3>
+            <p className="text-xs text-[#6B7089] mb-5">
+              Sign in to view your dashboard, schedules, and dedicated class meeting link.
+            </p>
+
+            <form onSubmit={handleNavbarLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#6B7089] mb-1.5">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  placeholder="e.g. admin or your username"
+                  required
+                  autoFocus
+                  className="w-full text-sm bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-3.5 py-2.5 text-[#171A32] focus:outline-none focus:border-[#4C5FD5]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[#6B7089] mb-1.5">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="Enter password"
+                  required
+                  className="w-full text-sm bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-3.5 py-2.5 text-[#171A32] focus:outline-none focus:border-[#4C5FD5]"
+                />
+              </div>
+
+              {loginError && (
+                <div className="text-xs text-[#D93025] bg-[#FFF1F0] p-2.5 rounded-[6px] border border-[#FAD2CF]">
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full py-2.5 px-4 bg-[#4C5FD5] hover:bg-[#3B4DBF] text-white rounded-[6px] font-bold text-sm shadow-md transition-all cursor-pointer"
+              >
+                {loginLoading ? "Signing in…" : "Login"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ CLEAN, MODERN, RESPONSIVE CSS STYLES (NO LEFTSIDE SCROLLBAR / LEFTOVER SPACE) ═══ */}
       <style>{`
-        /* Page layout */
-        .booking-page-container {
+        .booking-page-root {
           min-height: 100vh;
-          display: grid;
-          grid-template-columns: minmax(360px, 40%) 1fr;
-          background: var(--bg);
-        }
-
-        /* Left Hero Panel - STRICTLY NO SCROLLBAR */
-        .booking-left-panel {
-          background: linear-gradient(160deg, #1C2770 0%, #3546B0 45%, #592D94 100%);
-          padding: clamp(24px, 3.5vh, 40px) clamp(24px, 2.5vw, 36px);
-          position: sticky;
-          top: 0;
-          height: 100vh;
-          overflow: hidden !important; /* Prevents scrollbar on left side */
-          color: #fff;
-          position: relative;
-        }
-
-        .booking-left-panel-content {
+          background: #FCFAF7;
           display: flex;
           flex-direction: column;
-          height: 100%;
-          overflow: hidden;
+          color: #171A32;
         }
 
-        .left-glow-orb-1 {
-          position: absolute;
-          width: 320px;
-          height: 320px;
-          background: radial-gradient(circle, rgba(242,153,74,0.18) 0%, transparent 70%);
-          top: -100px;
-          right: -80px;
-          pointer-events: none;
-        }
-
-        .left-glow-orb-2 {
-          position: absolute;
-          width: 260px;
-          height: 260px;
-          background: radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 70%);
-          bottom: -60px;
-          left: -60px;
-          pointer-events: none;
-        }
-
-        .brand-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: clamp(14px, 2vh, 24px);
-          position: relative;
-          z-index: 2;
-          flex-shrink: 0;
-        }
-
-        .brand-logo-wrap {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .brand-title {
-          font-family: var(--font-display);
-          font-size: 21px;
-          font-weight: 700;
-          color: #ffffff;
-          letter-spacing: -0.02em;
-        }
-
-        .trial-badge {
-          background: rgba(242, 153, 74, 0.18);
-          border: 1px solid rgba(242, 153, 74, 0.45);
-          color: #F2994A;
-          font-size: 10.5px;
-          font-weight: 700;
-          padding: 3px 9px;
-          border-radius: 20px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-        }
-
-        .hero-content {
-          position: relative;
-          z-index: 2;
-          display: flex;
-          flex-direction: column;
+        .booking-centered-shell {
           flex: 1;
-        }
-
-        .hero-eyebrow {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: rgba(242, 153, 74, 0.95);
-          margin-bottom: 6px;
-        }
-
-        .hero-heading {
-          font-family: var(--font-display);
-          font-size: clamp(22px, 2.2vw, 28px);
-          font-weight: 700;
-          color: #ffffff;
-          line-height: 1.2;
-          letter-spacing: -0.03em;
-          margin-bottom: 10px;
-        }
-
-        .hero-subtitle {
-          font-size: 13px;
-          color: rgba(255, 255, 255, 0.78);
-          line-height: 1.5;
-          margin-bottom: 14px;
-        }
-
-        .perks-pills {
           display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin-bottom: 16px;
-        }
-
-        .perk-pill {
-          background: rgba(255, 255, 255, 0.12);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          backdrop-filter: blur(4px);
-          font-size: 11px;
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.95);
-          padding: 3.5px 9px;
-          border-radius: 12px;
-        }
-
-        .bullet-list {
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-          margin-bottom: 16px;
-          padding: 0;
-        }
-
-        .bullet-item {
-          display: flex;
-          align-items: flex-start;
-          gap: 8px;
-          font-size: 12.5px;
-          color: rgba(255, 255, 255, 0.88);
-          line-height: 1.4;
-        }
-
-        .bullet-dot {
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background: #F2994A;
-          flex-shrink: 0;
-          margin-top: 6px;
-        }
-
-        .testimonial-card {
-          background: rgba(255, 255, 255, 0.08);
-          backdrop-filter: blur(8px);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          border-radius: var(--radius-md);
-          padding: 12px 14px;
-          margin-top: auto;
-        }
-
-        .testimonial-text {
-          font-size: 12px;
-          color: rgba(255, 255, 255, 0.88);
-          line-height: 1.5;
-          font-style: italic;
-          margin-bottom: 8px;
-        }
-
-        .testimonial-author {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .testimonial-avatar {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background: rgba(242, 153, 74, 0.25);
-          border: 1.5px solid rgba(242, 153, 74, 0.5);
-          display: flex;
-          align-items: center;
           justify-content: center;
-          font-size: 11px;
-          font-weight: 700;
-          color: #F2994A;
-        }
-
-        .author-name {
-          font-weight: 700;
-          color: #ffffff;
-          font-size: 12px;
-        }
-
-        .author-meta {
-          color: rgba(255, 255, 255, 0.6);
-          font-size: 10.5px;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        /* Right Form Panel */
-        .booking-right-panel {
-          padding: 36px 44px;
-          overflow-y: auto;
-          max-height: 100vh;
-          background: var(--bg);
+          align-items: flex-start;
+          padding: clamp(24px, 4vw, 48px) 16px clamp(48px, 6vw, 80px);
         }
 
         .booking-form-wrapper {
-          max-width: 660px;
+          width: 100%;
+          max-width: 780px;
           margin: 0 auto;
         }
 
-        /* Flow steps pill */
+        .booking-page-header {
+          text-align: center;
+          margin-bottom: 24px;
+        }
+
+        .sla-banner-box {
+          margin-top: 18px;
+          background: linear-gradient(135deg, #F0F4FF 0%, #E8F0FE 100%);
+          border: 1.5px solid #CBD8F7;
+          border-radius: 12px;
+          padding: 14px 18px;
+          display: flex;
+          flex-direction: column;
+          sm-flex-direction: row;
+          align-items: center;
+          gap: 12px;
+          text-align: left;
+        }
+
+        .sla-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: #4C5FD5;
+          color: #ffffff;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 3px 10px;
+          border-radius: 20px;
+          flex-shrink: 0;
+        }
+
+        .sla-banner-text {
+          font-size: 12.5px;
+          color: #24357B;
+          line-height: 1.45;
+          margin: 0;
+        }
+
+        /* Flow steps indicator */
         .flow-steps-pill {
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 12px;
-          background: var(--surface);
-          border: 1.5px solid var(--border);
+          background: #FFFFFF;
+          border: 1.5px solid #E7E4DC;
           border-radius: 30px;
-          padding: 6px 14px;
+          padding: 6px 16px;
           width: fit-content;
           margin-bottom: 24px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.03);
         }
 
         .flow-step-item {
@@ -1184,16 +1080,16 @@ export default function BookingPage() {
           gap: 6px;
           font-size: 12.5px;
           font-weight: 600;
-          color: var(--ink-faint);
+          color: #8C90A4;
         }
 
         .flow-step-item.active {
-          color: var(--dusk);
+          color: #4C5FD5;
           font-weight: 700;
         }
 
         .flow-step-item.done {
-          color: var(--success);
+          color: #1E9E63;
         }
 
         .flow-num {
@@ -1205,120 +1101,126 @@ export default function BookingPage() {
           justify-content: center;
           font-size: 11px;
           font-weight: 700;
-          background: var(--bg);
-          color: var(--ink-soft);
+          background: #F0ECE1;
+          color: #5B607A;
         }
 
         .flow-step-item.active .flow-num {
-          background: var(--dusk);
+          background: #4C5FD5;
           color: #fff;
         }
 
         .flow-step-item.done .flow-num {
-          background: var(--success);
+          background: #1E9E63;
           color: #fff;
         }
 
         .flow-divider {
           width: 24px;
           height: 1.5px;
-          background: var(--border);
+          background: #E7E4DC;
         }
 
-        /* Cards in Form */
+        /* Section cards */
         .form-section-card {
-          background: var(--surface);
-          border: 1.5px solid var(--border);
-          border-radius: var(--radius-md);
-          padding: 22px 24px;
-          margin-bottom: 22px;
-          box-shadow: 0 1px 3px rgba(23, 26, 50, 0.04);
+          background: #FFFFFF;
+          border: 1.5px solid #E7E4DC;
+          border-radius: 14px;
+          padding: clamp(18px, 3vw, 26px);
+          margin-bottom: 20px;
+          box-shadow: 0 2px 8px rgba(23, 26, 50, 0.04);
         }
 
         .section-card-title {
           font-family: var(--font-display);
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 700;
-          color: var(--ink);
+          color: #171A32;
           letter-spacing: -0.01em;
           margin-bottom: 18px;
           padding-bottom: 10px;
-          border-bottom: 1px solid var(--border);
+          border-bottom: 1px solid #F0ECE1;
           display: flex;
           align-items: center;
           justify-content: space-between;
         }
 
-        /* Sub section box */
-        .sub-section-box {
-          background: var(--bg);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: 16px;
-          margin-top: 14px;
-          animation: stepFadeIn 0.2s ease-out;
-        }
-
-        .sub-section-title {
-          font-size: 13.5px;
-          font-weight: 700;
-          color: var(--ink);
-          margin-bottom: 4px;
-        }
-
-        .sub-section-desc {
-          font-size: 12.5px;
-          color: var(--ink-soft);
-          margin-bottom: 14px;
-        }
-
-        /* Form grids & inputs */
         .form-grid-2 {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 16px;
+          gap: 14px;
+        }
+
+        @media (max-width: 640px) {
+          .form-grid-2 {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
         }
 
         .booking-field {
-          margin-bottom: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 12px;
         }
 
         .field-label {
-          display: block;
-          font-size: 12px;
+          font-size: 12.5px;
           font-weight: 700;
-          color: var(--ink-soft);
-          margin-bottom: 6px;
+          color: #454A62;
+          display: flex;
+          align-items: center;
+          gap: 3px;
         }
 
         .field-required {
-          color: var(--dawn);
-          margin-left: 3px;
+          color: #D93025;
         }
 
         .field-error-text {
           font-size: 11.5px;
-          color: var(--danger);
-          margin-top: 4px;
-          font-weight: 600;
+          color: #D93025;
+          margin-top: 2px;
+          font-weight: 500;
         }
 
         .booking-input {
           width: 100%;
-          padding: 10px 13px;
-          border: 1.5px solid var(--border);
-          border-radius: var(--radius-sm);
-          font-family: var(--font-body);
-          font-size: 13.5px;
-          color: var(--ink);
-          background: var(--surface);
+          background: #FCFAF7;
+          border: 1.5px solid #DCD8D0;
+          border-radius: 8px;
+          padding: 10px 14px;
+          font-size: 14px;
+          color: #171A32;
+          transition: all 0.15s ease;
           outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .booking-input:focus {
-          border-color: var(--dusk);
-          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.1);
+          background: #FFFFFF;
+          border-color: #4C5FD5;
+          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.12);
+        }
+
+        .booking-textarea {
+          width: 100%;
+          background: #FCFAF7;
+          border: 1.5px solid #DCD8D0;
+          border-radius: 10px;
+          padding: 12px 16px;
+          font-size: 14.5px;
+          line-height: 1.6;
+          color: #171A32;
+          transition: all 0.15s ease;
+          outline: none;
+          font-family: inherit;
+        }
+
+        .booking-textarea:focus {
+          background: #FFFFFF;
+          border-color: #4C5FD5;
+          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.12);
         }
 
         .booking-select-wrapper {
@@ -1328,23 +1230,22 @@ export default function BookingPage() {
 
         .booking-select {
           width: 100%;
-          padding: 10px 32px 10px 13px;
-          border: 1.5px solid var(--border);
-          border-radius: var(--radius-sm);
-          font-family: var(--font-body);
-          font-size: 13.5px;
-          color: var(--ink);
-          background: var(--surface);
-          outline: none;
           appearance: none;
-          -webkit-appearance: none;
+          background: #FCFAF7;
+          border: 1.5px solid #DCD8D0;
+          border-radius: 8px;
+          padding: 10px 36px 10px 14px;
+          font-size: 14px;
+          color: #171A32;
           cursor: pointer;
-          transition: border-color 0.2s;
+          outline: none;
+          transition: all 0.15s ease;
         }
 
         .booking-select:focus {
-          border-color: var(--dusk);
-          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.1);
+          background: #FFFFFF;
+          border-color: #4C5FD5;
+          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.12);
         }
 
         .select-chevron {
@@ -1353,71 +1254,10 @@ export default function BookingPage() {
           top: 50%;
           transform: translateY(-50%);
           pointer-events: none;
-          color: var(--ink-soft);
+          color: #7B8098;
         }
 
-        /* Message Textarea (800 chars, production-ready) */
-        .message-textarea-container {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .booking-textarea {
-          width: 100%;
-          padding: 12px 14px;
-          border: 1.5px solid var(--border);
-          border-radius: var(--radius-sm);
-          font-family: var(--font-body);
-          font-size: 13.5px;
-          color: var(--ink);
-          background: var(--surface);
-          outline: none;
-          resize: vertical;
-          min-height: 100px;
-          line-height: 1.55;
-          transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .booking-textarea:focus {
-          border-color: var(--dusk);
-          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.1);
-        }
-
-        .message-meta-bar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 2px 4px;
-          gap: 10px;
-        }
-
-        .message-guidance-text {
-          font-size: 11.5px;
-          color: var(--ink-faint);
-          line-height: 1.4;
-        }
-
-        .char-counter-pill {
-          font-family: var(--font-mono);
-          font-size: 11.5px;
-          font-weight: 600;
-          color: var(--ink-soft);
-          background: var(--bg);
-          padding: 2px 8px;
-          border-radius: 6px;
-          border: 1px solid var(--border);
-          flex-shrink: 0;
-          transition: all 0.2s;
-        }
-
-        .char-counter-pill.near-max {
-          color: var(--warning);
-          border-color: var(--warning);
-          background: var(--warning-soft);
-        }
-
-        /* Pill option buttons (e.g. Gender, Language) */
+        /* Pill options */
         .pill-options-row {
           display: flex;
           gap: 8px;
@@ -1426,231 +1266,330 @@ export default function BookingPage() {
 
         .pill-option-btn {
           flex: 1;
-          min-width: 70px;
+          min-width: 90px;
+          background: #FCFAF7;
+          border: 1.5px solid #DCD8D0;
+          border-radius: 8px;
           padding: 9px 12px;
-          border-radius: var(--radius-sm);
-          border: 1.5px solid var(--border);
-          background: var(--surface);
-          color: var(--ink);
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 600;
+          color: #5B607A;
           cursor: pointer;
-          transition: all 0.15s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
+          transition: all 0.15s ease;
+          text-align: center;
         }
 
         .pill-option-btn:hover {
-          border-color: var(--border-strong);
+          border-color: #A3A8C3;
+          color: #171A32;
         }
 
         .pill-option-btn.selected {
-          border-color: var(--dusk);
-          background: var(--dusk-soft);
-          color: var(--dusk);
-          box-shadow: 0 1px 4px rgba(76, 95, 213, 0.12);
+          background: #4C5FD5;
+          border-color: #4C5FD5;
+          color: #FFFFFF;
+          box-shadow: 0 2px 6px rgba(76, 95, 213, 0.25);
         }
 
-        /* Class type cards (Private / Group) */
-        .class-type-select-grid {
+        /* Goals chips grid */
+        .goals-chips-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-
-        .class-select-card {
-          padding: 14px 16px;
-          border-radius: var(--radius-sm);
-          border: 1.5px solid var(--border);
-          background: var(--surface);
-          cursor: pointer;
-          text-align: left;
-          transition: all 0.18s;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          gap: 10px;
-        }
-
-        .class-select-card:hover {
-          border-color: var(--border-strong);
-        }
-
-        .class-select-card.selected {
-          border-color: var(--dusk);
-          background: var(--dusk-soft);
-          box-shadow: 0 2px 8px rgba(76, 95, 213, 0.12);
-        }
-
-        .class-card-header {
-          display: flex;
-          gap: 10px;
-          align-items: flex-start;
-        }
-
-        .card-icon {
-          font-size: 22px;
-          line-height: 1;
-        }
-
-        .card-title {
-          font-weight: 700;
-          font-size: 14px;
-          color: var(--ink);
-        }
-
-        .card-sub {
-          font-size: 11.5px;
-          color: var(--ink-soft);
-          margin-top: 2px;
-          line-height: 1.35;
-        }
-
-        .card-tag {
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--dusk);
-          background: rgba(76, 95, 213, 0.1);
-          padding: 3px 8px;
-          border-radius: 6px;
-          width: fit-content;
-        }
-
-        /* Group Cohorts Grid */
-        .cohort-cards-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-          margin-bottom: 16px;
-        }
-
-        .cohort-card {
-          padding: 14px;
-          border-radius: var(--radius-sm);
-          border: 1.5px solid var(--border);
-          background: var(--surface);
-          cursor: pointer;
-          text-align: left;
-          transition: all 0.18s;
-        }
-
-        .cohort-card:hover {
-          border-color: var(--border-strong);
-        }
-
-        .cohort-card.active {
-          border-color: var(--dusk);
-          background: #ffffff;
-          box-shadow: 0 2px 8px rgba(76, 95, 213, 0.15);
-          outline: 2px solid var(--dusk);
-        }
-
-        .cohort-badge {
-          font-size: 11px;
-          font-weight: 700;
-          color: var(--ink-soft);
-          margin-bottom: 4px;
-        }
-
-        .cohort-name {
-          font-weight: 700;
-          font-size: 13.5px;
-          color: var(--ink);
-          line-height: 1.3;
-          margin-bottom: 6px;
-        }
-
-        .cohort-price {
-          font-family: var(--font-display);
-          font-size: 18px;
-          font-weight: 700;
-          color: var(--dusk);
-        }
-
-        .cohort-price span {
-          font-size: 12px;
-          font-weight: 500;
-          color: var(--ink-soft);
-        }
-
-        .cohort-meta {
-          font-size: 11px;
-          color: var(--success);
-          font-weight: 600;
-          margin-top: 4px;
-        }
-
-        /* Time slot pill buttons */
-        .time-slots-pills-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
           gap: 8px;
         }
 
-        .slot-pill-btn {
-          padding: 9px 12px;
-          border-radius: var(--radius-sm);
-          border: 1.5px solid var(--border);
-          background: var(--surface);
-          color: var(--ink);
-          font-size: 12.5px;
-          font-weight: 600;
-          cursor: pointer;
+        .goal-chip-btn {
           display: flex;
           align-items: center;
           gap: 8px;
-          transition: all 0.15s;
+          background: #FCFAF7;
+          border: 1.5px solid #DCD8D0;
+          border-radius: 10px;
+          padding: 10px 12px;
+          font-size: 12.5px;
+          font-weight: 600;
+          color: #454A62;
+          cursor: pointer;
+          transition: all 0.15s ease;
           text-align: left;
         }
 
-        .slot-pill-btn:hover {
-          border-color: var(--border-strong);
+        .goal-chip-btn:hover {
+          border-color: #4C5FD5;
+          background: #F8F9FE;
         }
 
-        .slot-pill-btn.selected {
-          border-color: var(--dusk);
-          background: var(--dusk-soft);
-          color: var(--dusk);
-          box-shadow: 0 2px 6px rgba(76, 95, 213, 0.15);
+        .goal-chip-btn.selected {
+          background: #EEF2FD;
+          border-color: #4C5FD5;
+          color: #2F3E9E;
         }
 
-        .slot-clock {
+        .goal-check-icon {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          font-weight: 700;
+          background: #E4E1DB;
+          color: #5B607A;
+          flex-shrink: 0;
+        }
+
+        .goal-chip-btn.selected .goal-check-icon {
+          background: #4C5FD5;
+          color: #ffffff;
+        }
+
+        /* Class card toggle */
+        .class-type-toggle-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 14px;
+        }
+
+        @media (max-width: 580px) {
+          .class-type-toggle-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .class-card-toggle {
+          background: #FCFAF7;
+          border: 2px solid #E7E4DC;
+          border-radius: 12px;
+          padding: 16px;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .class-card-toggle:hover {
+          border-color: #B5BCDF;
+        }
+
+        .class-card-toggle.active {
+          background: #F8F9FE;
+          border-color: #4C5FD5;
+          box-shadow: 0 4px 12px rgba(76, 95, 213, 0.12);
+        }
+
+        .card-toggle-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+        }
+
+        .card-toggle-icon {
+          font-size: 20px;
+        }
+
+        .card-toggle-badge {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 2px 7px;
+          border-radius: 12px;
+          background: #E8E6E0;
+          color: #5B607A;
+        }
+
+        .card-toggle-badge.popular {
+          background: #FDE8D7;
+          color: #C05621;
+        }
+
+        .card-toggle-name {
+          font-family: var(--font-display);
+          font-size: 15px;
+          font-weight: 700;
+          color: #171A32;
+          margin-bottom: 4px;
+        }
+
+        .card-toggle-desc {
+          font-size: 12px;
+          color: #6B7089;
+          line-height: 1.35;
+          margin-bottom: 8px;
+        }
+
+        .card-toggle-price {
+          font-size: 12px;
+          font-weight: 700;
+          color: #4C5FD5;
+        }
+
+        /* Cohort tiers */
+        .cohort-tiers-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        @media (max-width: 580px) {
+          .cohort-tiers-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .cohort-tier-card {
+          display: flex;
+          gap: 10px;
+          background: #FCFAF7;
+          border: 1.5px solid #DCD8D0;
+          border-radius: 10px;
+          padding: 12px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .cohort-tier-card:hover {
+          border-color: #4C5FD5;
+        }
+
+        .cohort-tier-card.selected {
+          background: #F0F4FF;
+          border-color: #4C5FD5;
+        }
+
+        .radio-dot {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 1.5px solid #A3A8C3;
+          margin-top: 2px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .radio-dot.checked {
+          border-color: #4C5FD5;
+          background: #4C5FD5;
+        }
+
+        .cohort-name {
           font-size: 13px;
+          font-weight: 700;
+          color: #171A32;
         }
 
-        /* Review components */
+        .cohort-lang {
+          font-size: 11.5px;
+          color: #6B7089;
+        }
+
+        .cohort-price {
+          font-size: 12px;
+          font-weight: 700;
+          color: #1E9E63;
+          margin-top: 2px;
+        }
+
+        /* Submit actions */
+        .step-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 12px;
+        }
+
+        .btn-action-primary, .btn-action-submit {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          background: #4C5FD5;
+          color: #ffffff;
+          font-size: 14px;
+          font-weight: 700;
+          padding: 13px 26px;
+          border-radius: 10px;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 14px rgba(76, 95, 213, 0.28);
+        }
+
+        .btn-action-primary:hover, .btn-action-submit:hover {
+          background: #3B4DBF;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(76, 95, 213, 0.35);
+        }
+
+        .btn-action-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: #FFFFFF;
+          color: #454A62;
+          font-size: 13px;
+          font-weight: 700;
+          padding: 12px 20px;
+          border-radius: 10px;
+          border: 1.5px solid #DCD8D0;
+          cursor: pointer;
+        }
+
+        .btn-action-secondary:hover {
+          background: #F6F4EE;
+        }
+
+        .dual-actions {
+          justify-content: space-between;
+        }
+
+        .btn-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid #ffffff;
+          border-top-color: transparent;
+          border-radius: 50%;
+          animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        /* Review Cards */
         .review-card {
-          background: var(--surface);
-          border: 1.5px solid var(--border);
-          border-radius: var(--radius-md);
+          background: #FFFFFF;
+          border: 1.5px solid #E7E4DC;
+          border-radius: 12px;
+          margin-bottom: 14px;
           overflow: hidden;
-          margin-bottom: 16px;
         }
 
         .review-card-header {
-          padding: 10px 18px;
-          background: var(--bg);
-          font-size: 11px;
+          background: #F8F7F3;
+          padding: 10px 16px;
+          font-size: 12px;
           font-weight: 700;
-          letter-spacing: 0.08em;
           text-transform: uppercase;
-          color: var(--ink-soft);
-          border-bottom: 1px solid var(--border);
+          letter-spacing: 0.05em;
+          color: #5B607A;
+          border-bottom: 1px solid #E7E4DC;
         }
 
         .review-card-body {
-          padding: 2px 0;
+          padding: 8px 16px;
         }
 
         .review-row {
           display: flex;
-          justify-content: space-between;
           align-items: center;
-          padding: 10px 18px;
-          border-bottom: 1px solid var(--border);
-          gap: 16px;
+          justify-content: space-between;
+          padding: 8px 0;
+          border-bottom: 1px solid #F0ECE1;
+          font-size: 13px;
         }
 
         .review-row:last-child {
@@ -1658,240 +1597,38 @@ export default function BookingPage() {
         }
 
         .review-row-label {
-          font-size: 13px;
-          color: var(--ink-soft);
-          flex-shrink: 0;
+          color: #6B7089;
         }
 
         .review-row-value {
-          font-size: 13.5px;
           font-weight: 600;
-          color: var(--ink);
-          text-align: right;
+          color: #171A32;
         }
 
         .review-message-text {
-          padding: 12px 18px;
-          font-size: 13.5px;
-          color: var(--ink-soft);
-          line-height: 1.6;
+          padding: 8px 0;
           font-style: italic;
+          font-size: 13px;
+          color: #5B607A;
         }
 
-        /* Action Buttons */
-        .step-actions {
-          display: flex;
-          gap: 12px;
-          margin-top: 24px;
-        }
-
-        .dual-actions {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-        }
-
-        .btn-action-primary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 13px 24px;
-          border-radius: var(--radius-sm);
-          font-family: var(--font-body);
-          font-size: 14.5px;
-          font-weight: 700;
-          cursor: pointer;
-          border: none;
-          background: var(--dusk);
-          color: #ffffff;
-          flex: 1;
-          transition: all 0.2s;
-          box-shadow: 0 4px 14px rgba(76, 95, 213, 0.25);
-        }
-
-        .btn-action-primary:hover {
-          background: #3c4ec5;
-          transform: translateY(-1px);
-        }
-
-        .btn-action-secondary {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 13px 20px;
-          border-radius: var(--radius-sm);
-          font-family: var(--font-body);
-          font-size: 14.5px;
-          font-weight: 700;
-          cursor: pointer;
-          background: var(--surface);
-          color: var(--ink-soft);
-          border: 1.5px solid var(--border);
-          transition: all 0.2s;
-          flex-shrink: 0;
-        }
-
-        .btn-action-secondary:hover {
-          background: var(--bg);
-          color: var(--ink);
-        }
-
-        .btn-action-submit {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 13px 24px;
-          border-radius: var(--radius-sm);
-          font-family: var(--font-body);
-          font-size: 14.5px;
-          font-weight: 700;
-          cursor: pointer;
-          border: none;
-          background: linear-gradient(135deg, var(--dusk) 0%, #6B3FA8 100%);
-          color: #ffffff;
-          flex: 1;
-          transition: all 0.2s;
-          box-shadow: 0 4px 16px rgba(76, 95, 213, 0.35);
-        }
-
-        .btn-action-submit:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 6px 20px rgba(76, 95, 213, 0.45);
-        }
-
-        .btn-action-submit:disabled {
-          opacity: 0.65;
-          cursor: not-allowed;
-        }
-
-        .btn-spinner {
-          width: 18px;
-          height: 18px;
-          border: 2px solid rgba(255, 255, 255, 0.35);
-          border-top-color: #ffffff;
-          border-radius: 50%;
-          animation: spin 0.7s linear infinite;
+        .privacy-footer {
+          font-size: 11.5px;
+          color: #8C90A4;
         }
 
         .global-error-banner {
-          background: var(--danger-soft);
-          border: 1px solid rgba(225, 72, 60, 0.3);
-          color: var(--danger);
+          background: #FDE8E8;
+          border: 1.5px solid #F8B4B4;
+          color: #9B1C1C;
+          border-radius: 10px;
           padding: 12px 16px;
-          border-radius: var(--radius-sm);
           font-size: 13px;
           font-weight: 500;
           display: flex;
           align-items: center;
           gap: 10px;
           margin-bottom: 20px;
-        }
-
-        .step-header {
-          margin-bottom: 20px;
-        }
-
-        .step-title {
-          font-family: var(--font-display);
-          font-size: 24px;
-          font-weight: 700;
-          color: var(--ink);
-          letter-spacing: -0.02em;
-          margin-bottom: 4px;
-        }
-
-        .step-subtitle {
-          font-size: 13.5px;
-          color: var(--ink-soft);
-        }
-
-        .privacy-footer {
-          text-align: center;
-          font-size: 12px;
-          color: var(--ink-faint);
-          margin-top: 24px;
-          line-height: 1.6;
-        }
-
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-
-        @keyframes stepFadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ════════════════════════════════════════════════════════════════
-           RESPONSIVE MEDIA QUERIES
-        ════════════════════════════════════════════════════════════════ */
-        @media (max-width: 960px) {
-          .booking-page-container {
-            grid-template-columns: 1fr;
-          }
-
-          .booking-left-panel {
-            position: static;
-            height: auto;
-            padding: 28px 24px 24px;
-            overflow: visible !important;
-          }
-
-          .hero-heading {
-            font-size: 26px;
-          }
-
-          .booking-right-panel {
-            max-height: none;
-            overflow: visible;
-            padding: 28px 20px 48px;
-          }
-        }
-
-        @media (max-width: 640px) {
-          .booking-left-panel {
-            padding: 20px 16px;
-          }
-
-          .booking-right-panel {
-            padding: 20px 14px 40px;
-          }
-
-          .form-section-card {
-            padding: 16px;
-          }
-
-          .form-grid-2 {
-            grid-template-columns: 1fr;
-            gap: 0;
-          }
-
-          .class-type-select-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .cohort-cards-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .time-slots-pills-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .desktop-break {
-            display: none;
-          }
-
-          .step-title {
-            font-size: 21px;
-          }
-
-          .step-subtitle {
-            font-size: 13px;
-          }
         }
       `}</style>
     </div>

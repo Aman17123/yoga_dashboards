@@ -1,13 +1,16 @@
-import React from "react";
+import React, { useState } from "react";
 import TimeBridge from "./TimeBridge";
 import FeeRing from "./FeeRing";
 import CalendarWidget from "./CalendarWidget";
+import ChangePasswordModal from "./ChangePasswordModal";
 import {
   UserIcon,
   UsersIcon,
   ClockIcon,
   CalendarIcon,
   WalletIcon,
+  CheckIcon,
+  CopyIcon,
 } from "./Icons";
 import {
   getInitials,
@@ -18,12 +21,47 @@ import {
   avatarColor,
 } from "../utils/dateUtils";
 
+// Helper to resolve student class link from individual record or group settings
+export function resolveStudentClassLink(student, paymentSettings) {
+  if (!student) return "";
+
+  // 1. If student has a dedicated classLink assigned, prioritize it
+  if (student.classLink && student.classLink.trim()) {
+    return student.classLink.trim();
+  }
+
+  // 2. If student is in a group class, inherit from groupClassLinks in settings
+  if (student.classType === "group" && paymentSettings?.groupClassLinks) {
+    const links = paymentSettings.groupClassLinks;
+    const gName = (student.groupName || "").toLowerCase();
+    const gLang = (student.language || "").toLowerCase();
+
+    if (student.groupName && links[student.groupName]) {
+      return links[student.groupName];
+    }
+    if (gName.includes("hindi") || gLang.includes("hindi")) {
+      return links.hindi || links["hindi"] || links.default || "";
+    }
+    if (gName.includes("english") || gLang.includes("english")) {
+      return links.english || links["english"] || links.default || "";
+    }
+    return links.default || "";
+  }
+
+  return "";
+}
+
 export default function StudentDashboard({
   student,
   currentTime,
   onPayNow,
   onToggleAttendance,
+  onOpenReceipt,
+  paymentSettings,
 }) {
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   if (!student) return null;
 
   const studentFirstName = student.name.split(" ")[0];
@@ -34,6 +72,24 @@ export default function StudentDashboard({
   const istClassTime = formatISTTime(student.classTimeIST);
   const palette = avatarColor(student.id);
 
+  // Class link resolution
+  const activeClassLink = resolveStudentClassLink(student, paymentSettings);
+  const isInstructorMatching =
+    student.instructorStatus === "matching_in_progress" ||
+    student.instructor === "Matching in Progress";
+
+  const handleCopyLink = () => {
+    if (!activeClassLink) return;
+    navigator.clipboard.writeText(activeClassLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2400);
+  };
+
+  const handleJoinClass = () => {
+    if (!activeClassLink) return;
+    window.open(activeClassLink, "_blank", "noopener,noreferrer");
+  };
+
   return (
     <section className="w-full">
       {/* View Header */}
@@ -42,10 +98,24 @@ export default function StudentDashboard({
           <div className="eyebrow">Student Dashboard</div>
           <h1 className="view__title">Hi, {studentFirstName} 👋</h1>
         </div>
+
+        {/* Security / Account Actions */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            id="student-change-password-btn"
+            onClick={() => setShowPasswordModal(true)}
+            className="btn btn--sm gap-1.5 font-semibold text-xs"
+            title="Change account login password"
+          >
+            <span>🔒</span>
+            <span>Change Password</span>
+          </button>
+        </div>
       </header>
 
       {/* Profile Strip */}
-      <div className="profile-strip">
+      <div className="profile-strip mb-4">
         <div
           className="avatar"
           style={{
@@ -70,6 +140,94 @@ export default function StudentDashboard({
               </span>
             )}
             <span className="tag tag--muted">{student.country}</span>
+            <span className="mono text-xs font-semibold px-2 py-0.5 rounded bg-[var(--bg-alt)] text-[var(--ink-soft)]">
+              @{student.username}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ PROMINENT JOIN CLASS & SESSION HUB (REQUIREMENTS 1, 5, 6, 7) ═══ */}
+      <div
+        className="rounded-[var(--radius-lg)] border p-4 sm:p-5 mb-[18px] relative overflow-hidden transition-all shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #FAFBFD 0%, #F0F4FE 100%)",
+          borderColor: activeClassLink ? "#CBD8F7" : "var(--border)",
+        }}
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            {/* Instructor Match Status / SLA Badge */}
+            {isInstructorMatching ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] mb-2">
+                <span className="animate-pulse">⏳</span>
+                <span>Instructor Matching in Progress · Completed within 24 hours</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-[#EBF7EE] text-[#1E7E34] border border-[#C3E6CB] mb-2">
+                <span>🧘</span>
+                <span>Assigned Instructor: <strong>{student.instructor || "Rohan Mehta"}</strong></span>
+              </div>
+            )}
+
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--ink)] mb-1" style={{ fontFamily: "var(--font-display)" }}>
+              {student.classType === "private" ? "Private 1-on-1 Practice Room" : `Group Cohort · ${student.groupName || "Interactive Session"}`}
+            </h2>
+
+            <p className="text-xs sm:text-sm text-[var(--ink-soft)] leading-relaxed max-w-xl">
+              Scheduled daily practice at <strong className="text-[var(--ink)]">{istClassTime} IST</strong> ({localClassTime} your local time).
+              {activeClassLink
+                ? " Click Join Class to enter your live video session."
+                : " Your instructor is preparing your dedicated session link."}
+            </p>
+          </div>
+
+          {/* Action Button: Join Class OR Pending State */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-shrink-0">
+            {activeClassLink ? (
+              <>
+                <button
+                  type="button"
+                  id="join-class-btn"
+                  onClick={handleJoinClass}
+                  className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-[10px] bg-gradient-to-r from-[#1E9E63] to-[#15803D] hover:from-[#178553] hover:to-[#116731] text-white text-sm sm:text-base font-bold shadow-lg shadow-[#1E9E63]/25 hover:shadow-xl hover:shadow-[#1E9E63]/35 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                  <span>Join Class</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="copy-class-link-btn"
+                  onClick={handleCopyLink}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-3 rounded-[10px] border border-[#CBD8F7] bg-white hover:bg-[#F8F9FE] text-xs font-semibold text-[var(--ink)] transition-all cursor-pointer"
+                  title="Copy meeting link to clipboard"
+                >
+                  {copiedLink ? (
+                    <>
+                      <CheckIcon className="w-4 h-4 text-[var(--success)]" />
+                      <span className="text-[var(--success)]">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <CopyIcon className="w-4 h-4 text-[var(--ink-soft)]" />
+                      <span>Copy Link</span>
+                    </>
+                  )}
+                </button>
+              </>
+            ) : (
+              <div className="px-4 py-3 rounded-[10px] bg-[var(--surface)] border border-[var(--border)] text-xs text-[var(--ink-soft)] font-medium flex items-center gap-2">
+                <span className="text-base">📅</span>
+                <div>
+                  <div className="font-bold text-[var(--ink)]">Class Link Pending</div>
+                  <div className="text-[11px]">Assigned by instructor before session</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -94,7 +252,9 @@ export default function StudentDashboard({
           </div>
           <div>
             <div className="infogrid__label">Instructor</div>
-            <div className="infogrid__value">{student.instructor || "Assigned Teacher"}</div>
+            <div className="infogrid__value">
+              {isInstructorMatching ? "Matching in Progress (24h)" : student.instructor || "Rohan Mehta"}
+            </div>
           </div>
         </div>
 
@@ -158,6 +318,20 @@ export default function StudentDashboard({
             </div>
           </div>
         </div>
+
+        {student.goals && (
+          <div className="infogrid__item col-span-1 sm:col-span-2">
+            <div className="infogrid__icon">
+              <span>🎯</span>
+            </div>
+            <div>
+              <div className="infogrid__label">Your Goals &amp; Focus</div>
+              <div className="infogrid__value text-xs font-medium text-[var(--ink)]">
+                {student.goals}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Attendance Calendar */}
@@ -166,6 +340,14 @@ export default function StudentDashboard({
         editable={true}
         onToggleAttendance={onToggleAttendance}
       />
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <ChangePasswordModal
+          student={student}
+          onClose={() => setShowPasswordModal(false)}
+        />
+      )}
     </section>
   );
 }

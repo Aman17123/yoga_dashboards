@@ -27,6 +27,14 @@ const studentSchema = new mongoose.Schema(
     scheduleDays: { type: [Number], default: [0, 1, 2, 3, 4, 5, 6] },
     joiningDate: { type: String, default: "" },
     lastPaymentDate: { type: String, default: "" },
+    classLink: { type: String, default: "" },
+    goals: { type: String, default: "" },
+    language: { type: String, default: "English" },
+    instructorStatus: {
+      type: String,
+      enum: ["assigned", "matching_in_progress"],
+      default: "assigned",
+    },
     username: { type: String, required: true, unique: true, index: true },
     password: { type: String, required: true },
     attendance: {
