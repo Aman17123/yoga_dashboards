@@ -3,8 +3,13 @@ import { pool } from "../db/pool.js";
 import { getFullStudentById } from "../db/serializer.js";
 
 const ADMIN_CREDENTIALS = {
-  username: "admin",
-  password: "admin123",
+  username: process.env.ADMIN_USERNAME || "admin",
+  password: process.env.ADMIN_PASSWORD || "admin123",
+};
+
+const USER_CREDENTIALS = {
+  username: process.env.USER_USERNAME || "user",
+  password: process.env.USER_PASSWORD || "user123",
 };
 
 export async function login(req, res) {
@@ -14,15 +19,34 @@ export async function login(req, res) {
       return res.status(400).json({ error: "Username and password are required." });
     }
 
+    const trimmedUsername = username.trim();
+
     // Check admin credentials
     if (
-      username.trim() === ADMIN_CREDENTIALS.username &&
+      trimmedUsername.toLowerCase() === ADMIN_CREDENTIALS.username.toLowerCase() &&
       password === ADMIN_CREDENTIALS.password
     ) {
       return res.json({
         success: true,
         session: { role: "admin" },
         user: { name: "Studio Administrator", role: "admin" },
+      });
+    }
+
+    // Check dedicated user credentials (user / user123)
+    if (
+      trimmedUsername.toLowerCase() === USER_CREDENTIALS.username.toLowerCase() &&
+      password === USER_CREDENTIALS.password
+    ) {
+      const [firstStudent] = await pool.execute(
+        "SELECT id FROM students ORDER BY id ASC LIMIT 1"
+      );
+      const studentId = firstStudent && firstStudent.length > 0 ? firstStudent[0].id : 1;
+      const fullStudent = await getFullStudentById(pool, studentId);
+      return res.json({
+        success: true,
+        session: { role: "student", id: fullStudent.id },
+        user: fullStudent,
       });
     }
 

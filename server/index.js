@@ -1,5 +1,8 @@
 import express from "express";
 import http from "http";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
 import { Server as SocketIOServer } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -8,6 +11,9 @@ import apiRouter from "./routes/api.js";
 import { seedDatabaseIfEmpty } from "./utils/seedData.js";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,6 +68,19 @@ try {
 
 // API Routes
 app.use("/api", apiRouter);
+
+// Serve frontend static build in production if available
+const clientDistPath = path.resolve(__dirname, "../client/dist");
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.use((req, res, next) => {
+    // If request is for an unhandled /api route, pass to next error/404 handler
+    if (req.path.startsWith("/api")) {
+      return res.status(404).json({ error: "API route not found" });
+    }
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+}
 
 // Central error handler
 app.use((err, req, res, next) => {
