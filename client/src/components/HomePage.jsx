@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "./Navbar";
 
-// Brand Sun Logo
-function SunLogo({ size = 32 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
-      <circle cx="17" cy="17" r="5.5" fill="#F2994A" />
-      <circle cx="17" cy="17" r="11" stroke="#F2994A" strokeWidth="1.5" strokeDasharray="3.5 2.8" fill="none" />
-      <path d="M17 3.5v3M17 27.5v3M3.5 17h3M27.5 17h3M7.2 7.2l2 2M24.8 24.8l2 2M24.8 7.2l-2 2M7.2 24.8l2-2" stroke="#F2994A" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
+import BrandLogo from "./BrandLogo";
+
+// Backwards compatibility alias
+const SunLogo = BrandLogo;
 
 export default function HomePage({
   onLogin,
@@ -165,7 +159,7 @@ export default function HomePage({
       <footer className="border-t border-[#E7E4DC] bg-[#FFFFFF] py-10 mt-auto">
         <div className="max-w-7xl mx-auto px-5 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <SunLogo size={28} />
+            <BrandLogo size={28} />
             <span
               className="text-xl font-bold tracking-tight text-[#171A32]"
               style={{ fontFamily: "var(--font-display)" }}
@@ -201,7 +195,7 @@ export default function HomePage({
             </button>
 
             <div className="flex items-center gap-2.5 mb-4">
-              <SunLogo size={30} />
+              <BrandLogo size={30} />
               <span className="font-bold text-xl text-[#171A32]" style={{ fontFamily: "var(--font-display)" }}>
                 yogaonlive Login
               </span>
@@ -220,7 +214,7 @@ export default function HomePage({
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. admin or aarav.sharma"
+                  placeholder="Enter username (e.g. admin or user)"
                   required
                   autoFocus
                   className="w-full text-sm bg-[#FCFAF7] border border-[#DCD8D0] rounded-[6px] px-3.5 py-2.5 text-[#171A32] focus:outline-none focus:border-[#4C5FD5]"
@@ -264,37 +258,6 @@ export default function HomePage({
                 <span>{loginLoading ? "Signing in…" : "Sign in to Studio"}</span>
               </button>
             </form>
-
-            {/* Quick Demo Logins */}
-            {onQuickLogin && (
-              <div className="mt-6 pt-5 border-t border-[#E7E4DC]">
-                <div className="text-[11px] font-mono text-[#7B8098] uppercase tracking-wider mb-2.5">
-                  Quick Demo Access:
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onQuickLogin("admin");
-                      setShowLoginModal(false);
-                    }}
-                    className="p-2 rounded-[6px] border border-[#DCD8D0] text-xs font-semibold text-[#171A32] hover:bg-[#FCFAF7] cursor-pointer"
-                  >
-                    👨‍💼 Admin Console
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onQuickLogin("student", 1);
-                      setShowLoginModal(false);
-                    }}
-                    className="p-2 rounded-[6px] border border-[#DCD8D0] text-xs font-semibold text-[#171A32] hover:bg-[#FCFAF7] cursor-pointer"
-                  >
-                    🧘 Student Desk
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

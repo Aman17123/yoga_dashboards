@@ -1,20 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 
-function SunLogo({ size = 26 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
-      <circle cx="17" cy="17" r="5.5" fill="#F2994A" />
-      <circle cx="17" cy="17" r="11" stroke="#F2994A" strokeWidth="1.5" strokeDasharray="3.5 2.8" fill="none" />
-      <path
-        d="M17 3.5v3M17 27.5v3M3.5 17h3M27.5 17h3M7.2 7.2l2 2M24.8 24.8l2 2M24.8 7.2l-2 2M7.2 24.8l2-2"
-        stroke="#F2994A"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+import BrandLogo from "../components/BrandLogo";
+
+// Backwards compatibility alias
+const SunLogo = BrandLogo;
 
 const TIMELINE = [
   {
@@ -138,7 +128,7 @@ export default function BookingSuccess() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
-          <SunLogo size={26} />
+          <BrandLogo size={26} />
           <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink, #171A32)" }}>yogaonlive</span>
         </div>
         <div
@@ -197,7 +187,7 @@ export default function BookingSuccess() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <SunLogo size={26} />
+          <BrandLogo size={26} />
           <span style={{ fontSize: 18, fontWeight: 700, color: "var(--ink, #171A32)" }}>yogaonlive</span>
         </div>
 
@@ -323,7 +313,7 @@ export default function BookingSuccess() {
     >
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <SunLogo size={24} />
+        <BrandLogo size={24} />
         <span
           style={{
             fontFamily: "var(--font-display, inherit)",

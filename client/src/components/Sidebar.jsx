@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { SunIcon, UsersIcon, UserIcon, ChatIcon } from "./Icons";
+import BrandLogo from "./BrandLogo";
 import { getWallTime } from "../utils/dateUtils";
 
 export default function Sidebar({
@@ -36,9 +37,7 @@ export default function Sidebar({
       {/* Top Row: Brand, Live Badge & Mobile Hamburger */}
       <div className="flex items-center justify-between w-full md:mb-6">
         <div className="flex items-center gap-2">
-          <span className="w-[28px] h-[28px] flex-none" style={{ color: "var(--dawn)" }}>
-            <SunIcon className="w-full h-full" />
-          </span>
+          <BrandLogo size={28} className="w-[28px] h-[28px]" />
           <span
             className="font-bold text-[18px] tracking-tight"
             style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}

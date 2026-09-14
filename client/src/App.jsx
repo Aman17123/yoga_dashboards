@@ -21,6 +21,7 @@ import {
 } from "./components/Modals";
 import {
   ADMIN_ACCOUNT,
+  USER_ACCOUNT,
   DEFAULT_PAYMENT_SETTINGS,
   INITIAL_STUDENTS,
   INITIAL_ENQUIRIES,
@@ -316,7 +317,7 @@ export default function App() {
 
     // Local fallback check
     if (
-      username === ADMIN_ACCOUNT.username &&
+      username.toLowerCase() === ADMIN_ACCOUNT.username.toLowerCase() &&
       password === ADMIN_ACCOUNT.password
     ) {
       const adminSess = { role: "admin" };
@@ -326,6 +327,21 @@ export default function App() {
       showToast("Logged in as Studio Administrator.");
       return true;
     }
+
+    if (
+      username.toLowerCase() === USER_ACCOUNT.username.toLowerCase() &&
+      password === USER_ACCOUNT.password
+    ) {
+      const studentId = students[0]?.id || 1;
+      const foundStudent = students.find((s) => s.id === studentId) || students[0];
+      const studentSess = { role: "student", id: studentId };
+      setSession(studentSess);
+      localStorage.setItem("yoga_session", JSON.stringify(studentSess));
+      setCurrentView("home");
+      showToast(`Welcome back, ${foundStudent?.name || "Student"}! You are logged into your student account.`);
+      return true;
+    }
+
     const foundStudent = students.find(
       (s) => s.username === username && s.password === password
     );

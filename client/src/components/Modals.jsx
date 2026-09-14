@@ -22,6 +22,7 @@ import {
   VideoIcon,
   ExternalLinkIcon,
 } from "./Icons";
+import BrandLogo from "./BrandLogo";
 import CountryFlag from "./CountryFlag";
 import {
   TIMEZONE_OPTIONS,
@@ -323,7 +324,7 @@ export function StudentDetailModal({
               <CalendarIcon />
             </div>
             <div>
-              <div className="infogrid__label">Joined</div>
+              <div className="infogrid__label">Joining Date</div>
               <div className="infogrid__value">
                 {formatDateHuman(parseDateOnly(student.joiningDate))}
               </div>
@@ -2349,9 +2350,7 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
           <div className="flex items-start justify-between border-b pb-5 mb-5 flex-wrap gap-4" style={{ borderColor: "var(--border)" }}>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="w-6 h-6 flex-none" style={{ color: "var(--dawn)" }}>
-                  <SunIcon className="w-full h-full" />
-                </span>
+                <BrandLogo size={24} className="w-6 h-6 flex-none" />
                 <span
                   className="font-bold text-xl tracking-tight"
                   style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}

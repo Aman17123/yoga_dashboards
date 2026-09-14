@@ -1,28 +1,10 @@
 import React from "react";
 import { useLocation, Link } from "react-router-dom";
 
-function SunLogo({ size = 26 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
-      <circle cx="17" cy="17" r="5.5" fill="#F2994A" />
-      <circle
-        cx="17"
-        cy="17"
-        r="11"
-        stroke="#F2994A"
-        strokeWidth="1.5"
-        strokeDasharray="3.5 2.8"
-        fill="none"
-      />
-      <path
-        d="M17 3.5v3M17 27.5v3M3.5 17h3M27.5 17h3M7.2 7.2l2 2M24.8 24.8l2 2M24.8 7.2l-2 2M7.2 24.8l2-2"
-        stroke="#F2994A"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+import BrandLogo from "../components/BrandLogo";
+
+// Backwards compatibility alias
+const SunLogo = BrandLogo;
 
 export default function NotFound() {
   const location = useLocation();
@@ -48,7 +30,7 @@ export default function NotFound() {
     >
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-        <SunLogo size={28} />
+        <BrandLogo size={28} />
         <span
           style={{
             fontFamily: "var(--font-display, inherit)",

@@ -3,6 +3,11 @@ export const ADMIN_ACCOUNT = {
   password: "admin123",
 };
 
+export const USER_ACCOUNT = {
+  username: "user",
+  password: "user123",
+};
+
 export const INSTRUCTOR_NAMES = [
   "Rohan Mehta",
   "Priya Nair",

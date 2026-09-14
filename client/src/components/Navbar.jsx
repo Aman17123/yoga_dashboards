@@ -1,21 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { getWallTime, digital12, getInitials, avatarColor } from "../utils/dateUtils";
+import {
+  getWallTime,
+  digital12,
+  getInitials,
+  avatarColor,
+} from "../utils/dateUtils";
 
-// Brand Sun Logo
-function SunLogo({ size = 32 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 34 34" fill="none">
-      <circle cx="17" cy="17" r="5.5" fill="#F2994A" />
-      <circle cx="17" cy="17" r="11" stroke="#F2994A" strokeWidth="1.5" strokeDasharray="3.5 2.8" fill="none" />
-      <path
-        d="M17 3.5v3M17 27.5v3M3.5 17h3M27.5 17h3M7.2 7.2l2 2M24.8 24.8l2 2M24.8 7.2l-2 2M7.2 24.8l2-2"
-        stroke="#F2994A"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+import BrandLogo from "./BrandLogo";
+
+// Backwards compatibility alias
+const SunLogo = BrandLogo;
 
 export default function Navbar({
   session,
@@ -55,9 +49,13 @@ export default function Navbar({
     : currentStudent?.name || session?.username || "Student";
   const displayUsername = isAdmin
     ? "admin"
-    : currentStudent?.username || (session?.username ? `@${session.username}` : "");
+    : currentStudent?.username ||
+      (session?.username ? `@${session.username}` : "");
 
-  const palette = !isAdmin && currentStudent?.id ? avatarColor(currentStudent.id) : { bg: "#4C5FD5", fg: "#FFFFFF" };
+  const palette =
+    !isAdmin && currentStudent?.id
+      ? avatarColor(currentStudent.id)
+      : { bg: "#4C5FD5", fg: "#FFFFFF" };
 
   const handleUserClick = (e) => {
     e.preventDefault();
@@ -73,16 +71,33 @@ export default function Navbar({
       <div className="max-w-7xl mx-auto px-4 sm:px-8 h-20 flex items-center justify-between">
         {/* Brand */}
         <a href="/" className="flex items-center gap-3 no-underline group">
-          <SunLogo size={36} />
+          <BrandLogo size={36} />
           <div className="flex flex-col">
             <span
               className="text-2xl font-bold tracking-tight text-[#171A32] leading-none group-hover:text-[#4C5FD5] transition-colors"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              yogaonlive
+              Yogaonlive
             </span>
-            <span className="text-[11px] font-semibold tracking-wider text-[#7B8098] uppercase mt-0.5">
-              Live Online Yoga Studio
+            <span
+              className="text-[11px] font-semibold tracking-wider text-[#7B8098] uppercase mt-0.5"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              By{" "}
+              <span
+                className="font-bold tracking-wider text-[#B42A04] uppercase"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Aatm
+              </span>{" "}
+              Yogashala &amp;{" "}
+              <span
+                className="font-bold tracking-wider text-[#0592A8] uppercase"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Sages
+              </span>{" "}
+              Yoga
             </span>
           </div>
         </a>
@@ -115,12 +130,26 @@ export default function Navbar({
                 id="navbar-dashboard-btn"
                 onClick={onNavigateDashboard}
                 className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-[8px] bg-gradient-to-r from-[#4C5FD5] to-[#6B3FA8] hover:from-[#3D4EC4] hover:to-[#5B3195] text-white text-xs sm:text-sm font-bold tracking-wide shadow-md shadow-[#4C5FD5]/20 hover:shadow-lg transition-all cursor-pointer flex-none"
-                title={isAdmin ? "Open Admin Console" : "Open My Student Dashboard"}
+                title={
+                  isAdmin ? "Open Admin Console" : "Open My Student Dashboard"
+                }
               >
                 <span>{isAdmin ? "⚙️" : "🧘"}</span>
                 <span>{isAdmin ? "Admin Console" : "My Dashboard"}</span>
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="hidden sm:inline">
-                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="hidden sm:inline"
+                >
+                  <path
+                    d="M6 3l5 5-5 5"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </button>
 
@@ -156,7 +185,13 @@ export default function Navbar({
                     fill="none"
                     className={`text-[#7B8098] transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
                   >
-                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M2.5 4.5L6 8L9.5 4.5"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
 
@@ -164,9 +199,13 @@ export default function Navbar({
                 {dropdownOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-white border border-[#E7E4DC] rounded-[10px] shadow-xl py-2 z-50 text-xs text-[#171A32] animate-in fade-in slide-in-from-top-2">
                     <div className="px-3.5 py-2 border-b border-[#F0ECE1]">
-                      <div className="font-bold text-[13px] text-[#171A32] truncate">{displayName}</div>
+                      <div className="font-bold text-[13px] text-[#171A32] truncate">
+                        {displayName}
+                      </div>
                       <div className="text-[11px] text-[#7B8098] font-mono mt-0.5">
-                        {isAdmin ? "Studio Administrator" : `@${currentStudent?.username || session?.username || "student"}`}
+                        {isAdmin
+                          ? "Studio Administrator"
+                          : `@${currentStudent?.username || session?.username || "student"}`}
                       </div>
                       {!isAdmin && currentStudent?.email && (
                         <div className="text-[11px] text-[#7B8098] truncate mt-0.5">
@@ -180,7 +219,9 @@ export default function Navbar({
                         <div className="flex justify-between text-[11px] mb-1">
                           <span className="text-[#7B8098]">Class:</span>
                           <span className="font-bold capitalize text-[#171A32]">
-                            {currentStudent.classType === "group" ? "Group Cohort" : "Private (1-on-1)"}
+                            {currentStudent.classType === "group"
+                              ? "Group Cohort"
+                              : "Private (1-on-1)"}
                           </span>
                         </div>
                         <div className="flex justify-between text-[11px]">
@@ -201,7 +242,11 @@ export default function Navbar({
                       className="w-full text-left px-3.5 py-2.5 hover:bg-[#F6F4EE] flex items-center gap-2 cursor-pointer font-bold text-[#4C5FD5]"
                     >
                       <span>🖥️</span>
-                      <span>{isAdmin ? "Open Admin Console" : "Open Student Dashboard"}</span>
+                      <span>
+                        {isAdmin
+                          ? "Open Admin Console"
+                          : "Open Student Dashboard"}
+                      </span>
                     </button>
 
                     <div className="border-t border-[#F0ECE1] my-1" />
@@ -214,10 +259,33 @@ export default function Navbar({
                       }}
                       className="w-full text-left px-3.5 py-2 hover:bg-[#FFF1F0] text-[#D93025] flex items-center gap-2 cursor-pointer font-medium"
                     >
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M6 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V3.33333C2 2.97971 2.14048 2.64057 2.39052 2.39052C2.64057 2.14048 2.97971 2 3.33333 2H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M10.6667 11.3333L14 8L10.6667 4.66667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M6 14H3.33333C2.97971 14 2.64057 13.8595 2.39052 13.6095C2.14048 13.3594 2 13.0203 2 12.6667V3.33333C2 2.97971 2.14048 2.64057 2.39052 2.39052C2.64057 2.14048 2.97971 2 3.33333 2H6"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M10.6667 11.3333L14 8L10.6667 4.66667"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M14 8H6"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       <span>Log out</span>
                     </button>
@@ -235,7 +303,13 @@ export default function Navbar({
             >
               <span>Book Now</span>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M6 3l5 5-5 5"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
             </a>
           )}

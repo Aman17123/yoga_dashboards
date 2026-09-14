@@ -28,7 +28,11 @@ const TIMEZONES = [
   { value: "America/Toronto", label: "Canada East (EST/EDT)", flag: "🇨🇦" },
   { value: "America/Vancouver", label: "Canada West (PST/PDT)", flag: "🇨🇦" },
   { value: "Africa/Lagos", label: "Nigeria (WAT — UTC+1)", flag: "🇳🇬" },
-  { value: "Africa/Johannesburg", label: "South Africa (SAST — UTC+2)", flag: "🇿🇦" },
+  {
+    value: "Africa/Johannesburg",
+    label: "South Africa (SAST — UTC+2)",
+    flag: "🇿🇦",
+  },
   { value: "Asia/Riyadh", label: "Saudi Arabia (AST — UTC+3)", flag: "🇸🇦" },
 ];
 
@@ -51,6 +55,8 @@ const GROUP_COHORTS = {
     price: 999,
     priceLabel: "₹999 / month",
     language: "Hindi",
+    instructor: "Rohan Mehta",
+    timingSchedule: "Daily: 5:00 am – 8:00 pm IST (8 Batches)",
     slots: [
       "5:00 am - 6:00 am IST",
       "6:00 am - 7:00 am IST",
@@ -68,10 +74,152 @@ const GROUP_COHORTS = {
     price: 1699,
     priceLabel: "₹1,699 / month",
     language: "English",
+    instructor: "Priya Nair",
+    timingSchedule: "Daily: 7:00 am – 8:30 pm IST (Morning & Evening)",
     slots: [
       "7:00 am - 8:00 am IST",
       "6:30 pm - 7:30 pm IST",
       "7:30 pm - 8:30 pm IST",
+    ],
+  },
+};
+
+// Private 1:1 Plans & Frequencies (Hindi & English)
+const PRIVATE_PLANS = {
+  hindi: {
+    language: "Hindi",
+    label: "Hindi Medium (हिंदी)",
+    plans: [
+      {
+        id: "hindi-regular",
+        category: "regular",
+        title: "Regular Yoga Plan",
+        levelBadge: "Beginner to Intermediate",
+        isSpecialized: false,
+        desc: "Tailored 1-on-1 sessions built around your unique body condition, routine, flexibility and fitness goals.",
+        frequencies: [
+          {
+            days: "2 Days a Week",
+            sessions: "8 live sessions / month",
+            price: 4299,
+            priceLabel: "₹4,299 /mo",
+            isPopular: false,
+          },
+          {
+            days: "3 Days a Week",
+            sessions: "12 live sessions / month",
+            price: 5799,
+            priceLabel: "₹5,799 /mo",
+            isPopular: false,
+          },
+          {
+            days: "5 Days a Week",
+            sessions: "20 live sessions / month",
+            price: 8399,
+            priceLabel: "₹8,399 /mo",
+            isPopular: true,
+          },
+        ],
+      },
+      {
+        id: "hindi-advanced",
+        category: "advanced",
+        title: "Pregnancy & Advanced Yoga",
+        levelBadge: "Prenatal / Ashtanga / Therapy",
+        isSpecialized: true,
+        desc: "Custom therapeutic sessions for prenatal/postnatal wellness, doctor-aligned safe movements, or intensive Ashtanga & Iyengar alignment.",
+        frequencies: [
+          {
+            days: "2 Days a Week",
+            sessions: "8 live sessions / month",
+            price: 5299,
+            priceLabel: "₹5,299 /mo",
+            isPopular: false,
+          },
+          {
+            days: "3 Days a Week",
+            sessions: "12 live sessions / month",
+            price: 6799,
+            priceLabel: "₹6,799 /mo",
+            isPopular: false,
+          },
+          {
+            days: "5 Days a Week",
+            sessions: "20 live sessions / month",
+            price: 9599,
+            priceLabel: "₹9,599 /mo",
+            isPopular: true,
+          },
+        ],
+      },
+    ],
+  },
+  english: {
+    language: "English",
+    label: "English Medium",
+    plans: [
+      {
+        id: "english-regular",
+        category: "regular",
+        title: "Regular Yoga Plan",
+        levelBadge: "Beginner to Intermediate",
+        isSpecialized: false,
+        desc: "Tailored 1-on-1 sessions built around your unique body condition, routine, flexibility and fitness goals.",
+        frequencies: [
+          {
+            days: "2 Days a Week",
+            sessions: "8 live sessions / month",
+            price: 6799,
+            priceLabel: "₹6,799 /mo",
+            isPopular: false,
+          },
+          {
+            days: "3 Days a Week",
+            sessions: "12 live sessions / month",
+            price: 8399,
+            priceLabel: "₹8,399 /mo",
+            isPopular: false,
+          },
+          {
+            days: "5 Days a Week",
+            sessions: "20 live sessions / month",
+            price: 11899,
+            priceLabel: "₹11,899 /mo",
+            isPopular: true,
+          },
+        ],
+      },
+      {
+        id: "english-advanced",
+        category: "advanced",
+        title: "Pregnancy & Advanced Yoga",
+        levelBadge: "Prenatal / Ashtanga / Therapy",
+        isSpecialized: true,
+        desc: "Custom therapeutic sessions for prenatal/postnatal wellness, doctor-aligned safe movements, or intensive Ashtanga & Iyengar alignment.",
+        frequencies: [
+          {
+            days: "2 Days a Week",
+            sessions: "8 live sessions / month",
+            price: 8499,
+            priceLabel: "₹8,499 /mo",
+            isPopular: false,
+          },
+          {
+            days: "3 Days a Week",
+            sessions: "12 live sessions / month",
+            price: 10999,
+            priceLabel: "₹10,999 /mo",
+            isPopular: false,
+          },
+          {
+            days: "5 Days a Week",
+            sessions: "20 live sessions / month",
+            price: 15299,
+            priceLabel: "₹15,299 /mo",
+            isPopular: true,
+          },
+        ],
+      },
     ],
   },
 };
@@ -112,20 +260,269 @@ function Input({ style, ...props }) {
   return <input className="booking-input" style={style} {...props} />;
 }
 
-function Select({ children, ...props }) {
+function CustomSelect({
+  value,
+  onChange,
+  options,
+  children,
+  placeholder = "Select an option…",
+  error = false,
+  id,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  const normalizedOptions = React.useMemo(() => {
+    if (Array.isArray(options) && options.length > 0) {
+      return options.map((opt) => {
+        if (typeof opt === "object" && opt !== null) {
+          return {
+            value: opt.value,
+            label: opt.label,
+            sublabel: opt.sublabel || null,
+            badge: opt.badge || null,
+            icon: opt.icon || null,
+          };
+        }
+        return {
+          value: opt,
+          label: opt,
+          sublabel: null,
+          badge: null,
+          icon: null,
+        };
+      });
+    }
+
+    if (children) {
+      return React.Children.toArray(children)
+        .filter(
+          (child) => React.isValidElement(child) && child.type === "option",
+        )
+        .map((child) => {
+          const rawChildren = child.props.children;
+          let labelText = "";
+          let explicitIcon = child.props["data-icon"] || null;
+          let sublabel = child.props["data-sublabel"] || null;
+          let badge = child.props["data-badge"] || null;
+
+          if (Array.isArray(rawChildren)) {
+            labelText = rawChildren
+              .filter(Boolean)
+              .map((item) =>
+                typeof item === "string" ? item.trim() : String(item),
+              )
+              .join(" ")
+              .trim();
+          } else if (typeof rawChildren === "string") {
+            labelText = rawChildren.trim();
+          } else {
+            labelText = String(rawChildren || "");
+          }
+
+          // Cleanly extract icon and remove duplicate icon/emoji from the display label
+          let detectedIcon = explicitIcon;
+          let displayLabel = labelText;
+
+          if (typeof displayLabel === "string") {
+            const emojiMatch = displayLabel.match(
+              /^(\p{Extended_Pictographic}|\p{Emoji_Presentation}|\uD83C[\uDDE6-\uDDFF]{2})\s*/u,
+            );
+            if (emojiMatch) {
+              if (!detectedIcon) {
+                detectedIcon = emojiMatch[1];
+              }
+              displayLabel = displayLabel.slice(emojiMatch[0].length).trim();
+            } else if (
+              detectedIcon &&
+              typeof detectedIcon === "string" &&
+              displayLabel.startsWith(detectedIcon.trim())
+            ) {
+              displayLabel = displayLabel
+                .slice(detectedIcon.trim().length)
+                .trim();
+            }
+            if (
+              displayLabel.startsWith("-") ||
+              displayLabel.startsWith("—") ||
+              displayLabel.startsWith("·")
+            ) {
+              displayLabel = displayLabel.slice(1).trim();
+            }
+          }
+
+          return {
+            value:
+              child.props.value !== undefined ? child.props.value : labelText,
+            label: displayLabel || labelText,
+            sublabel,
+            badge,
+            icon: detectedIcon,
+          };
+        });
+    }
+
+    return [];
+  }, [options, children]);
+
+  const selectedOpt = normalizedOptions.find(
+    (o) => String(o.value) === String(value),
+  );
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  const handleSelect = (val) => {
+    if (onChange) {
+      onChange({ target: { value: val } });
+    }
+    setIsOpen(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      setIsOpen(false);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setIsOpen((prev) => !prev);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+      } else {
+        const currIndex = normalizedOptions.findIndex(
+          (o) => String(o.value) === String(value),
+        );
+        if (currIndex < normalizedOptions.length - 1) {
+          handleSelect(normalizedOptions[currIndex + 1].value);
+        }
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!isOpen) {
+        setIsOpen(true);
+      } else {
+        const currIndex = normalizedOptions.findIndex(
+          (o) => String(o.value) === String(value),
+        );
+        if (currIndex > 0) {
+          handleSelect(normalizedOptions[currIndex - 1].value);
+        }
+      }
+    }
+  };
+
   return (
-    <div className="booking-select-wrapper">
-      <select className="booking-select" {...props}>
-        {children}
-      </select>
-      <div className="select-chevron">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        </svg>
-      </div>
+    <div
+      ref={containerRef}
+      className={`custom-select-container ${isOpen ? "is-open" : ""}`}
+    >
+      <button
+        type="button"
+        id={id}
+        onClick={() => setIsOpen((prev) => !prev)}
+        onKeyDown={handleKeyDown}
+        className={`custom-select-trigger ${error ? "has-error" : ""} ${isOpen ? "active" : ""}`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <div className="custom-select-trigger-content">
+          {selectedOpt?.icon && (
+            <span className="custom-select-icon">{selectedOpt.icon}</span>
+          )}
+          <div className="custom-select-text-group">
+            <span className="custom-select-main-label">
+              {selectedOpt ? selectedOpt.label : placeholder}
+            </span>
+            {selectedOpt?.sublabel && (
+              <span className="custom-select-sub-label">
+                {selectedOpt.sublabel}
+              </span>
+            )}
+          </div>
+          {selectedOpt?.badge && (
+            <span className="custom-select-badge">{selectedOpt.badge}</span>
+          )}
+        </div>
+        <div className={`custom-select-chevron ${isOpen ? "rotate" : ""}`}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M2.5 4.5l3.5 3.5 3.5-3.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="custom-select-popover" role="listbox">
+          {normalizedOptions.map((opt) => {
+            const isSelected = String(opt.value) === String(value);
+            return (
+              <div
+                key={String(opt.value)}
+                onClick={() => handleSelect(opt.value)}
+                className={`custom-select-option ${isSelected ? "selected" : ""}`}
+                role="option"
+                aria-selected={isSelected}
+              >
+                <div className="custom-select-option-left">
+                  {opt.icon && (
+                    <span className="custom-select-opt-icon">{opt.icon}</span>
+                  )}
+                  <div className="min-w-0">
+                    <div className="custom-select-opt-label">{opt.label}</div>
+                    {opt.sublabel && (
+                      <div className="custom-select-opt-sub">
+                        {opt.sublabel}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="custom-select-option-right">
+                  {opt.badge && (
+                    <span className="custom-select-opt-badge">{opt.badge}</span>
+                  )}
+                  {isSelected && (
+                    <svg
+                      className="custom-select-check"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                    >
+                      <path
+                        d="M3 8.5l3.5 3.5L13 4.5"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
+
+const Select = CustomSelect;
 
 function ReviewRow({ label, value, children }) {
   if (!value && !children) return null;
@@ -215,6 +612,8 @@ export default function BookingPage() {
     timezone: "Asia/Kolkata",
     language: "English",
     classType: "group",
+    privatePlanCategory: "regular",
+    privateFrequency: "5 Days a Week",
     goals: ["Flexibility & Posture", "Stress Relief & Meditation"],
     preferredTime1: "7:00 am - 8:00 am IST",
     preferredTime2: "6:00 pm - 7:00 pm IST",
@@ -249,20 +648,22 @@ export default function BookingPage() {
 
   const handleLanguageChange = (lang) => {
     set("language", lang);
-    if (lang === "Hindi" && form.groupCohortId === "english") {
-      setForm((prev) => ({
-        ...prev,
-        language: "Hindi",
-        groupCohortId: "hindi",
-        groupTimeSlot: GROUP_COHORTS.hindi.slots[1],
-      }));
-    } else if (lang === "English" && form.groupCohortId === "hindi") {
-      setForm((prev) => ({
-        ...prev,
-        language: "English",
-        groupCohortId: "english",
-        groupTimeSlot: GROUP_COHORTS.english.slots[0],
-      }));
+    if (form.classType === "group") {
+      if (lang === "Hindi" && form.groupCohortId === "english") {
+        setForm((prev) => ({
+          ...prev,
+          language: "Hindi",
+          groupCohortId: "hindi",
+          groupTimeSlot: GROUP_COHORTS.hindi.slots[1],
+        }));
+      } else if (lang === "English" && form.groupCohortId === "hindi") {
+        setForm((prev) => ({
+          ...prev,
+          language: "English",
+          groupCohortId: "english",
+          groupTimeSlot: GROUP_COHORTS.english.slots[0],
+        }));
+      }
     }
   };
 
@@ -296,12 +697,18 @@ export default function BookingPage() {
     const num = parseInt(cleaned, 10);
     if (num > 100) {
       setForm((f) => ({ ...f, age: "100" }));
-      setErrors((prev) => ({ ...prev, age: "Maximum age allowed is 100 years." }));
+      setErrors((prev) => ({
+        ...prev,
+        age: "Maximum age allowed is 100 years.",
+      }));
       return;
     }
     setForm((f) => ({ ...f, age: cleaned }));
     if (num < 5) {
-      setErrors((prev) => ({ ...prev, age: "Minimum age allowed is 5 years." }));
+      setErrors((prev) => ({
+        ...prev,
+        age: "Minimum age allowed is 5 years.",
+      }));
     } else {
       setErrors((prev) => {
         const next = { ...prev };
@@ -318,7 +725,10 @@ export default function BookingPage() {
     }
     const num = parseInt(form.age, 10);
     if (isNaN(num) || num < 5 || num > 100) {
-      setErrors((prev) => ({ ...prev, age: "Please enter a valid age between 5 and 100." }));
+      setErrors((prev) => ({
+        ...prev,
+        age: "Please enter a valid age between 5 and 100.",
+      }));
     }
   };
 
@@ -341,12 +751,18 @@ export default function BookingPage() {
     } else {
       const digitsOnly = rawPhone.replace(/\D/g, "");
       const dialCodeMatch = rawPhone.match(/^\+\d+/);
-      const dialCodeDigits = dialCodeMatch ? dialCodeMatch[0].replace(/\D/g, "") : "";
+      const dialCodeDigits = dialCodeMatch
+        ? dialCodeMatch[0].replace(/\D/g, "")
+        : "";
       const subscriberDigits = digitsOnly.slice(dialCodeDigits.length);
 
       if (!subscriberDigits || subscriberDigits.length === 0) {
         errs.phone = "Please enter your phone number digits.";
-      } else if (dialCodeMatch && dialCodeMatch[0] === "+91" && subscriberDigits.length !== 10) {
+      } else if (
+        dialCodeMatch &&
+        dialCodeMatch[0] === "+91" &&
+        subscriberDigits.length !== 10
+      ) {
         errs.phone = "Please enter a valid 10-digit Indian phone number.";
       } else if (subscriberDigits.length < 6 || subscriberDigits.length > 15) {
         errs.phone = "Please enter a valid phone number (6 to 15 digits).";
@@ -358,10 +774,13 @@ export default function BookingPage() {
     }
 
     if (form.classType === "private") {
-      if (!form.preferredTime1) errs.preferredTime1 = "Please select your primary time slot.";
-      if (!form.preferredTime2) errs.preferredTime2 = "Please select your secondary time slot.";
+      if (!form.preferredTime1)
+        errs.preferredTime1 = "Please select your primary time slot.";
+      if (!form.preferredTime2)
+        errs.preferredTime2 = "Please select your secondary time slot.";
     } else {
-      if (!form.groupTimeSlot) errs.groupTimeSlot = "Please select your group batch time slot.";
+      if (!form.groupTimeSlot)
+        errs.groupTimeSlot = "Please select your group batch time slot.";
     }
     if (!form.joiningDate) {
       errs.joiningDate = "Please choose your preferred trial / joining date.";
@@ -382,11 +801,45 @@ export default function BookingPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const currentCountryObj = findCountry(form.country);
+  const activeCohort =
+    GROUP_COHORTS[form.groupCohortId] || GROUP_COHORTS.english;
+  const privateLangKey = (form.language || "English")
+    .toLowerCase()
+    .includes("hindi")
+    ? "hindi"
+    : "english";
+  const currentLangPlans =
+    PRIVATE_PLANS[privateLangKey]?.plans || PRIVATE_PLANS.english.plans;
+  const activePrivatePlan =
+    currentLangPlans.find((p) => p.category === form.privatePlanCategory) ||
+    currentLangPlans[0];
+  const activePrivateFreq =
+    activePrivatePlan.frequencies.find(
+      (f) => f.days === form.privateFrequency,
+    ) ||
+    activePrivatePlan.frequencies[2] ||
+    activePrivatePlan.frequencies[0];
+
   const handleSubmitBooking = async () => {
     setGlobalError("");
     setLoading(true);
 
-    const selectedCohort = form.classType === "group" ? GROUP_COHORTS[form.groupCohortId] : null;
+    const selectedCohort =
+      form.classType === "group"
+        ? GROUP_COHORTS[form.groupCohortId] || GROUP_COHORTS.english
+        : null;
+    const finalFee =
+      form.classType === "group"
+        ? selectedCohort?.price || 0
+        : activePrivateFreq?.price || 0;
+
+    const finalGroupCohort =
+      form.classType === "group"
+        ? selectedCohort
+          ? `${selectedCohort.name} (${selectedCohort.priceLabel})`
+          : ""
+        : `${activePrivatePlan.title} (${form.language} · ${activePrivateFreq.days} · ${activePrivateFreq.priceLabel})`;
 
     const payload = {
       name: form.name.trim(),
@@ -396,14 +849,23 @@ export default function BookingPage() {
       phone: form.phone.trim(),
       country: form.country,
       timezone: form.timezone,
-      language: form.language,
+      language:
+        form.classType === "private"
+          ? form.language
+          : selectedCohort?.language || form.language,
       classType: form.classType,
-      goals: Array.isArray(form.goals) ? form.goals.join(", ") : (form.goals || ""),
-      preferredTime: form.classType === "private" ? form.preferredTime1 : form.groupTimeSlot,
+      goals: Array.isArray(form.goals)
+        ? form.goals.join(", ")
+        : form.goals || "",
+      preferredTime:
+        form.classType === "private" ? form.preferredTime1 : form.groupTimeSlot,
       preferredTime2: form.classType === "private" ? form.preferredTime2 : "",
-      instructorPreference: form.classType === "private" ? form.instructorPreference : "Any",
-      groupCohort: selectedCohort ? `${selectedCohort.name} (${selectedCohort.priceLabel})` : "",
-      fee: selectedCohort ? selectedCohort.price : 0,
+      instructorPreference:
+        form.classType === "private"
+          ? form.instructorPreference
+          : selectedCohort?.instructor || "Any",
+      groupCohort: finalGroupCohort,
+      fee: finalFee,
       joiningDate: form.joiningDate,
       message: form.message.trim(),
       source,
@@ -425,9 +887,6 @@ export default function BookingPage() {
     }
   };
 
-  const currentCountryObj = findCountry(form.country);
-  const activeCohort = GROUP_COHORTS[form.groupCohortId];
-
   return (
     <div className="booking-page-root" ref={topRef}>
       {/* ═══ TOP NAVBAR ═══ */}
@@ -441,36 +900,49 @@ export default function BookingPage() {
       {/* ═══ CENTERED BOOKING CONTAINER (SIMPLIFIED FULLY-FOCUSED PAGE) ═══ */}
       <main className="booking-centered-shell">
         <div className="booking-form-wrapper">
-
           {/* Page Hero Header */}
           <div className="booking-page-header">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#E7E4DC] text-xs font-bold uppercase tracking-wider text-[#F2994A] shadow-2xs mb-3">
               <span>✨ Interactive Live Online Yoga · Free Trial Class</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#171A32] leading-tight mb-2.5" style={{ fontFamily: "var(--font-display)" }}>
+            <h1
+              className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-[#171A32] leading-tight mb-2.5"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
               Student Enrollment Form
             </h1>
             <p className="text-sm sm:text-base text-[#5B607A] max-w-xl mx-auto leading-relaxed">
-              Reserve your trial session. Select your preferred timezone, batch timing, and practice goals below.
+              Reserve your trial session. Select your preferred timezone, batch
+              timing, and practice goals below.
             </p>
 
             {/* 24h SLA Notice Banner (Requirement 1) */}
             <div className="sla-banner-box">
               <div className="sla-badge">⏱️ 24h SLA</div>
               <p className="sla-banner-text">
-                <strong>Instructor Matching within 24 Hours:</strong> Our certified master team carefully reviews your goals, timezone, and class preferences to assign your ideal instructor. Once assigned, your instructor details and dedicated class link will automatically appear on your dashboard.
+                <strong>Instructor Matching within 24 Hours:</strong> Our
+                certified master team carefully reviews your goals, timezone,
+                and class preferences to assign your ideal instructor. Once
+                assigned, your instructor details and dedicated class link will
+                automatically appear on your dashboard.
               </p>
             </div>
           </div>
 
           {/* View Step Indicator */}
           <div className="flow-steps-pill mx-auto">
-            <div className={`flow-step-item ${viewMode === "form" ? "active" : "done"}`}>
-              <span className="flow-num">{viewMode === "review" ? "✓" : "1"}</span>
+            <div
+              className={`flow-step-item ${viewMode === "form" ? "active" : "done"}`}
+            >
+              <span className="flow-num">
+                {viewMode === "review" ? "✓" : "1"}
+              </span>
               <span>1. Enrollment Details</span>
             </div>
             <div className="flow-divider" />
-            <div className={`flow-step-item ${viewMode === "review" ? "active" : ""}`}>
+            <div
+              className={`flow-step-item ${viewMode === "review" ? "active" : ""}`}
+            >
               <span className="flow-num">2</span>
               <span>2. Review &amp; Confirm</span>
             </div>
@@ -479,8 +951,17 @@ export default function BookingPage() {
           {/* Global Error Banner */}
           {globalError && (
             <div className="global-error-banner">
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
               </svg>
               <span>{globalError}</span>
             </div>
@@ -495,28 +976,44 @@ export default function BookingPage() {
               <div className="form-section-card">
                 <div className="section-card-title">
                   <span>1. Personal Information</span>
-                  <span className="text-xs font-normal text-[#7B8098]">Step 1 of 2</span>
+                  <span className="text-xs font-normal text-[#7B8098]">
+                    Step 1 of 2
+                  </span>
                 </div>
 
                 {/* Name & Email */}
                 <div className="form-grid-2">
-                  <Field label="Full Name" required error={errors.name} id="name">
+                  <Field
+                    label="Full Name"
+                    required
+                    error={errors.name}
+                    id="name"
+                  >
                     <Input
                       id="name"
                       value={form.name}
                       placeholder="e.g. Aarav Sharma"
-                      style={errors.name ? { borderColor: "var(--danger)" } : {}}
+                      style={
+                        errors.name ? { borderColor: "var(--danger)" } : {}
+                      }
                       onChange={(e) => set("name", e.target.value)}
                     />
                   </Field>
 
-                  <Field label="Email Address" required error={errors.email} id="email">
+                  <Field
+                    label="Email Address"
+                    required
+                    error={errors.email}
+                    id="email"
+                  >
                     <Input
                       id="email"
                       type="email"
                       value={form.email}
                       placeholder="you@example.com"
-                      style={errors.email ? { borderColor: "var(--danger)" } : {}}
+                      style={
+                        errors.email ? { borderColor: "var(--danger)" } : {}
+                      }
                       onChange={(e) => set("email", e.target.value)}
                     />
                   </Field>
@@ -540,24 +1037,30 @@ export default function BookingPage() {
                   </Field>
 
                   <Field label="Gender" required>
-                    <div className="pill-options-row">
-                      {["Female", "Male", "Other"].map((g) => (
-                        <button
-                          key={g}
-                          type="button"
-                          onClick={() => set("gender", g)}
-                          className={`pill-option-btn ${form.gender === g ? "selected" : ""}`}
-                        >
-                          {g}
-                        </button>
-                      ))}
-                    </div>
+                    <Select
+                      value={form.gender}
+                      onChange={(e) => set("gender", e.target.value)}
+                    >
+                      <option value="Female" data-icon="👩">
+                        Female
+                      </option>
+                      <option value="Male" data-icon="👨">
+                        Male
+                      </option>
+                      <option value="Other" data-icon="✨">
+                        Other / Prefer not to say
+                      </option>
+                    </Select>
                   </Field>
                 </div>
 
                 {/* Phone & Country */}
                 <div className="form-grid-2">
-                  <Field label="Phone / WhatsApp Number" required error={errors.phone}>
+                  <Field
+                    label="Phone / WhatsApp Number"
+                    required
+                    error={errors.phone}
+                  >
                     <PhoneInputWithFlag
                       id="phone"
                       value={form.phone}
@@ -567,7 +1070,11 @@ export default function BookingPage() {
                     />
                   </Field>
 
-                  <Field label="Country of Residence" required error={errors.country}>
+                  <Field
+                    label="Country of Residence"
+                    required
+                    error={errors.country}
+                  >
                     <CountrySelect
                       value={form.country}
                       onChange={handleCountryChange}
@@ -577,35 +1084,23 @@ export default function BookingPage() {
                   </Field>
                 </div>
 
-                {/* Timezone & Language Preference */}
-                <div className="form-grid-2">
+                {/* Timezone */}
+                <div>
                   <Field label="Your Timezone" required>
-                    <Select value={form.timezone} onChange={(e) => set("timezone", e.target.value)}>
+                    <Select
+                      value={form.timezone}
+                      onChange={(e) => set("timezone", e.target.value)}
+                    >
                       {TIMEZONES.map((tz) => (
-                        <option key={tz.value} value={tz.value}>
-                          {tz.flag} {tz.label}
+                        <option
+                          key={tz.value}
+                          value={tz.value}
+                          data-icon={tz.flag}
+                        >
+                          {tz.label}
                         </option>
                       ))}
                     </Select>
-                  </Field>
-
-                  <Field label="Language Preference" required>
-                    <div className="pill-options-row">
-                      <button
-                        type="button"
-                        onClick={() => handleLanguageChange("Hindi")}
-                        className={`pill-option-btn ${form.language === "Hindi" ? "selected" : ""}`}
-                      >
-                        🇮🇳 Hindi
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleLanguageChange("English")}
-                        className={`pill-option-btn ${form.language === "English" ? "selected" : ""}`}
-                      >
-                        🌐 English
-                      </button>
-                    </div>
                   </Field>
                 </div>
               </div>
@@ -614,133 +1109,477 @@ export default function BookingPage() {
               <div className="form-section-card">
                 <div className="section-card-title">
                   <span>2. Class Type &amp; Schedule</span>
-                  <span className="text-xs font-normal text-[#7B8098]">Step 2 of 2</span>
+                  <span className="text-xs font-normal text-[#7B8098]">
+                    Step 2 of 2
+                  </span>
                 </div>
 
-                {/* Class Type Selector */}
-                <Field label="Class Format" required>
-                  <div className="class-type-toggle-grid">
-                    <button
-                      type="button"
-                      onClick={() => set("classType", "group")}
-                      className={`class-card-toggle ${form.classType === "group" ? "active" : ""}`}
-                    >
-                      <div className="card-toggle-top">
-                        <span className="card-toggle-icon">👥</span>
-                        <div className="card-toggle-badge">Cohort</div>
-                      </div>
-                      <div className="card-toggle-name">Group Class</div>
-                      <div className="card-toggle-desc">
-                        Interactive small cohorts with live instructor feedback.
-                      </div>
-                      <div className="card-toggle-price">Starting ₹999 / mo</div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => set("classType", "private")}
-                      className={`class-card-toggle ${form.classType === "private" ? "active" : ""}`}
-                    >
-                      <div className="card-toggle-top">
-                        <span className="card-toggle-icon">🧘</span>
-                        <div className="card-toggle-badge popular">1-on-1</div>
-                      </div>
-                      <div className="card-toggle-name">Private 1:1 Coaching</div>
-                      <div className="card-toggle-desc">
-                        100% personalized attention tailored to your health goals.
-                      </div>
-                      <div className="card-toggle-price">Personalized Plan</div>
-                    </button>
+                {/* Class Format Selection: Two Visible Buttons / Cards */}
+                <div className="booking-field">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <label className="field-label" id="class-format-label">
+                      Select Class Format
+                      <span className="field-required">*</span>
+                    </label>
+                    <span className="text-[11px] font-semibold text-[#6B7089]">
+                      Choose Private 1:1 or Group Experience
+                    </span>
                   </div>
-                </Field>
 
-                {/* Conditional Sub-form: GROUP vs PRIVATE */}
-                {form.classType === "group" ? (
-                  <div className="group-options-wrap animate-fadeIn">
-                    <Field label="Select Group Cohort Tier" required>
-                      <div className="cohort-tiers-grid">
-                        {Object.values(GROUP_COHORTS).map((cohort) => (
-                          <div
-                            key={cohort.id}
-                            onClick={() => handleGroupCohortChange(cohort.id)}
-                            className={`cohort-tier-card ${form.groupCohortId === cohort.id ? "selected" : ""}`}
-                          >
-                            <div className="cohort-tier-radio">
-                              <span className={`radio-dot ${form.groupCohortId === cohort.id ? "checked" : ""}`} />
-                            </div>
-                            <div className="cohort-tier-content">
-                              <div className="cohort-name">{cohort.name}</div>
-                              <div className="cohort-lang">Language: {cohort.language}</div>
-                              <div className="cohort-price">{cohort.priceLabel}</div>
+                  <div
+                    className="class-format-section-wrapper"
+                    role="radiogroup"
+                    aria-labelledby="class-format-label"
+                  >
+                    {/* Option 1: Private 1:1 Class Card */}
+                    <button
+                      type="button"
+                      id="select-private-class-btn"
+                      role="radio"
+                      aria-checked={form.classType === "private"}
+                      onClick={() => set("classType", "private")}
+                      className={`class-format-card private-card ${form.classType === "private" ? "selected" : ""}`}
+                    >
+                      <div className="class-card-header">
+                        <span className="class-card-badge private-badge">
+                          ✨ 1-on-1 Dedicated
+                        </span>
+                        <div
+                          className={`class-card-radio ${form.classType === "private" ? "checked" : ""}`}
+                        >
+                          {form.classType === "private" && (
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 12 12"
+                              fill="none"
+                            >
+                              <path
+                                d="M2.5 6.2l2.6 2.6L9.5 3.2"
+                                stroke="#FFFFFF"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="class-card-body">
+                        <div className="class-card-title-row">
+                          <span className="class-card-emoji">🧘</span>
+                          <div>
+                            <h3 className="class-card-title">
+                              Private 1:1 Class
+                            </h3>
+                            <div className="class-card-price-tag">
+                              From ₹4,299 / month
                             </div>
                           </div>
-                        ))}
+                        </div>
+                        <p className="class-card-description">
+                          Personalized 1-on-1 yoga tailored specifically to your
+                          body condition, flexibility goals &amp; custom IST
+                          schedule.
+                        </p>
                       </div>
-                    </Field>
 
-                    <Field label={`Available Batch Slots (${activeCohort.language} Cohort)`} required error={errors.groupTimeSlot}>
-                      <Select
-                        value={form.groupTimeSlot}
-                        onChange={(e) => set("groupTimeSlot", e.target.value)}
-                      >
-                        {activeCohort.slots.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </Select>
-                    </Field>
-                  </div>
-                ) : (
-                  <div className="private-options-wrap animate-fadeIn">
-                    <div className="form-grid-2">
-                      <Field label="1st Preferred Time Slot (IST)" required error={errors.preferredTime1}>
-                        <Select
-                          value={form.preferredTime1}
-                          onChange={(e) => set("preferredTime1", e.target.value)}
-                        >
-                          {PRIVATE_TIME_SLOTS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
+                      <div className="class-card-footer">
+                        <span className="class-card-highlight">
+                          🎯 Dedicated Teacher · 1st Trial Session Free
+                        </span>
+                      </div>
+                    </button>
 
-                      <Field label="2nd Preferred Time Slot (IST)" required error={errors.preferredTime2}>
-                        <Select
-                          value={form.preferredTime2}
-                          onChange={(e) => set("preferredTime2", e.target.value)}
-                        >
-                          {PRIVATE_TIME_SLOTS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
-                    </div>
+                    {/* ─── PRIVATE 1:1 COACHING SUBSECTION (Inline below Private card on phone) ─── */}
+                    {form.classType === "private" && (
+                      <div className="format-panel-box private-theme animate-fadeIn private-panel-item">
+                        <div className="format-panel-header">
+                          <div className="format-panel-badge private-theme">
+                            <span>🧘 Private 1:1 Coaching Configuration</span>
+                          </div>
+                          <span className="text-xs font-semibold text-[#4C5FD5]">
+                            100% Dedicated Attention
+                          </span>
+                        </div>
 
-                    <Field label="Instructor Preference">
-                      <div className="pill-options-row">
-                        {["Any", "Female", "Male"].map((p) => (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => set("instructorPreference", p)}
-                            className={`pill-option-btn ${form.instructorPreference === p ? "selected" : ""}`}
+                        <div className="form-grid-2">
+                          {/* Dropdown 1: Instruction Language */}
+                          <Field
+                            label="Instruction Language"
+                            required
+                            error={errors.language}
                           >
-                            {p === "Any" ? "Any (Male or Female)" : `${p} Instructor`}
-                          </button>
-                        ))}
+                            <Select
+                              id="private-language-dropdown"
+                              value={form.language}
+                              onChange={(e) =>
+                                handleLanguageChange(e.target.value)
+                              }
+                            >
+                              <option
+                                value="English"
+                                data-icon="🌐"
+                                data-sublabel="Global & NRI"
+                              >
+                                English Medium
+                              </option>
+                              <option
+                                value="Hindi"
+                                data-icon="🇮🇳"
+                                data-sublabel="Popular in India"
+                              >
+                                Hindi Medium
+                              </option>
+                            </Select>
+                          </Field>
+
+                          {/* Dropdown 2: Private Yoga Program */}
+                          <Field label="Private Yoga Program" required>
+                            <Select
+                              id="private-plan-dropdown"
+                              value={form.privatePlanCategory}
+                              onChange={(e) =>
+                                set("privatePlanCategory", e.target.value)
+                              }
+                            >
+                              <option
+                                value="regular"
+                                data-icon="🧘"
+                                data-sublabel="Beginner to Intermediate"
+                              >
+                                Regular Yoga Plan
+                              </option>
+                              <option
+                                value="advanced"
+                                data-icon="✨"
+                                data-sublabel="Prenatal / Ashtanga / Therapy"
+                              >
+                                Pregnancy &amp; Advanced Yoga
+                              </option>
+                            </Select>
+                          </Field>
+                        </div>
+
+                        {/* ═══ LIVE PLAN CARD MATCHING THE EXACT REFERENCE DESIGN WITH HARMONIOUS THEME ═══ */}
+                        <div className="yoga-pricing-card">
+                          <div className="card-top-badges">
+                            <div className="flex items-center gap-2">
+                              <span className="badge-language">
+                                {form.language.toUpperCase()}
+                              </span>
+                              {activePrivatePlan.isSpecialized && (
+                                <span className="badge-specialized">
+                                  ★ SPECIALIZED
+                                </span>
+                              )}
+                            </div>
+                            <span className="badge-level">
+                              {activePrivatePlan.levelBadge}
+                            </span>
+                          </div>
+
+                          <h3 className="plan-title">
+                            {activePrivatePlan.title}
+                          </h3>
+                          <p className="plan-description">
+                            {activePrivatePlan.desc}
+                          </p>
+
+                          <div className="frequency-label">
+                            Select Weekly Frequency:
+                          </div>
+
+                          <div className="frequency-options-list">
+                            {activePrivatePlan.frequencies.map((freq) => {
+                              const isSelected =
+                                form.privateFrequency === freq.days;
+                              return (
+                                <div
+                                  key={freq.days}
+                                  onClick={() =>
+                                    set("privateFrequency", freq.days)
+                                  }
+                                  className={`frequency-option-row ${isSelected ? "selected" : ""}`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div
+                                      className={`freq-radio-circle ${isSelected ? "checked" : ""}`}
+                                    >
+                                      {isSelected && (
+                                        <div className="freq-radio-dot" />
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className="freq-days-text">
+                                        {freq.days}
+                                      </div>
+                                      <div className="freq-sessions-text">
+                                        {freq.sessions}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="text-right">
+                                    {freq.isPopular && (
+                                      <div>
+                                        <span className="badge-popular">
+                                          POPULAR
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="freq-price-text">
+                                      {freq.priceLabel}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Card Action / Live Feedback Banner */}
+                          <div className="plan-card-action-bar">
+                            <div className="plan-action-main">
+                              <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M12.004 2C6.48 2 2 6.48 2 12c0 1.76.46 3.42 1.26 4.87L2.05 22l5.31-1.19c1.4.74 2.99 1.19 4.64 1.19 5.52 0 10-4.48 10-10s-4.48-10-10-10zm0 18.25c-1.46 0-2.88-.4-4.11-1.14l-.29-.18-3.05.68.7-2.97-.19-.31c-.81-1.28-1.26-2.77-1.26-4.33 0-4.55 3.7-8.25 8.25-8.25 4.54 0 8.25 3.7 8.25 8.25 0 4.55-3.71 8.25-8.25 8.25z" />
+                              </svg>
+                              <span>
+                                Selected {activePrivateFreq.days} Plan (
+                                {activePrivateFreq.priceLabel})
+                              </span>
+                            </div>
+                            <div className="plan-action-trial-badge">
+                              ✨ 1st Trial Session is 100% Free
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Preferred IST Time Slots */}
+                        <div className="form-grid-2 mt-4">
+                          <Field
+                            label="1st Preferred Time Slot (IST)"
+                            required
+                            error={errors.preferredTime1}
+                          >
+                            <Select
+                              value={form.preferredTime1}
+                              onChange={(e) =>
+                                set("preferredTime1", e.target.value)
+                              }
+                            >
+                              {PRIVATE_TIME_SLOTS.map((s) => (
+                                <option key={s} value={s} data-icon="⏰">
+                                  {s}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+
+                          <Field
+                            label="2nd Preferred Time Slot (IST)"
+                            required
+                            error={errors.preferredTime2}
+                          >
+                            <Select
+                              value={form.preferredTime2}
+                              onChange={(e) =>
+                                set("preferredTime2", e.target.value)
+                              }
+                            >
+                              {PRIVATE_TIME_SLOTS.map((s) => (
+                                <option key={s} value={s} data-icon="⏰">
+                                  {s}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        </div>
+
+                        {/* Instructor Preference Dropdown */}
+                        <Field label="Instructor Preference">
+                          <Select
+                            value={form.instructorPreference}
+                            onChange={(e) =>
+                              set("instructorPreference", e.target.value)
+                            }
+                          >
+                            <option value="Any" data-icon="👥">
+                              Any Instructor (Male or Female)
+                            </option>
+                            <option value="Female" data-icon="👩">
+                              Female Instructor
+                            </option>
+                            <option value="Male" data-icon="👨">
+                              Male Instructor
+                            </option>
+                          </Select>
+                        </Field>
                       </div>
-                    </Field>
+                    )}
+
+                    {/* Option 2: Group Class Card */}
+                    <button
+                      type="button"
+                      id="select-group-class-btn"
+                      role="radio"
+                      aria-checked={form.classType === "group"}
+                      onClick={() => set("classType", "group")}
+                      className={`class-format-card group-card ${form.classType === "group" ? "selected" : ""}`}
+                    >
+                      <div className="class-card-header">
+                        <span className="class-card-badge group-badge">
+                          👥 Live Community
+                        </span>
+                        <div
+                          className={`class-card-radio ${form.classType === "group" ? "checked" : ""}`}
+                        >
+                          {form.classType === "group" && (
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 12 12"
+                              fill="none"
+                            >
+                              <path
+                                d="M2.5 6.2l2.6 2.6L9.5 3.2"
+                                stroke="#FFFFFF"
+                                strokeWidth="2.2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="class-card-body">
+                        <div className="class-card-title-row">
+                          <span className="class-card-emoji">👥</span>
+                          <div>
+                            <h3 className="class-card-title">Group Class</h3>
+                            <div className="class-card-price-tag">
+                              Starting ₹999 / month
+                            </div>
+                          </div>
+                        </div>
+                        <p className="class-card-description">
+                          Interactive daily group cohorts led by certified
+                          masters with lively peer motivation &amp; structured
+                          practice.
+                        </p>
+                      </div>
+
+                      <div className="class-card-footer">
+                        <span className="class-card-highlight">
+                          ⚡ 8 Daily Slots · Hindi &amp; English Batches
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* ─── GROUP CLASS SUBSECTION (Inline below Group card on phone) ─── */}
+                    {form.classType === "group" && (
+                      <div className="format-panel-box animate-fadeIn group-panel-item">
+                        <div className="format-panel-header">
+                          <div className="format-panel-badge group-theme">
+                            <span>👥 Group Cohort Configuration</span>
+                          </div>
+                          <span className="text-xs font-semibold text-[#6B7089]">
+                            Interactive Live Batch
+                          </span>
+                        </div>
+
+                        <div className="form-grid-2">
+                          <Field label="Group Cohort &amp; Language" required>
+                            <Select
+                              id="group-cohort-dropdown"
+                              value={form.groupCohortId}
+                              onChange={(e) =>
+                                handleGroupCohortChange(e.target.value)
+                              }
+                            >
+                              <option
+                                value="hindi"
+                                data-icon="🇮🇳"
+                                data-sublabel="Large Group · ₹999 / mo"
+                              >
+                                Hindi Group Class
+                              </option>
+                              <option
+                                value="english"
+                                data-icon="🌐"
+                                data-sublabel="Small Group · ₹1,699 / mo"
+                              >
+                                English Group Class
+                              </option>
+                            </Select>
+                          </Field>
+
+                          <Field
+                            label={`Select Class Timing (${activeCohort.language} Cohort)`}
+                            required
+                            error={errors.groupTimeSlot}
+                          >
+                            <Select
+                              id="group-timeslot-dropdown"
+                              value={form.groupTimeSlot}
+                              onChange={(e) =>
+                                set("groupTimeSlot", e.target.value)
+                              }
+                            >
+                              {activeCohort.slots.map((s) => (
+                                <option key={s} value={s} data-icon="⏰">
+                                  {s}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        </div>
+
+                        {/* Group Instructor & Selected Timing Summary */}
+                        <div className="group-summary-banner">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xl">🧘‍♂️</span>
+                            <div>
+                              <div className="text-[10px] uppercase font-bold tracking-wider text-[#6B7089]">
+                                Group Lead Instructor
+                              </div>
+                              <div className="font-bold text-[#171A32] text-sm">
+                                {activeCohort.instructor} (
+                                {activeCohort.language})
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xl">⏰</span>
+                            <div>
+                              <div className="text-[10px] uppercase font-bold tracking-wider text-[#6B7089]">
+                                Batch Timing &amp; Monthly Fee
+                              </div>
+                              <div className="font-bold text-[#4C5FD5] text-sm">
+                                {form.groupTimeSlot} · {activeCohort.priceLabel}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
 
                 {/* Preferred Trial Date */}
                 <div className="mt-4">
-                  <Field label="Preferred Trial / Joining Date" required error={errors.joiningDate} id="joiningDate">
+                  <Field
+                    label="Preferred Trial / Joining Date"
+                    required
+                    error={errors.joiningDate}
+                    id="joiningDate"
+                  >
                     <Input
                       id="joiningDate"
                       type="date"
@@ -754,22 +1593,33 @@ export default function BookingPage() {
                 {/* Big Health Notes / Specific Inquiries Section (900 character limit) */}
                 <div className="mt-5 pt-4 border-t border-[#E7E4DC]">
                   <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
-                    <label htmlFor="health-notes" className="field-label text-sm font-bold text-[#171A32] mb-0">
+                    <label
+                      htmlFor="health-notes"
+                      className="field-label text-sm font-bold text-[#171A32] mb-0"
+                    >
                       Health Notes / Specific Inquiries (Optional)
                     </label>
-                    <span className={`text-xs font-mono font-semibold ${form.message.length >= 850 ? "text-amber-600 font-bold" : "text-[#7B8098]"}`}>
+                    <span
+                      className={`text-xs font-mono font-semibold ${form.message.length >= 850 ? "text-amber-600 font-bold" : "text-[#7B8098]"}`}
+                    >
                       {form.message.length} / 900 characters
                     </span>
                   </div>
                   <p className="text-xs text-[#5B607A] mb-3 leading-relaxed">
-                    Please share any medical conditions, injuries (e.g. back/neck/knee pain), recent surgeries, pregnancy, flexibility concerns, or specific practice goals. Our certified yoga masters review these notes prior to your first live trial session.
+                    Please share any medical conditions, injuries (e.g.
+                    back/neck/knee pain), recent surgeries, pregnancy,
+                    flexibility concerns, or specific practice goals. Our
+                    certified yoga masters review these notes prior to your
+                    first live trial session.
                   </p>
                   <textarea
                     id="health-notes"
                     rows={6}
                     maxLength={900}
                     value={form.message}
-                    onChange={(e) => set("message", e.target.value.slice(0, 900))}
+                    onChange={(e) =>
+                      set("message", e.target.value.slice(0, 900))
+                    }
                     placeholder="e.g. Recovering from a lower back injury, working long desk hours, looking for gentle stretching, posture correction, and breathing exercises..."
                     className="booking-textarea w-full p-3.5 rounded-xl border border-[#D5D8E4] focus:border-[#4C5FD5] focus:ring-2 focus:ring-[#4C5FD5]/20 text-sm text-[#171A32] placeholder-[#A0A4B8] bg-white transition-all outline-none resize-y min-h-[140px] leading-relaxed"
                   />
@@ -786,7 +1636,13 @@ export default function BookingPage() {
                 >
                   <span>Review Booking &amp; Confirmation</span>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M6 3l5 5-5 5"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </button>
               </div>
@@ -799,11 +1655,15 @@ export default function BookingPage() {
           {viewMode === "review" && (
             <div className="form-step-container animate-fadeIn">
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-[#171A32]" style={{ fontFamily: "var(--font-display)" }}>
+                <h2
+                  className="text-2xl font-bold text-[#171A32]"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
                   Review Your Enrollment
                 </h2>
                 <p className="text-xs text-[#5B607A] mt-1">
-                  Please confirm your information below before reserving your free trial session.
+                  Please confirm your information below before reserving your
+                  free trial session.
                 </p>
               </div>
 
@@ -811,7 +1671,9 @@ export default function BookingPage() {
               <div className="sla-banner-box mb-5">
                 <div className="sla-badge">⏱️ 24h Instructor Match</div>
                 <p className="sla-banner-text">
-                  Your certified yoga master will be paired within 24 hours based on your class schedule, language preference, and health inquiries.
+                  Your certified yoga master will be paired within 24 hours
+                  based on your class schedule, language preference, and health
+                  inquiries.
                 </p>
               </div>
 
@@ -835,38 +1697,94 @@ export default function BookingPage() {
                 </ReviewRow>
                 <ReviewRow
                   label="Student Timezone"
-                  value={TIMEZONES.find((t) => t.value === form.timezone)?.label || form.timezone}
+                  value={
+                    TIMEZONES.find((t) => t.value === form.timezone)?.label ||
+                    form.timezone
+                  }
                 />
-                <ReviewRow label="Language Preference" value={form.language} />
               </ReviewCard>
 
               {/* Card 2: Class & Schedule Details */}
               <ReviewCard title="Class &amp; Schedule Details">
                 <ReviewRow
                   label="Class Type"
-                  value={form.classType === "private" ? "Private 1:1 Coaching" : "Group Cohort"}
+                  value={
+                    form.classType === "private"
+                      ? "Private 1:1 Coaching"
+                      : "Group Cohort"
+                  }
                 />
 
                 {form.classType === "private" ? (
                   <>
-                    <ReviewRow label="1st Preferred Time (IST)" value={form.preferredTime1} />
-                    <ReviewRow label="2nd Preferred Time (IST)" value={form.preferredTime2} />
+                    <ReviewRow
+                      label="Instruction Language"
+                      value={`${form.language} Medium`}
+                    />
+                    <ReviewRow
+                      label="Private Yoga Program"
+                      value={activePrivatePlan.title}
+                    />
+                    <ReviewRow
+                      label="Focus Level"
+                      value={activePrivatePlan.levelBadge}
+                    />
+                    <ReviewRow
+                      label="Weekly Frequency"
+                      value={`${activePrivateFreq.days} (${activePrivateFreq.sessions})`}
+                    />
+                    <ReviewRow
+                      label="Monthly Tuition"
+                      value={`${activePrivateFreq.priceLabel} (First Trial is 100% Free)`}
+                    />
+                    <ReviewRow
+                      label="1st Preferred Time (IST)"
+                      value={form.preferredTime1}
+                    />
+                    <ReviewRow
+                      label="2nd Preferred Time (IST)"
+                      value={form.preferredTime2}
+                    />
                     <ReviewRow
                       label="Instructor Preference"
-                      value={form.instructorPreference === "Any" ? "Any (Male or Female)" : `${form.instructorPreference} Instructor`}
+                      value={
+                        form.instructorPreference === "Any"
+                          ? "Any (Male or Female)"
+                          : `${form.instructorPreference} Instructor`
+                      }
                     />
-                    <ReviewRow label="Tuition" value="Personalized Plan (First Trial is 100% Free)" />
                   </>
                 ) : (
                   <>
                     <ReviewRow label="Cohort Tier" value={activeCohort.name} />
-                    <ReviewRow label="Monthly Tuition" value={activeCohort.priceLabel} />
-                    <ReviewRow label="Selected Batch Time" value={form.groupTimeSlot} />
-                    <ReviewRow label="Trial Class" value="Free First Session Included" />
+                    <ReviewRow
+                      label="Lead Instructor"
+                      value={activeCohort.instructor}
+                    />
+                    <ReviewRow
+                      label="Class Timings"
+                      value={activeCohort.timingSchedule}
+                    />
+                    <ReviewRow
+                      label="Selected Batch Time"
+                      value={form.groupTimeSlot}
+                    />
+                    <ReviewRow label="Language" value={activeCohort.language} />
+                    <ReviewRow
+                      label="Monthly Tuition"
+                      value={activeCohort.priceLabel}
+                    />
+                    <ReviewRow
+                      label="Trial Class"
+                      value="Free First Session Included"
+                    />
                   </>
                 )}
 
-                <ReviewRow label="Trial / Joining Date" value={form.joiningDate} />
+                <ReviewRow
+                  label="Trial / Joining Date"
+                  value={form.joiningDate}
+                />
               </ReviewCard>
 
               {/* Card 3: Health Notes & Specific Inquiries */}
@@ -876,7 +1794,9 @@ export default function BookingPage() {
                     "{form.message}"
                   </div>
                 ) : (
-                  <div className="text-xs text-[#7B8098] italic">No specific health notes provided.</div>
+                  <div className="text-xs text-[#7B8098] italic">
+                    No specific health notes provided.
+                  </div>
                 )}
               </ReviewCard>
 
@@ -889,7 +1809,13 @@ export default function BookingPage() {
                   disabled={loading}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path
+                      d="M10 3L5 8l5 5"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                   <span>Edit Details</span>
                 </button>
@@ -908,9 +1834,26 @@ export default function BookingPage() {
                     </>
                   ) : (
                     <>
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M13.5 2.5l-8 8M13.5 2.5H8.5M13.5 2.5V7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M6 5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1v-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <path
+                          d="M13.5 2.5l-8 8M13.5 2.5H8.5M13.5 2.5V7.5"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M6 5H3a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1v-3"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
                       </svg>
                       <span>Confirm &amp; Book Trial Class</span>
                     </>
@@ -922,7 +1865,8 @@ export default function BookingPage() {
 
           {/* Privacy Note */}
           <div className="privacy-footer text-center mt-6">
-            🔒 Your personal information is encrypted, securely stored, and never shared with external third parties.
+            🔒 Your personal information is encrypted, securely stored, and
+            never shared with external third parties.
           </div>
         </div>
       </main>
@@ -939,11 +1883,15 @@ export default function BookingPage() {
               ✕
             </button>
 
-            <h3 className="font-bold text-xl text-[#171A32] mb-1.5" style={{ fontFamily: "var(--font-display)" }}>
+            <h3
+              className="font-bold text-xl text-[#171A32] mb-1.5"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
               yogaonlive Login
             </h3>
             <p className="text-xs text-[#6B7089] mb-5">
-              Sign in to view your dashboard, schedules, and dedicated class meeting link.
+              Sign in to view your dashboard, schedules, and dedicated class
+              meeting link.
             </p>
 
             <form onSubmit={handleNavbarLogin} className="space-y-4">
@@ -1147,13 +2095,18 @@ export default function BookingPage() {
 
         .form-grid-2 {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 14px;
+        }
+
+        .form-grid-2 > * {
+          min-width: 0;
+          max-width: 100%;
         }
 
         @media (max-width: 640px) {
           .form-grid-2 {
-            grid-template-columns: 1fr;
+            grid-template-columns: minmax(0, 1fr);
             gap: 12px;
           }
         }
@@ -1163,6 +2116,8 @@ export default function BookingPage() {
           flex-direction: column;
           gap: 6px;
           margin-bottom: 12px;
+          min-width: 0;
+          max-width: 100%;
         }
 
         .field-label {
@@ -1223,38 +2178,453 @@ export default function BookingPage() {
           box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.12);
         }
 
-        .booking-select-wrapper {
+        /* ═══ MODERN CLASS FORMAT SELECTION CARDS & RESPONSIVE ACCORDION ═══ */
+        .class-format-section-wrapper {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          column-gap: 14px;
+          row-gap: 14px;
+          margin-top: 4px;
+          margin-bottom: 8px;
+        }
+
+        .class-format-card.private-card {
+          grid-column: 1;
+          grid-row: 1;
+        }
+
+        .class-format-card.group-card {
+          grid-column: 2;
+          grid-row: 1;
+        }
+
+        .format-panel-box.private-panel-item,
+        .format-panel-box.group-panel-item {
+          grid-column: 1 / -1;
+          grid-row: 2;
+          margin-top: 0;
+        }
+
+        @media (max-width: 640px) {
+          .class-format-section-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .class-format-card.private-card {
+            order: 1;
+          }
+
+          .format-panel-box.private-panel-item {
+            order: 2;
+            margin-top: 0;
+            margin-bottom: 4px;
+          }
+
+          .class-format-card.group-card {
+            order: 3;
+          }
+
+          .format-panel-box.group-panel-item {
+            order: 4;
+            margin-top: 0;
+            margin-bottom: 4px;
+          }
+        }
+
+        .class-format-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          background: #FFFFFF;
+          border: 2px solid #E2E6F2;
+          border-radius: 14px;
+          padding: 18px 20px;
+          cursor: pointer;
+          text-align: left;
+          position: relative;
+          transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 2px 6px rgba(23, 26, 50, 0.03);
+          outline: none;
+        }
+
+        .class-format-card:hover {
+          border-color: #9AA3D5;
+          background: #FAFBFD;
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(76, 95, 213, 0.08);
+        }
+
+        .class-format-card:focus-visible {
+          box-shadow: 0 0 0 3.5px rgba(76, 95, 213, 0.25);
+        }
+
+        .class-format-card.selected {
+          border-color: #4C5FD5;
+          background: #F5F7FF;
+          box-shadow: 0 6px 22px rgba(76, 95, 213, 0.14), 0 0 0 1px #4C5FD5;
+          transform: translateY(-1px);
+        }
+
+        .class-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+
+        .class-card-badge {
+          font-size: 10.5px;
+          font-weight: 700;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          padding: 3.5px 9px;
+          border-radius: 6px;
+        }
+
+        .class-card-badge.private-badge {
+          background: #EEF2FD;
+          color: #4C5FD5;
+        }
+
+        .class-card-badge.group-badge {
+          background: #EFE7FE;
+          color: #7C3AED;
+        }
+
+        .class-card-radio {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          border: 2px solid #CBD2E6;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          flex-shrink: 0;
+          background: #FFFFFF;
+        }
+
+        .class-format-card:hover .class-card-radio {
+          border-color: #9AA3D5;
+        }
+
+        .class-card-radio.checked {
+          border-color: #4C5FD5;
+          background: #4C5FD5;
+          box-shadow: 0 2px 6px rgba(76, 95, 213, 0.35);
+        }
+
+        .class-card-title-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 8px;
+        }
+
+        .class-card-emoji {
+          font-size: 24px;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 42px;
+          height: 42px;
+          border-radius: 10px;
+          background: #F8F9FE;
+          border: 1px solid #E4E8F5;
+          box-shadow: 0 2px 5px rgba(23, 26, 50, 0.04);
+          flex-shrink: 0;
+        }
+
+        .class-format-card.selected .class-card-emoji {
+          background: #FFFFFF;
+          border-color: #CBD8F7;
+          box-shadow: 0 2px 8px rgba(76, 95, 213, 0.12);
+        }
+
+        .class-card-title {
+          font-family: var(--font-display);
+          font-size: 16.5px;
+          font-weight: 700;
+          color: #171A32;
+          margin: 0;
+          line-height: 1.25;
+        }
+
+        .class-card-price-tag {
+          font-size: 12px;
+          font-weight: 700;
+          color: #4C5FD5;
+          margin-top: 2px;
+        }
+
+        .class-card-description {
+          font-size: 12.5px;
+          color: #5B607A;
+          line-height: 1.5;
+          margin: 0 0 12px 0;
+        }
+
+        .class-card-footer {
+          border-top: 1px dashed #E2E6F2;
+          padding-top: 9px;
+          margin-top: auto;
+        }
+
+        .class-format-card.selected .class-card-footer {
+          border-top-color: #CBD8F7;
+        }
+
+        .class-card-highlight {
+          font-size: 11px;
+          font-weight: 600;
+          color: #4C5FD5;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        /* ═══ CUSTOM SELECT (PREMIUM MODERN DROPDOWN COMPONENT) ═══ */
+        .custom-select-container {
           position: relative;
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
         }
 
-        .booking-select {
+        .custom-select-trigger {
           width: 100%;
-          appearance: none;
-          background: #FCFAF7;
+          max-width: 100%;
+          min-width: 0;
+          min-height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          background: #FFFFFF;
           border: 1.5px solid #DCD8D0;
-          border-radius: 8px;
-          padding: 10px 36px 10px 14px;
-          font-size: 14px;
+          border-radius: 10px;
+          padding: 8px 14px;
+          font-family: var(--font-body);
+          font-size: 13.5px;
           color: #171A32;
           cursor: pointer;
+          text-align: left;
           outline: none;
-          transition: all 0.15s ease;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 1px 2px rgba(23, 26, 50, 0.04);
+          box-sizing: border-box;
         }
 
-        .booking-select:focus {
+        .custom-select-trigger:hover {
+          border-color: #9AA3D5;
+          background: #FAFBFD;
+          box-shadow: 0 2px 6px rgba(23, 26, 50, 0.04);
+        }
+
+        .custom-select-trigger:focus,
+        .custom-select-trigger.active {
           background: #FFFFFF;
           border-color: #4C5FD5;
-          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.12);
+          box-shadow: 0 0 0 3px rgba(76, 95, 213, 0.14), 0 2px 8px rgba(76, 95, 213, 0.08);
         }
 
-        .select-chevron {
-          position: absolute;
-          right: 12px;
-          top: 50%;
-          transform: translateY(-50%);
-          pointer-events: none;
+        .custom-select-trigger.has-error {
+          border-color: #D93025;
+          box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.12);
+        }
+
+        .custom-select-trigger-content {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1 1 0%;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .custom-select-icon,
+        .custom-select-opt-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+
+        .custom-select-text-group {
+          display: flex;
+          flex-direction: column;
+          flex: 1 1 0%;
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .custom-select-main-label {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: #171A32;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          line-height: 1.35;
+        }
+
+        .custom-select-sub-label {
+          font-size: 11px;
+          color: #6B7089;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin-top: 1px;
+        }
+
+        .custom-select-badge {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          background: #EEF2FD;
+          color: #4C5FD5;
+          padding: 2px 7px;
+          border-radius: 4px;
+          flex-shrink: 0;
+        }
+
+        .custom-select-chevron {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          border-radius: 6px;
           color: #7B8098;
+          transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s ease;
+          flex-shrink: 0;
+        }
+
+        .custom-select-chevron.rotate {
+          transform: rotate(180deg);
+          color: #4C5FD5;
+        }
+
+        /* Popover listbox */
+        .custom-select-popover {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          right: 0;
+          z-index: 100;
+          background: #FFFFFF;
+          border: 1.5px solid #E2E6F2;
+          border-radius: 12px;
+          padding: 6px;
+          max-height: 260px;
+          overflow-y: auto;
+          box-shadow: 0 14px 36px rgba(23, 26, 50, 0.12), 0 2px 8px rgba(23, 26, 50, 0.04);
+          animation: selectFadeDown 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes selectFadeDown {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .custom-select-popover::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-select-popover::-webkit-scrollbar-track {
+          background: #F8F7F3;
+          border-radius: 4px;
+        }
+        .custom-select-popover::-webkit-scrollbar-thumb {
+          background: #D5D2CA;
+          border-radius: 4px;
+        }
+        .custom-select-popover::-webkit-scrollbar-thumb:hover {
+          background: #B8B3A8;
+        }
+
+        .custom-select-option {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 9px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.12s ease;
+          user-select: none;
+        }
+
+        .custom-select-option:hover {
+          background: #F4F6FD;
+          color: #4C5FD5;
+        }
+
+        .custom-select-option.selected {
+          background: #EEF2FD;
+          color: #2F3E9E;
+        }
+
+        .custom-select-option-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+          flex: 1;
+        }
+
+        .custom-select-opt-label {
+          font-size: 13px;
+          font-weight: 500;
+          color: inherit;
+          line-height: 1.35;
+        }
+
+        .custom-select-option.selected .custom-select-opt-label {
+          font-weight: 700;
+          color: #2F3E9E;
+        }
+
+        .custom-select-opt-sub {
+          font-size: 11px;
+          color: #6B7089;
+          margin-top: 1px;
+        }
+
+        .custom-select-option-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .custom-select-opt-badge {
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          background: #EEF2FD;
+          color: #4C5FD5;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .custom-select-check {
+          color: #4C5FD5;
+          flex-shrink: 0;
         }
 
         /* Pill options */
@@ -1344,99 +2714,283 @@ export default function BookingPage() {
           color: #ffffff;
         }
 
-        /* Class card toggle */
-        .class-type-toggle-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
+        /* Format Panel Box */
+        .format-panel-box {
+          background: #FFFFFF;
+          border: 1.5px solid #E2E6F2;
+          border-radius: 14px;
+          padding: clamp(16px, 2.5vw, 22px);
+          margin-top: 14px;
+          box-shadow: 0 2px 8px rgba(23, 26, 50, 0.03);
         }
 
-        @media (max-width: 580px) {
-          .class-type-toggle-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        .class-card-toggle {
-          background: #FCFAF7;
-          border: 2px solid #E7E4DC;
-          border-radius: 12px;
-          padding: 16px;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-
-        .class-card-toggle:hover {
-          border-color: #B5BCDF;
-        }
-
-        .class-card-toggle.active {
-          background: #F8F9FE;
-          border-color: #4C5FD5;
-          box-shadow: 0 4px 12px rgba(76, 95, 213, 0.12);
-        }
-
-        .card-toggle-top {
+        .format-panel-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          margin-bottom: 8px;
+          gap: 10px;
+          margin-bottom: 14px;
+          padding-bottom: 10px;
+          border-bottom: 1px solid #F0ECE1;
+          flex-wrap: wrap;
         }
 
-        .card-toggle-icon {
-          font-size: 20px;
-        }
-
-        .card-toggle-badge {
-          font-size: 10px;
+        .format-panel-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11.5px;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          padding: 2px 7px;
-          border-radius: 12px;
-          background: #E8E6E0;
-          color: #5B607A;
+          padding: 4px 10px;
+          border-radius: 6px;
         }
 
-        .card-toggle-badge.popular {
-          background: #FDE8D7;
-          color: #C05621;
+        .format-panel-badge.group-theme {
+          background: #EFE7FE;
+          color: #7C3AED;
         }
 
-        .card-toggle-name {
-          font-family: var(--font-display);
-          font-size: 15px;
-          font-weight: 700;
-          color: #171A32;
-          margin-bottom: 4px;
-        }
-
-        .card-toggle-desc {
-          font-size: 12px;
-          color: #6B7089;
-          line-height: 1.35;
-          margin-bottom: 8px;
-        }
-
-        .card-toggle-price {
-          font-size: 12px;
-          font-weight: 700;
+        .format-panel-badge.private-theme {
+          background: #EEF2FD;
           color: #4C5FD5;
         }
 
-        /* Cohort tiers */
-        .cohort-tiers-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
+        .group-summary-banner {
+          margin-top: 14px;
+          background: #F4F7FE;
+          border: 1.5px solid #CBD8F7;
+          border-radius: 10px;
+          padding: 12px 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: space-between;
           gap: 12px;
-          margin-bottom: 14px;
         }
 
-        @media (max-width: 580px) {
-          .cohort-tiers-grid {
-            grid-template-columns: 1fr;
+        @media (min-width: 640px) {
+          .group-summary-banner {
+            flex-direction: row;
+            align-items: center;
           }
+        }
+
+        /* ═══ YOGA PRICING CARD (UNIFIED DESIGN SYSTEM) ═══ */
+        .yoga-pricing-card {
+          margin-top: 16px;
+          margin-bottom: 18px;
+          background: #FFFFFF;
+          border: 1.5px solid #E2E6F2;
+          border-radius: 16px;
+          padding: clamp(18px, 3.5vw, 26px);
+          box-shadow: 0 6px 24px rgba(76, 95, 213, 0.06);
+          position: relative;
+        }
+
+        .card-specialized-tag {
+          position: absolute;
+          top: -12px;
+          right: 20px;
+          background: #4C5FD5;
+          color: #FFFFFF;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          padding: 3px 12px;
+          border-radius: 20px;
+          box-shadow: 0 2px 8px rgba(76, 95, 213, 0.35);
+        }
+
+        .badge-specialized {
+          background: #4C5FD5;
+          color: #FFFFFF;
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          padding: 3px 9px;
+          border-radius: 6px;
+          display: inline-flex;
+          align-items: center;
+          box-shadow: 0 1px 4px rgba(76, 95, 213, 0.25);
+        }
+
+        .card-top-badges {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .badge-language {
+          background: #EEF2FD;
+          color: #4C5FD5;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          padding: 3px 9px;
+          border-radius: 6px;
+        }
+
+        .badge-level {
+          font-size: 12.5px;
+          font-weight: 600;
+          color: #6B7089;
+          background: #F6F7FB;
+          padding: 3px 9px;
+          border-radius: 6px;
+        }
+
+        .plan-title {
+          font-size: clamp(20px, 3vw, 25px);
+          font-weight: 700;
+          color: #171A32;
+          font-family: var(--font-display);
+          letter-spacing: -0.01em;
+          margin: 0 0 6px 0;
+        }
+
+        .plan-description {
+          font-size: 13px;
+          color: #5B607A;
+          line-height: 1.55;
+          margin: 0 0 18px 0;
+        }
+
+        .frequency-label {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.07em;
+          color: #6B7089;
+          text-transform: uppercase;
+          margin-bottom: 10px;
+        }
+
+        .frequency-options-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-bottom: 16px;
+        }
+
+        .frequency-option-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          background: #FAFBFD;
+          border: 1.5px solid #E2E6F2;
+          border-radius: 12px;
+          padding: 12px 16px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          user-select: none;
+        }
+
+        .frequency-option-row:hover {
+          border-color: #9AA3D5;
+          background: #F5F7FF;
+          transform: translateY(-1px);
+        }
+
+        .frequency-option-row.selected {
+          border-color: #4C5FD5;
+          background: #EEF2FD;
+          box-shadow: 0 0 0 1px #4C5FD5;
+        }
+
+        .freq-radio-circle {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          border: 2px solid #CBD2E6;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+          background: #FFFFFF;
+        }
+
+        .frequency-option-row.selected .freq-radio-circle {
+          border-color: #4C5FD5;
+          background: #4C5FD5;
+        }
+
+        .freq-radio-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #FFFFFF;
+        }
+
+        .freq-days-text {
+          font-size: 14px;
+          font-weight: 700;
+          color: #171A32;
+        }
+
+        .freq-sessions-text {
+          font-size: 12px;
+          color: #6B7089;
+          font-weight: 500;
+          margin-top: 1px;
+        }
+
+        .freq-price-text {
+          font-size: 16.5px;
+          font-weight: 800;
+          color: #171A32;
+          letter-spacing: -0.01em;
+        }
+
+        .badge-popular {
+          background: #4C5FD5;
+          color: #FFFFFF;
+          font-size: 9.5px;
+          font-weight: 800;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          padding: 2px 7px;
+          border-radius: 4px;
+          margin-bottom: 2px;
+          display: inline-block;
+        }
+
+        .plan-card-action-bar {
+          background: linear-gradient(135deg, #4C5FD5 0%, #3B4DBF 100%);
+          color: #FFFFFF;
+          border-radius: 10px;
+          padding: 12px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+          margin-top: 4px;
+          box-shadow: 0 4px 16px rgba(76, 95, 213, 0.28);
+        }
+
+        .plan-action-main {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13.5px;
+          font-weight: 700;
+        }
+
+        .plan-action-trial-badge {
+          font-size: 11.5px;
+          background: rgba(255, 255, 255, 0.2);
+          padding: 3px 10px;
+          border-radius: 20px;
+          font-weight: 600;
         }
 
         .cohort-tier-card {

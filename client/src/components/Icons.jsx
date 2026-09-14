@@ -1,4 +1,5 @@
-import React from "react";
+import BrandLogo from "./BrandLogo";
+export { BrandLogo };
 
 export function SunIcon({ className = "" }) {
   return (
