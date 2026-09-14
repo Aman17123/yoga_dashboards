@@ -1,5 +1,6 @@
-import { Student } from "../models/Student.js";
 import bcrypt from "bcryptjs";
+import { pool } from "../db/pool.js";
+import { getFullStudentById } from "../db/serializer.js";
 
 const ADMIN_CREDENTIALS = {
   username: "admin",
@@ -26,24 +27,30 @@ export async function login(req, res) {
     }
 
     // Check student credentials in database
-    const student = await Student.findOne({
-      username: username.trim(),
-    });
+    const [rows] = await pool.execute(
+      "SELECT * FROM students WHERE username = ?",
+      [username.trim()]
+    );
 
-    if (student) {
+    if (rows && rows.length > 0) {
+      const studentRow = rows[0];
       let isMatch = false;
-      if (student.password.startsWith("$2a$") || student.password.startsWith("$2b$")) {
-        isMatch = await bcrypt.compare(password, student.password);
+      if (
+        studentRow.password.startsWith("$2a$") ||
+        studentRow.password.startsWith("$2b$")
+      ) {
+        isMatch = await bcrypt.compare(password, studentRow.password);
       } else {
-        // Fallback for legacy plain-text seed accounts
-        isMatch = student.password === password;
+        // Fallback for legacy plain-text accounts
+        isMatch = studentRow.password === password;
       }
 
       if (isMatch) {
+        const fullStudent = await getFullStudentById(pool, studentRow.id);
         return res.json({
           success: true,
-          session: { role: "student", id: student.id },
-          user: student.toJSON(),
+          session: { role: "student", id: fullStudent.id },
+          user: fullStudent,
         });
       }
     }
@@ -53,7 +60,9 @@ export async function login(req, res) {
     });
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({ error: "Internal server error during authentication." });
+    return res
+      .status(500)
+      .json({ error: "Internal server error during authentication." });
   }
 }
 
@@ -69,15 +78,19 @@ export async function quickLogin(req, res) {
     }
 
     // Default to first student
-    const firstStudent = await Student.findOne().sort({ id: 1 });
-    if (!firstStudent) {
+    const [rows] = await pool.execute(
+      "SELECT id FROM students ORDER BY id ASC LIMIT 1"
+    );
+
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: "No student records found." });
     }
 
+    const fullStudent = await getFullStudentById(pool, rows[0].id);
     return res.json({
       success: true,
-      session: { role: "student", id: firstStudent.id },
-      user: firstStudent.toJSON(),
+      session: { role: "student", id: fullStudent.id },
+      user: fullStudent,
     });
   } catch (error) {
     console.error("Quick login error:", error);

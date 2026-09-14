@@ -1,6 +1,5 @@
-import mongoose from "mongoose";
-import { Booking } from "../models/Booking.js";
-import { Student } from "../models/Student.js";
+import { pool } from "../db/pool.js";
+import { formatBooking } from "../db/serializer.js";
 import { emitRealtimeEvent } from "../index.js";
 import {
   sendUserConfirmationEmail,
@@ -9,15 +8,31 @@ import {
   testEmailTransporter,
 } from "../utils/emailService.js";
 
-function escapeRegex(str) {
-  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+async function findBooking(rawId) {
+  const num = Number(rawId);
+  if (!Number.isNaN(num)) {
+    const [rows] = await pool.execute("SELECT * FROM bookings WHERE id = ?", [
+      num,
+    ]);
+    if (rows && rows.length > 0) return rows[0];
+  }
+  if (typeof rawId === "string" && rawId.trim()) {
+    const [rows] = await pool.execute(
+      "SELECT * FROM bookings WHERE booking_ref = ?",
+      [rawId.trim()]
+    );
+    if (rows && rows.length > 0) return rows[0];
+  }
+  return null;
 }
 
 // ─── GET /api/bookings ────────────────────────────────────────────────────────
 export async function getAllBookings(req, res) {
   try {
-    const bookings = await Booking.find().sort({ createdAt: -1 }).lean();
-    return res.json(bookings);
+    const [rows] = await pool.execute(
+      "SELECT * FROM bookings ORDER BY created_at DESC"
+    );
+    return res.json(rows.map(formatBooking));
   } catch (error) {
     console.error("Error fetching bookings:", error);
     return res.status(500).json({ error: "Failed to fetch bookings." });
@@ -63,73 +78,99 @@ export async function createBooking(req, res) {
     if (phone && phone.trim()) {
       const digits = phone.replace(/\D/g, "");
       if (digits.length < 7 || digits.length > 17) {
-        return res.status(400).json({ error: "Please enter a valid phone number with country code." });
+        return res
+          .status(400)
+          .json({ error: "Please enter a valid phone number with country code." });
       }
     }
 
-    // Create booking record
-    const booking = new Booking({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      age: age?.toString().trim() || "",
-      gender: gender?.trim() || "",
-      phone: phone?.trim() || "",
-      country: country?.trim() || "",
-      timezone: timezone || "Asia/Kolkata",
-      language: language?.trim() || "English",
-      classType: classType === "private" ? "private" : "group",
-      preferredTime: preferredTime?.trim() || "",
-      preferredTime2: preferredTime2?.trim() || "",
-      instructorPreference: instructorPreference?.trim() || "Any",
-      groupCohort: groupCohort?.trim() || "",
-      fee: Number(fee) || 0,
-      goals: goals?.trim() || "",
-      joiningDate: joiningDate?.trim() || "",
-      message: message?.trim() || "",
-      source: source?.trim() || "direct",
-      referralUrl: referralUrl?.trim() || "",
-      status: "pending",
-    });
+    const stamp = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
+    const bookingRef = `YOL-${stamp}-${rand}`;
 
-    await booking.save();
+    const [insertResult] = await pool.execute(
+      `INSERT INTO bookings (
+        name, email, age, gender, phone, country, timezone, language,
+        class_type, preferred_time, preferred_time2, instructor_preference,
+        group_cohort, fee, goals, joining_date, message, source,
+        referral_url, booking_ref, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [
+        name.trim(),
+        email.trim().toLowerCase(),
+        age?.toString().trim() || "",
+        gender?.trim() || "",
+        phone?.trim() || "",
+        country?.trim() || "",
+        timezone || "Asia/Kolkata",
+        language?.trim() || "English",
+        classType === "private" ? "private" : "group",
+        preferredTime?.trim() || "",
+        preferredTime2?.trim() || "",
+        instructorPreference?.trim() || "Any",
+        groupCohort?.trim() || "",
+        Number(fee) || 0,
+        goals?.trim() || "",
+        joiningDate?.trim() || "",
+        message?.trim() || "",
+        source?.trim() || "direct",
+        referralUrl?.trim() || "",
+        bookingRef,
+      ]
+    );
+
+    const bookingId = insertResult.insertId;
+    let [rows] = await pool.execute(
+      "SELECT * FROM bookings WHERE id = ?",
+      [bookingId]
+    );
+    let currentBooking = formatBooking(rows[0]);
 
     // Send emails sequentially (user confirmation first, then admin notification)
-    // Sequential dispatch avoids SMTP connection concurrency collisions on Gmail
     let userEmailResult = null;
     let adminEmailResult = null;
+    let userEmailSent = 0;
+    let adminEmailSent = 0;
 
     try {
-      userEmailResult = await sendUserConfirmationEmail(booking);
+      userEmailResult = await sendUserConfirmationEmail(currentBooking);
       if (userEmailResult?.success) {
-        booking.confirmationEmailSent = true;
+        userEmailSent = 1;
       }
     } catch (err) {
       console.error("[Booking] ❌ User confirmation email dispatch error:", err);
-      userEmailResult = { error: err.message, recipient: booking.email };
+      userEmailResult = { error: err.message, recipient: currentBooking.email };
     }
 
     try {
-      adminEmailResult = await sendAdminNotificationEmail(booking);
+      adminEmailResult = await sendAdminNotificationEmail(currentBooking);
       if (adminEmailResult?.success) {
-        booking.adminEmailSent = true;
+        adminEmailSent = 1;
       }
     } catch (err) {
       console.error("[Booking] ❌ Admin notification email dispatch error:", err);
       adminEmailResult = { error: err.message };
     }
 
-    if (booking.confirmationEmailSent || booking.adminEmailSent) {
-      await booking.save();
+    if (userEmailSent || adminEmailSent) {
+      await pool.execute(
+        "UPDATE bookings SET confirmation_email_sent = ?, admin_email_sent = ? WHERE id = ?",
+        [userEmailSent, adminEmailSent, bookingId]
+      );
+      [rows] = await pool.execute(
+        "SELECT * FROM bookings WHERE id = ?",
+        [bookingId]
+      );
+      currentBooking = formatBooking(rows[0]);
     }
 
-    const bookingJson = booking.toJSON();
-    emitRealtimeEvent("booking:created", { booking: bookingJson });
+    emitRealtimeEvent("booking:created", { booking: currentBooking });
     emitRealtimeEvent("stats:updated", {});
 
     return res.status(201).json({
       success: true,
-      bookingRef: booking.bookingRef,
-      booking: bookingJson,
+      bookingRef: currentBooking.bookingRef,
+      booking: currentBooking,
       emailStatus: {
         userEmail: userEmailResult,
         adminEmail: adminEmailResult,
@@ -137,7 +178,7 @@ export async function createBooking(req, res) {
     });
   } catch (error) {
     console.error("Error creating booking:", error);
-    if (error.code === 11000) {
+    if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ error: "Duplicate booking reference. Please try again." });
     }
     return res.status(500).json({
@@ -160,19 +201,29 @@ export async function updateBookingStatus(req, res) {
       });
     }
 
-    const update = { status };
-    if (adminNotes !== undefined) update.adminNotes = adminNotes;
-
-    const booking = await Booking.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!booking) {
+    const bookingRow = await findBooking(id);
+    if (!bookingRow) {
       return res.status(404).json({ error: "Booking not found." });
     }
 
-    const bookingJson = booking.toJSON();
+    if (adminNotes !== undefined) {
+      await pool.execute(
+        "UPDATE bookings SET status = ?, admin_notes = ? WHERE id = ?",
+        [status, adminNotes, bookingRow.id]
+      );
+    } else {
+      await pool.execute(
+        "UPDATE bookings SET status = ? WHERE id = ?",
+        [status, bookingRow.id]
+      );
+    }
+
+    const [rows] = await pool.execute(
+      "SELECT * FROM bookings WHERE id = ?",
+      [bookingRow.id]
+    );
+    const bookingJson = formatBooking(rows[0]);
+
     emitRealtimeEvent("booking:updated", { booking: bookingJson });
     emitRealtimeEvent("stats:updated", {});
 
@@ -190,23 +241,29 @@ export async function getBookingByRef(req, res) {
     if (!ref || !ref.trim()) {
       return res.status(400).json({ error: "Booking reference is required." });
     }
-    const booking = await Booking.findOne({ bookingRef: ref.trim() }).lean();
-    if (!booking) {
+
+    const [rows] = await pool.execute(
+      "SELECT * FROM bookings WHERE booking_ref = ?",
+      [ref.trim()]
+    );
+    if (!rows || rows.length === 0) {
       return res.status(404).json({ error: "Booking not found with this reference." });
     }
+
+    const booking = rows[0];
     return res.json({
       success: true,
       booking: {
-        bookingRef: booking.bookingRef,
+        bookingRef: booking.booking_ref,
         name: booking.name,
         email: booking.email,
         phone: booking.phone,
-        classType: booking.classType,
-        groupCohort: booking.groupCohort,
-        preferredTime: booking.preferredTime,
-        joiningDate: booking.joiningDate,
-        createdAt: booking.createdAt,
-        confirmationEmailSent: booking.confirmationEmailSent,
+        classType: booking.class_type,
+        groupCohort: booking.group_cohort,
+        preferredTime: booking.preferred_time,
+        joiningDate: booking.joining_date,
+        createdAt: booking.created_at,
+        confirmationEmailSent: Boolean(booking.confirmation_email_sent),
       },
     });
   } catch (error) {
@@ -218,11 +275,11 @@ export async function getBookingByRef(req, res) {
 // ─── GET /api/bookings/:id ────────────────────────────────────────────────────
 export async function getBookingById(req, res) {
   try {
-    const booking = await Booking.findById(req.params.id).lean();
-    if (!booking) {
+    const bookingRow = await findBooking(req.params.id);
+    if (!bookingRow) {
       return res.status(404).json({ error: "Booking not found." });
     }
-    return res.json(booking);
+    return res.json(formatBooking(bookingRow));
   } catch (error) {
     console.error("Error fetching booking:", error);
     return res.status(500).json({ error: "Failed to fetch booking." });
@@ -256,45 +313,49 @@ export async function deleteEnrolledStudentFromBooking(req, res) {
     const { id } = req.params;
     const { alsoDeleteBooking } = req.query;
 
-    let booking = null;
-    if (mongoose.isValidObjectId(id)) {
-      booking = await Booking.findById(id);
-    }
-    if (!booking) {
-      booking = await Booking.findOne({ bookingRef: id });
-    }
-    if (!booking) {
+    const bookingRow = await findBooking(id);
+    if (!bookingRow) {
       return res.status(404).json({ error: "Booking not found." });
     }
 
-    // Find student by enrolledStudentId or enrolledFromBookingId or email
-    let student = null;
-    if (booking.enrolledStudentId) {
-      student = await Student.findOne({ id: booking.enrolledStudentId });
+    // Find student by enrolled_student_id or enrolled_from_booking_id or email
+    let studentRow = null;
+    if (bookingRow.enrolled_student_id) {
+      const [sRows] = await pool.execute(
+        "SELECT * FROM students WHERE id = ?",
+        [bookingRow.enrolled_student_id]
+      );
+      if (sRows.length > 0) studentRow = sRows[0];
     }
-    if (!student) {
-      student = await Student.findOne({ enrolledFromBookingId: booking._id });
+    if (!studentRow) {
+      const [sRows] = await pool.execute(
+        "SELECT * FROM students WHERE enrolled_from_booking_id = ?",
+        [bookingRow.id]
+      );
+      if (sRows.length > 0) studentRow = sRows[0];
     }
-    if (!student && booking.email) {
-      student = await Student.findOne({
-        email: { $regex: new RegExp(`^${escapeRegex(booking.email.trim())}$`, "i") },
-      });
+    if (!studentRow && bookingRow.email) {
+      const [sRows] = await pool.execute(
+        "SELECT * FROM students WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))",
+        [bookingRow.email]
+      );
+      if (sRows.length > 0) studentRow = sRows[0];
     }
 
     let deletedStudentInfo = null;
-    if (student) {
+    if (studentRow) {
       deletedStudentInfo = {
-        id: student.id,
-        name: student.name,
-        username: student.username,
+        id: studentRow.id,
+        name: studentRow.name,
+        username: studentRow.username,
       };
-      await Student.findByIdAndDelete(student._id);
-      emitRealtimeEvent("student:deleted", { id: student.id });
+      await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
+      emitRealtimeEvent("student:deleted", { id: studentRow.id });
     }
 
     if (alsoDeleteBooking === "true" || alsoDeleteBooking === true) {
-      await Booking.findByIdAndDelete(booking._id);
-      emitRealtimeEvent("booking:deleted", { id: booking._id });
+      await pool.execute("DELETE FROM bookings WHERE id = ?", [bookingRow.id]);
+      emitRealtimeEvent("booking:deleted", { id: bookingRow.id });
       emitRealtimeEvent("stats:updated", {});
       return res.json({
         success: true,
@@ -306,13 +367,22 @@ export async function deleteEnrolledStudentFromBooking(req, res) {
     }
 
     // Reset booking to confirmed
-    booking.enrolledStudentId = null;
-    booking.status = "confirmed";
-    booking.enrollmentEmailStatus = "none";
-    booking.enrollmentEmailError = null;
-    await booking.save();
+    await pool.execute(
+      `UPDATE bookings SET
+        enrolled_student_id = NULL,
+        status = 'confirmed',
+        enrollment_email_status = 'none',
+        enrollment_email_error = NULL
+       WHERE id = ?`,
+      [bookingRow.id]
+    );
 
-    const bookingJson = booking.toJSON();
+    const [updatedRows] = await pool.execute(
+      "SELECT * FROM bookings WHERE id = ?",
+      [bookingRow.id]
+    );
+    const bookingJson = formatBooking(updatedRows[0]);
+
     emitRealtimeEvent("booking:updated", { booking: bookingJson });
     emitRealtimeEvent("stats:updated", {});
 
@@ -325,7 +395,10 @@ export async function deleteEnrolledStudentFromBooking(req, res) {
     });
   } catch (error) {
     console.error("Error deleting enrolled student from booking:", error);
-    return res.status(500).json({ error: "Failed to delete enrolled student.", detail: error.message });
+    return res.status(500).json({
+      error: "Failed to delete enrolled student.",
+      detail: error.message,
+    });
   }
 }
 
@@ -335,47 +408,50 @@ export async function deleteBooking(req, res) {
     const { id } = req.params;
     const { deleteStudent } = req.query;
 
-    let booking = null;
-    if (mongoose.isValidObjectId(id)) {
-      booking = await Booking.findById(id);
-    }
-    if (!booking) {
-      booking = await Booking.findOne({ bookingRef: id });
-    }
-    if (!booking) {
+    const bookingRow = await findBooking(id);
+    if (!bookingRow) {
       return res.status(404).json({ error: "Booking not found." });
     }
 
     if (deleteStudent === "true" || deleteStudent === true) {
-      let student = null;
-      if (booking.enrolledStudentId) {
-        student = await Student.findOne({ id: booking.enrolledStudentId });
+      let studentRow = null;
+      if (bookingRow.enrolled_student_id) {
+        const [sRows] = await pool.execute(
+          "SELECT * FROM students WHERE id = ?",
+          [bookingRow.enrolled_student_id]
+        );
+        if (sRows.length > 0) studentRow = sRows[0];
       }
-      if (!student) {
-        student = await Student.findOne({ enrolledFromBookingId: booking._id });
+      if (!studentRow) {
+        const [sRows] = await pool.execute(
+          "SELECT * FROM students WHERE enrolled_from_booking_id = ?",
+          [bookingRow.id]
+        );
+        if (sRows.length > 0) studentRow = sRows[0];
       }
-      if (!student && booking.email) {
-        student = await Student.findOne({
-          email: { $regex: new RegExp(`^${escapeRegex(booking.email.trim())}$`, "i") },
-        });
+      if (!studentRow && bookingRow.email) {
+        const [sRows] = await pool.execute(
+          "SELECT * FROM students WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))",
+          [bookingRow.email]
+        );
+        if (sRows.length > 0) studentRow = sRows[0];
       }
-      if (student) {
-        await Student.findByIdAndDelete(student._id);
-        emitRealtimeEvent("student:deleted", { id: student.id });
+      if (studentRow) {
+        await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
+        emitRealtimeEvent("student:deleted", { id: studentRow.id });
       }
     }
 
-    await Booking.findByIdAndDelete(booking._id);
-    emitRealtimeEvent("booking:deleted", { id: booking._id });
+    await pool.execute("DELETE FROM bookings WHERE id = ?", [bookingRow.id]);
+    emitRealtimeEvent("booking:deleted", { id: bookingRow.id });
     emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,
-      message: `Booking ${booking.bookingRef || booking.name} deleted successfully.`,
+      message: `Booking ${bookingRow.booking_ref || bookingRow.name} deleted successfully.`,
     });
   } catch (error) {
     console.error("Error deleting booking:", error);
     return res.status(500).json({ error: "Failed to delete booking." });
   }
 }
-

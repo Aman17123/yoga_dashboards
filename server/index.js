@@ -1,9 +1,9 @@
 import express from "express";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
-import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+import { pool } from "./db/pool.js";
 import apiRouter from "./routes/api.js";
 import { seedDatabaseIfEmpty } from "./utils/seedData.js";
 
@@ -50,15 +50,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Database connection & auto-seeding
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(async () => {
-    console.log("Connected to MongoDB Atlas: yoga_dashboard");
-    await seedDatabaseIfEmpty();
-  })
-  .catch((err) => {
-    console.error("MongoDB Connection Error:", err);
-  });
+try {
+  const connection = await pool.getConnection();
+  console.log(`Connected to MySQL database: ${process.env.DB_NAME || "yoga_dashboard"}`);
+  connection.release();
+  await seedDatabaseIfEmpty();
+} catch (err) {
+  console.error("MySQL Connection Error:", err);
+}
+
 
 // API Routes
 app.use("/api", apiRouter);

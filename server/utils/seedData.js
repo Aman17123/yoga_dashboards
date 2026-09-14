@@ -1,6 +1,5 @@
-import { Student } from "../models/Student.js";
-import { Enquiry } from "../models/Enquiry.js";
-import { PaymentSettings } from "../models/PaymentSettings.js";
+import bcrypt from "bcryptjs";
+import { pool } from "../db/pool.js";
 
 const DEFAULT_PAYMENT_SETTINGS = {
   upiId: "yogaonlive@upi",
@@ -346,39 +345,125 @@ function generateAttendance(student) {
 
 export async function seedDatabaseIfEmpty() {
   try {
-    const studentCount = await Student.countDocuments();
-    if (studentCount === 0) {
+    const [sCountRows] = await pool.execute("SELECT COUNT(*) AS cnt FROM students");
+    if (sCountRows[0].cnt === 0) {
       console.log("Seeding initial student records...");
-      const studentsToInsert = INITIAL_STUDENTS.map((s) => ({
-        ...s,
-        attendance: generateAttendance(s),
-        paymentHistory: [
-          {
-            date: s.lastPaymentDate,
-            amount: s.fee,
-            note: "Initial tuition payment",
-            paymentMethod: "UPI / Bank Transfer",
-          },
-        ],
-      }));
-      await Student.insertMany(studentsToInsert);
-      console.log(`Successfully seeded ${studentsToInsert.length} students.`);
+      for (const s of INITIAL_STUDENTS) {
+        const hashedPassword = await bcrypt.hash(s.password, 10);
+        await pool.execute(
+          `INSERT INTO students (
+            id, name, email, phone, class_type, group_name, instructor, instructor_status,
+            country, timezone, duration, fee, class_time_ist, schedule_days, joining_date,
+            last_payment_date, class_link, goals, language, username, password,
+            welcome_email_status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'assigned', ?, ?, ?, ?, ?, ?, ?, ?, '', '', 'English', ?, ?, 'sent')
+          ON DUPLICATE KEY UPDATE name=VALUES(name)`,
+          [
+            s.id,
+            s.name,
+            s.email,
+            s.phone,
+            s.classType,
+            s.groupName || null,
+            s.instructor,
+            s.country,
+            s.timezone,
+            s.duration,
+            s.fee,
+            s.classTimeIST,
+            JSON.stringify(s.scheduleDays),
+            s.joiningDate,
+            s.lastPaymentDate,
+            s.username,
+            hashedPassword,
+          ]
+        );
+
+        // Seed attendance
+        const attendanceMap = generateAttendance(s);
+        for (const [date, status] of Object.entries(attendanceMap)) {
+          await pool.execute(
+            `INSERT INTO student_attendance (student_id, attendance_date, status)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE status = VALUES(status)`,
+            [s.id, date, status]
+          );
+        }
+
+        // Seed initial payment
+        await pool.execute(
+          `INSERT INTO student_payments (student_id, payment_date, amount, note, payment_method)
+           VALUES (?, ?, ?, 'Initial tuition payment', 'UPI / Bank Transfer')`,
+          [s.id, s.lastPaymentDate, s.fee]
+        );
+      }
+      console.log(`Successfully seeded ${INITIAL_STUDENTS.length} students.`);
     }
 
-    const enquiryCount = await Enquiry.countDocuments();
-    if (enquiryCount === 0) {
+    const [eCountRows] = await pool.execute("SELECT COUNT(*) AS cnt FROM enquiries");
+    if (eCountRows[0].cnt === 0) {
       console.log("Seeding initial enquiries...");
-      await Enquiry.insertMany(INITIAL_ENQUIRIES);
+      for (const eq of INITIAL_ENQUIRIES) {
+        await pool.execute(
+          `INSERT INTO enquiries (
+            id, name, gender, age, height_weight, phone, email, country,
+            class_type_interest, preferred_timings, demo_date, instructor_preference,
+            reason, other_info, message, status, submitted_date, converted_student_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+          ON DUPLICATE KEY UPDATE name=VALUES(name)`,
+          [
+            eq.id,
+            eq.name,
+            eq.gender || "",
+            eq.age || null,
+            eq.heightWeight || "",
+            eq.phone || "",
+            eq.email || "",
+            eq.country || "India",
+            eq.classTypeInterest || "private",
+            eq.preferredTimings || "",
+            eq.demoDate || "",
+            eq.instructorPreference || "Any",
+            eq.reason || "",
+            eq.otherInfo || "",
+            eq.message || "",
+            eq.status || "pending",
+            eq.submittedDate || "",
+          ]
+        );
+      }
       console.log(`Successfully seeded ${INITIAL_ENQUIRIES.length} enquiries.`);
     }
 
-    const settingsCount = await PaymentSettings.countDocuments();
-    if (settingsCount === 0) {
+    const [settingsCountRows] = await pool.execute("SELECT COUNT(*) AS cnt FROM payment_settings");
+    if (settingsCountRows[0].cnt === 0) {
       console.log("Seeding default payment settings...");
-      await PaymentSettings.create(DEFAULT_PAYMENT_SETTINGS);
+      await pool.execute(
+        `INSERT INTO payment_settings (
+          id, upi_id, payee_name, account_name, account_number, ifsc, bank_name, admin_whats_app
+        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE id=id`,
+        [
+          DEFAULT_PAYMENT_SETTINGS.upiId,
+          DEFAULT_PAYMENT_SETTINGS.payeeName,
+          DEFAULT_PAYMENT_SETTINGS.accountName,
+          DEFAULT_PAYMENT_SETTINGS.accountNumber,
+          DEFAULT_PAYMENT_SETTINGS.ifsc,
+          DEFAULT_PAYMENT_SETTINGS.bankName,
+          DEFAULT_PAYMENT_SETTINGS.adminWhatsApp,
+        ]
+      );
+      await pool.execute(
+        `INSERT INTO payment_settings_group_links (cohort_key, meet_url) VALUES
+          ('hindi', 'https://meet.google.com/yol-hindi-cohort'),
+          ('english', 'https://meet.google.com/yol-english-cohort'),
+          ('default', 'https://meet.google.com/yol-live-group')
+        ON DUPLICATE KEY UPDATE meet_url=VALUES(meet_url)`
+      );
       console.log("Successfully seeded payment settings.");
     }
   } catch (error) {
     console.error("Error seeding database:", error);
   }
 }
+

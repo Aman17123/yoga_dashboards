@@ -1,29 +1,22 @@
-import mongoose from "mongoose";
-import { Enquiry } from "../models/Enquiry.js";
-import { Student } from "../models/Student.js";
+import { pool } from "../db/pool.js";
+import { formatEnquiry } from "../db/serializer.js";
 import { emitRealtimeEvent } from "../index.js";
-
-function escapeRegex(str) {
-  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 async function findEnquiry(rawId) {
   const num = Number(rawId);
   if (!Number.isNaN(num)) {
-    const q = await Enquiry.findOne({ id: num });
-    if (q) return q;
-  }
-  if (typeof rawId === "string" && rawId.match(/^[0-9a-fA-F]{24}$/)) {
-    const q = await Enquiry.findById(rawId);
-    if (q) return q;
+    const [rows] = await pool.execute("SELECT * FROM enquiries WHERE id = ?", [
+      num,
+    ]);
+    if (rows && rows.length > 0) return rows[0];
   }
   return null;
 }
 
 export async function getAllEnquiries(req, res) {
   try {
-    const enquiries = await Enquiry.find().sort({ id: 1 });
-    return res.json(enquiries.map((q) => q.toJSON()));
+    const [rows] = await pool.execute("SELECT * FROM enquiries ORDER BY id ASC");
+    return res.json(rows.map(formatEnquiry));
   } catch (error) {
     console.error("Error fetching enquiries:", error);
     return res.status(500).json({ error: "Failed to retrieve enquiries." });
@@ -32,22 +25,48 @@ export async function getAllEnquiries(req, res) {
 
 export async function createEnquiry(req, res) {
   try {
-    const formData = req.body;
-    const maxEnquiry = await Enquiry.findOne().sort({ id: -1 });
-    const nextId = maxEnquiry ? maxEnquiry.id + 1 : 1;
+    const formData = req.body || {};
+    const [maxRows] = await pool.execute(
+      "SELECT COALESCE(MAX(id), 0) + 1 AS nextId FROM enquiries"
+    );
+    const nextId = maxRows[0]?.nextId || 1;
 
     const todayISO = new Date().toISOString().split("T")[0];
+    const submittedDate = formData.submittedDate || todayISO;
 
-    const newEnquiry = new Enquiry({
-      id: nextId,
-      ...formData,
-      status: "pending",
-      submittedDate: formData.submittedDate || todayISO,
-      convertedStudentId: null,
-    });
+    await pool.execute(
+      `INSERT INTO enquiries (
+        id, name, gender, age, height_weight, phone, email, country,
+        class_type_interest, preferred_timings, demo_date, instructor_preference,
+        reason, other_info, message, status, submitted_date, converted_student_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NULL)`,
+      [
+        nextId,
+        formData.name ? String(formData.name).trim() : "",
+        formData.gender || "",
+        formData.age !== undefined && formData.age !== "" && !isNaN(Number(formData.age))
+          ? Number(formData.age)
+          : null,
+        formData.heightWeight || "",
+        formData.phone ? String(formData.phone).trim() : "",
+        formData.email ? String(formData.email).trim() : "",
+        formData.country || "India",
+        formData.classTypeInterest === "group" ? "group" : "private",
+        formData.preferredTimings || "",
+        formData.demoDate || "",
+        formData.instructorPreference || "Any",
+        formData.reason || "",
+        formData.otherInfo || "",
+        formData.message || "",
+        submittedDate,
+      ]
+    );
 
-    await newEnquiry.save();
-    const enquiryJson = newEnquiry.toJSON();
+    const [rows] = await pool.execute(
+      "SELECT * FROM enquiries WHERE id = ?",
+      [nextId]
+    );
+    const enquiryJson = formatEnquiry(rows[0]);
 
     emitRealtimeEvent("enquiry:created", { enquiry: enquiryJson });
     emitRealtimeEvent("stats:updated", {});
@@ -67,15 +86,22 @@ export async function updateEnquiryStatus(req, res) {
       return res.status(400).json({ error: "Invalid enquiry status." });
     }
 
-    const enquiry = await findEnquiry(req.params.id);
-    if (!enquiry) {
+    const enquiryRow = await findEnquiry(req.params.id);
+    if (!enquiryRow) {
       return res.status(404).json({ error: "Enquiry not found." });
     }
 
-    enquiry.status = status;
-    await enquiry.save();
+    await pool.execute(
+      "UPDATE enquiries SET status = ? WHERE id = ?",
+      [status, enquiryRow.id]
+    );
 
-    const enquiryJson = enquiry.toJSON();
+    const [rows] = await pool.execute(
+      "SELECT * FROM enquiries WHERE id = ?",
+      [enquiryRow.id]
+    );
+    const enquiryJson = formatEnquiry(rows[0]);
+
     emitRealtimeEvent("enquiry:updated", { enquiry: enquiryJson });
     emitRealtimeEvent("stats:updated", {});
 
@@ -91,38 +117,52 @@ export async function deleteEnrolledStudentFromEnquiry(req, res) {
   try {
     const { alsoDeleteEnquiry } = req.query;
 
-    const enquiry = await findEnquiry(req.params.id);
-    if (!enquiry) {
+    const enquiryRow = await findEnquiry(req.params.id);
+    if (!enquiryRow) {
       return res.status(404).json({ error: "Enquiry not found." });
     }
 
-    let student = null;
-    if (enquiry.convertedStudentId) {
-      student = await Student.findOne({ id: enquiry.convertedStudentId });
+    // Find linked student
+    let studentRow = null;
+    if (enquiryRow.converted_student_id) {
+      const [sRows] = await pool.execute(
+        "SELECT * FROM students WHERE id = ?",
+        [enquiryRow.converted_student_id]
+      );
+      if (sRows.length > 0) studentRow = sRows[0];
     }
-    if (!student) {
-      student = await Student.findOne({ enrolledFromEnquiryId: enquiry.id });
+    if (!studentRow) {
+      const [sRows] = await pool.execute(
+        "SELECT * FROM students WHERE enrolled_from_enquiry_id = ?",
+        [enquiryRow.id]
+      );
+      if (sRows.length > 0) studentRow = sRows[0];
     }
-    if (!student && enquiry.email) {
-      student = await Student.findOne({
-        email: { $regex: new RegExp(`^${escapeRegex(enquiry.email.trim())}$`, "i") },
-      });
+    if (!studentRow && enquiryRow.email) {
+      const [sRows] = await pool.execute(
+        "SELECT * FROM students WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))",
+        [enquiryRow.email]
+      );
+      if (sRows.length > 0) studentRow = sRows[0];
     }
 
     let deletedStudentInfo = null;
-    if (student) {
+    if (studentRow) {
       deletedStudentInfo = {
-        id: student.id,
-        name: student.name,
-        username: student.username,
+        id: studentRow.id,
+        name: studentRow.name,
+        username: studentRow.username,
       };
-      await Student.findByIdAndDelete(student._id);
-      emitRealtimeEvent("student:deleted", { id: student.id });
+      await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
+      emitRealtimeEvent("student:deleted", { id: studentRow.id });
     }
 
     if (alsoDeleteEnquiry === "true" || alsoDeleteEnquiry === true) {
-      await Enquiry.findByIdAndDelete(enquiry._id);
-      emitRealtimeEvent("enquiry:deleted", { id: enquiry.id, _id: enquiry._id });
+      await pool.execute("DELETE FROM enquiries WHERE id = ?", [enquiryRow.id]);
+      emitRealtimeEvent("enquiry:deleted", {
+        id: enquiryRow.id,
+        _id: String(enquiryRow.id),
+      });
       emitRealtimeEvent("stats:updated", {});
       return res.json({
         success: true,
@@ -134,11 +174,17 @@ export async function deleteEnrolledStudentFromEnquiry(req, res) {
     }
 
     // Reset enquiry to pending
-    enquiry.convertedStudentId = null;
-    enquiry.status = "pending";
-    await enquiry.save();
+    await pool.execute(
+      "UPDATE enquiries SET converted_student_id = NULL, status = 'pending' WHERE id = ?",
+      [enquiryRow.id]
+    );
 
-    const enquiryJson = enquiry.toJSON();
+    const [updatedRows] = await pool.execute(
+      "SELECT * FROM enquiries WHERE id = ?",
+      [enquiryRow.id]
+    );
+    const enquiryJson = formatEnquiry(updatedRows[0]);
+
     emitRealtimeEvent("enquiry:updated", { enquiry: enquiryJson });
     emitRealtimeEvent("stats:updated", {});
 
@@ -151,7 +197,10 @@ export async function deleteEnrolledStudentFromEnquiry(req, res) {
     });
   } catch (error) {
     console.error("Error deleting enrolled student from enquiry:", error);
-    return res.status(500).json({ error: "Failed to delete enrolled student.", detail: error.message });
+    return res.status(500).json({
+      error: "Failed to delete enrolled student.",
+      detail: error.message,
+    });
   }
 }
 
@@ -160,37 +209,50 @@ export async function deleteEnquiry(req, res) {
   try {
     const { deleteStudent } = req.query;
 
-    const enquiry = await findEnquiry(req.params.id);
-    if (!enquiry) {
+    const enquiryRow = await findEnquiry(req.params.id);
+    if (!enquiryRow) {
       return res.status(404).json({ error: "Enquiry not found." });
     }
 
     if (deleteStudent === "true" || deleteStudent === true) {
-      let student = null;
-      if (enquiry.convertedStudentId) {
-        student = await Student.findOne({ id: enquiry.convertedStudentId });
+      let studentRow = null;
+      if (enquiryRow.converted_student_id) {
+        const [sRows] = await pool.execute(
+          "SELECT * FROM students WHERE id = ?",
+          [enquiryRow.converted_student_id]
+        );
+        if (sRows.length > 0) studentRow = sRows[0];
       }
-      if (!student) {
-        student = await Student.findOne({ enrolledFromEnquiryId: enquiry.id });
+      if (!studentRow) {
+        const [sRows] = await pool.execute(
+          "SELECT * FROM students WHERE enrolled_from_enquiry_id = ?",
+          [enquiryRow.id]
+        );
+        if (sRows.length > 0) studentRow = sRows[0];
       }
-      if (!student && enquiry.email) {
-        student = await Student.findOne({
-          email: { $regex: new RegExp(`^${escapeRegex(enquiry.email.trim())}$`, "i") },
-        });
+      if (!studentRow && enquiryRow.email) {
+        const [sRows] = await pool.execute(
+          "SELECT * FROM students WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))",
+          [enquiryRow.email]
+        );
+        if (sRows.length > 0) studentRow = sRows[0];
       }
-      if (student) {
-        await Student.findByIdAndDelete(student._id);
-        emitRealtimeEvent("student:deleted", { id: student.id });
+      if (studentRow) {
+        await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
+        emitRealtimeEvent("student:deleted", { id: studentRow.id });
       }
     }
 
-    await Enquiry.findByIdAndDelete(enquiry._id);
-    emitRealtimeEvent("enquiry:deleted", { id: enquiry.id, _id: enquiry._id });
+    await pool.execute("DELETE FROM enquiries WHERE id = ?", [enquiryRow.id]);
+    emitRealtimeEvent("enquiry:deleted", {
+      id: enquiryRow.id,
+      _id: String(enquiryRow.id),
+    });
     emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,
-      message: `Enquiry #${enquiry.id} (${enquiry.name}) deleted successfully.`,
+      message: `Enquiry #${enquiryRow.id} (${enquiryRow.name}) deleted successfully.`,
     });
   } catch (error) {
     console.error("Error deleting enquiry:", error);
