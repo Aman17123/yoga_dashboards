@@ -70,7 +70,12 @@ try {
 app.use("/api", apiRouter);
 
 // Serve frontend static build in production if available
-const clientDistPath = path.resolve(__dirname, "../client/dist");
+const clientDistPath = fs.existsSync(path.resolve(__dirname, "client/dist"))
+  ? path.resolve(__dirname, "client/dist")
+  : path.resolve(__dirname, "../client/dist");
+
+console.log(`[Frontend] Static build path: ${clientDistPath} (exists: ${fs.existsSync(clientDistPath)})`);
+
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
   app.use((req, res, next) => {
