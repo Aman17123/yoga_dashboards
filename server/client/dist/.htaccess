@@ -1,0 +1,20 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # 1. Forward all /api requests to api_proxy.php
+  RewriteRule ^api/(.*)$ api_proxy.php [QSA,L]
+  RewriteRule ^api$ api_proxy.php [QSA,L]
+
+  # 2. Pass real files and directories directly
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # 3. Do not rewrite /api or /socket.io to index.html
+  RewriteCond %{REQUEST_URI} !^/api
+  RewriteCond %{REQUEST_URI} !^/socket.io
+
+  # 4. Route SPA routes to index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
