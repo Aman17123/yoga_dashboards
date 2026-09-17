@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import TimeBridge from "./TimeBridge";
 import FeeRing from "./FeeRing";
 import CalendarWidget from "./CalendarWidget";
@@ -21,12 +21,18 @@ import {
   LinkIcon,
   VideoIcon,
   ExternalLinkIcon,
+  TeacherIcon,
+  EyeIcon,
+  EyeOffIcon,
 } from "./Icons";
+
 import BrandLogo from "./BrandLogo";
 import CountryFlag from "./CountryFlag";
 import {
   TIMEZONE_OPTIONS,
   INSTRUCTOR_NAMES,
+  TIME_SLOT_OPTIONS,
+  normalizeTimeSlot,
 } from "../constants/initialData";
 import {
   getCurrentDueDate,
@@ -86,7 +92,10 @@ export function StudentDetailModal({
 }) {
   if (!student) return null;
 
-  const localTime = convertISTTimeToZone(student.classTimeIST, student.timezone);
+  const localTime = convertISTTimeToZone(
+    student.classTimeIST,
+    student.timezone,
+  );
   const istTime = formatISTTime(student.classTimeIST);
   const palette = avatarColor(student.id);
 
@@ -96,24 +105,29 @@ export function StudentDetailModal({
   const [linkCopied, setLinkCopied] = useState(false);
 
   const [isChangingInstructor, setIsChangingInstructor] = useState(false);
-  const [selectedInstructor, setSelectedInstructor] = useState(student.instructor || "");
+  const [selectedInstructor, setSelectedInstructor] = useState(
+    student.instructor || "",
+  );
   const [isSavingInstructor, setIsSavingInstructor] = useState(false);
 
   const isGroup = student.classType === "group";
-  const groupCohortKey = (student.language || "").toLowerCase().includes("hindi")
+  const groupCohortKey = (student.language || "")
+    .toLowerCase()
+    .includes("hindi")
     ? "hindi"
     : (student.groupName || "").toLowerCase().includes("hindi")
-    ? "hindi"
-    : (student.language || "").toLowerCase().includes("eng")
-    ? "english"
-    : "default";
+      ? "hindi"
+      : (student.language || "").toLowerCase().includes("eng")
+        ? "english"
+        : "default";
 
   const groupCohortFallback =
     paymentSettings?.groupClassLinks?.[groupCohortKey] ||
     paymentSettings?.groupClassLinks?.default ||
     "https://meet.google.com/yol-studio-live";
 
-  const effectiveLink = student.classLink || (isGroup ? groupCohortFallback : "");
+  const effectiveLink =
+    student.classLink || (isGroup ? groupCohortFallback : "");
 
   const handleSaveLink = async () => {
     setIsSavingLink(true);
@@ -131,7 +145,8 @@ export function StudentDetailModal({
     setIsSavingInstructor(true);
     try {
       if (onUpdateStudent) {
-        const isMatching = !selectedInstructor || selectedInstructor === "matching_in_progress";
+        const isMatching =
+          !selectedInstructor || selectedInstructor === "matching_in_progress";
         await onUpdateStudent(student.id, {
           instructor: isMatching ? "" : selectedInstructor,
           instructorStatus: isMatching ? "matching_in_progress" : "assigned",
@@ -228,7 +243,9 @@ export function StudentDetailModal({
               )}
               <span className="tag tag--muted">{student.country}</span>
               {student.language && (
-                <span className="tag tag--muted font-medium">🗣️ {student.language}</span>
+                <span className="tag tag--muted font-medium">
+                  🗣️ {student.language}
+                </span>
               )}
             </div>
           </div>
@@ -259,7 +276,8 @@ export function StudentDetailModal({
             <div>
               <div className="infogrid__label">Instructor</div>
               <div className="infogrid__value">
-                {student.instructorStatus === "matching_in_progress" || !student.instructor ? (
+                {student.instructorStatus === "matching_in_progress" ||
+                !student.instructor ? (
                   <span className="text-amber-600 dark:text-amber-400 font-semibold">
                     ⏳ Matching in Progress (24h)
                   </span>
@@ -291,7 +309,9 @@ export function StudentDetailModal({
             </div>
             <div>
               <div className="infogrid__label">Duration</div>
-              <div className="infogrid__value">{student.duration || "1 Hour"}</div>
+              <div className="infogrid__value">
+                {student.duration || "1 Hour"}
+              </div>
             </div>
           </div>
 
@@ -301,7 +321,9 @@ export function StudentDetailModal({
             </div>
             <div>
               <div className="infogrid__label">Fees</div>
-              <div className="infogrid__value">₹{student.fee?.toLocaleString("en-IN")} / month</div>
+              <div className="infogrid__value">
+                ₹{student.fee?.toLocaleString("en-IN")} / month
+              </div>
             </div>
           </div>
 
@@ -335,7 +357,9 @@ export function StudentDetailModal({
         {/* Yoga Goals & Health Focus (if available) */}
         {student.goals && (
           <div className="card mb-4 bg-[var(--surface)] border-[var(--border)]">
-            <div className="card__label mb-2">Yoga Goals &amp; Practice Focus</div>
+            <div className="card__label mb-2">
+              Yoga Goals &amp; Practice Focus
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {student.goals.split(",").map((g, idx) => {
                 const tag = g.trim();
@@ -359,7 +383,9 @@ export function StudentDetailModal({
             <div className="card__label mb-0 flex items-center gap-1.5">
               <LinkIcon className="w-3.5 h-3.5 text-[var(--dusk)]" />
               <span>
-                {isGroup ? "Group Cohort Meeting Link" : "Private Class Meeting Link (Join URL)"}
+                {isGroup
+                  ? "Group Cohort Meeting Link"
+                  : "Private Class Meeting Link (Join URL)"}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -368,7 +394,9 @@ export function StudentDetailModal({
                   {student.classLink ? "🔗 Dedicated Link" : "👥 Cohort Link"}
                 </span>
               ) : (
-                <span className="tag tag--urgent text-[11px]">⚠️ Link Needed</span>
+                <span className="tag tag--urgent text-[11px]">
+                  ⚠️ Link Needed
+                </span>
               )}
             </div>
           </div>
@@ -420,7 +448,8 @@ export function StudentDetailModal({
                   </a>
                 ) : (
                   <p className="text-xs text-[var(--ink-soft)] italic">
-                    No meeting link configured yet. The student's dashboard will display "Your teacher is preparing your class link."
+                    No meeting link configured yet. The student's dashboard will
+                    display "Your teacher is preparing your class link."
                   </p>
                 )}
                 {isGroup && !student.classLink && (
@@ -478,14 +507,13 @@ export function StudentDetailModal({
               <span>Instructor Assignment</span>
             </div>
             <div>
-              {student.instructorStatus === "matching_in_progress" || !student.instructor ? (
+              {student.instructorStatus === "matching_in_progress" ||
+              !student.instructor ? (
                 <span className="tag tag--soon text-[11px]">
                   ⏳ Matching in Progress (Within 24 Hours)
                 </span>
               ) : (
-                <span className="tag tag--safe text-[11px]">
-                  ✓ Assigned
-                </span>
+                <span className="tag tag--safe text-[11px]">✓ Assigned</span>
               )}
             </div>
           </div>
@@ -526,20 +554,25 @@ export function StudentDetailModal({
           ) : (
             <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
               <div className="text-xs">
-                <span className="text-[var(--ink-soft)] font-medium">Assigned Teacher: </span>
+                <span className="text-[var(--ink-soft)] font-medium">
+                  Assigned Teacher:{" "}
+                </span>
                 <strong className="text-[var(--ink)]">
                   {student.instructor || "None (Matching in Progress)"}
                 </strong>
                 {student.instructorStatus === "matching_in_progress" && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
-                    Student dashboard displays a 24-hour instructor matching notice until assigned.
+                    Student dashboard displays a 24-hour instructor matching
+                    notice until assigned.
                   </p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedInstructor(student.instructor || "matching_in_progress");
+                  setSelectedInstructor(
+                    student.instructor || "matching_in_progress",
+                  );
                   setIsChangingInstructor(true);
                 }}
                 className="btn btn--sm gap-1 text-xs"
@@ -554,7 +587,9 @@ export function StudentDetailModal({
         {/* Student Account & Welcome Email Credentials Section */}
         <div className="card mb-4 bg-[var(--surface)] border-[var(--border)]">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-            <div className="card__label mb-0">Student Account &amp; Welcome Credentials</div>
+            <div className="card__label mb-0">
+              Student Account &amp; Welcome Credentials
+            </div>
             <div className="flex items-center gap-2">
               {student.welcomeEmailStatus === "sent" ? (
                 <span className="tag tag--safe">
@@ -573,12 +608,21 @@ export function StudentDetailModal({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm pt-2">
             <div>
-              <span className="text-xs text-[var(--ink-soft)] font-medium">Username:</span>
-              <div className="font-mono font-bold text-[var(--ink)] mt-0.5">{student.username}</div>
+              <span className="text-xs text-[var(--ink-soft)] font-medium">
+                Username:
+              </span>
+              <div className="font-mono font-bold text-[var(--ink)] mt-0.5">
+                {student.username}
+              </div>
             </div>
             <div>
-              <span className="text-xs text-[var(--ink-soft)] font-medium">Registered Email:</span>
-              <div className="font-medium text-[var(--ink)] truncate mt-0.5" title={student.email}>
+              <span className="text-xs text-[var(--ink-soft)] font-medium">
+                Registered Email:
+              </span>
+              <div
+                className="font-medium text-[var(--ink)] truncate mt-0.5"
+                title={student.email}
+              >
                 {student.email || "No email on record"}
               </div>
             </div>
@@ -674,7 +718,10 @@ export function AddEditStudentModal({
         language: prefill.language || "English",
         classLink: prefill.classLink || "",
         instructor: prefill.instructor || prefill.instructorPreference || "",
-        instructorStatus: (prefill.instructor || prefill.instructorPreference) ? "assigned" : "matching_in_progress",
+        instructorStatus:
+          prefill.instructor || prefill.instructorPreference
+            ? "assigned"
+            : "matching_in_progress",
       };
     }
     return base;
@@ -715,7 +762,10 @@ export function AddEditStudentModal({
   const handleSubmit = (e) => {
     e.preventDefault();
     const isGroup = formData.classType === "group";
-    if (isGroup && (!formData.scheduleDays || formData.scheduleDays.length === 0)) {
+    if (
+      isGroup &&
+      (!formData.scheduleDays || formData.scheduleDays.length === 0)
+    ) {
       alert("Please select at least one class day for the group cohort.");
       return;
     }
@@ -736,7 +786,8 @@ export function AddEditStudentModal({
     }
 
     // Edit flow — save immediately
-    const isMatching = !formData.instructor || formData.instructor === "matching_in_progress";
+    const isMatching =
+      !formData.instructor || formData.instructor === "matching_in_progress";
     const payload = {
       ...formData,
       name: formData.name.trim(),
@@ -750,7 +801,7 @@ export function AddEditStudentModal({
       language: formData.language ? formData.language.trim() : "English",
       fee: Number(formData.fee) || 0,
       username: formData.username.trim(),
-      groupName: isGroup ? (formData.groupName.trim() || "Group") : null,
+      groupName: isGroup ? formData.groupName.trim() || "Group" : null,
       scheduleDays: isGroup ? formData.scheduleDays : [0, 1, 2, 3, 4, 5, 6],
     };
     onSave(payload, student?.id, enquiryId, bookingId);
@@ -760,7 +811,8 @@ export function AddEditStudentModal({
   // Final confirmation: build payload and call onSave with sendWelcomeEmail flag
   const handleConfirmEnroll = () => {
     const isGroup = formData.classType === "group";
-    const isMatching = !formData.instructor || formData.instructor === "matching_in_progress";
+    const isMatching =
+      !formData.instructor || formData.instructor === "matching_in_progress";
     const payload = {
       ...formData,
       name: formData.name.trim(),
@@ -774,7 +826,7 @@ export function AddEditStudentModal({
       language: formData.language ? formData.language.trim() : "English",
       fee: Number(formData.fee) || 0,
       username: formData.username.trim(),
-      groupName: isGroup ? (formData.groupName.trim() || "Group") : null,
+      groupName: isGroup ? formData.groupName.trim() || "Group" : null,
       scheduleDays: isGroup ? formData.scheduleDays : [0, 1, 2, 3, 4, 5, 6],
       sendWelcomeEmail: sendEmail,
     };
@@ -799,9 +851,12 @@ export function AddEditStudentModal({
               <CheckIcon className="w-3.5 h-3.5" />
               <span>Review & Confirm Enrollment</span>
             </div>
-            <h2 className="modal__title">Confirm credentials for {formData.name || "student"}</h2>
+            <h2 className="modal__title">
+              Confirm credentials for {formData.name || "student"}
+            </h2>
             <p className="view__note" style={{ margin: "-2px 0 0" }}>
-              These login credentials will be saved to the student's account. If you send the welcome email, they'll receive them at their inbox.
+              These login credentials will be saved to the student's account. If
+              you send the welcome email, they'll receive them at their inbox.
             </p>
           </div>
 
@@ -821,22 +876,35 @@ export function AddEditStudentModal({
             <div className="space-y-3">
               {/* Email row */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-[var(--ink-soft)] font-medium">Student Email</span>
-                <strong className="text-[var(--ink)] font-semibold truncate max-w-[220px]">{formData.email || "—"}</strong>
+                <span className="text-[var(--ink-soft)] font-medium">
+                  Student Email
+                </span>
+                <strong className="text-[var(--ink)] font-semibold truncate max-w-[220px]">
+                  {formData.email || "—"}
+                </strong>
               </div>
 
               {/* Username row */}
               <div
                 className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] border"
-                style={{ background: "var(--surface)", borderColor: "var(--border-strong)" }}
+                style={{
+                  background: "var(--surface)",
+                  borderColor: "var(--border-strong)",
+                }}
               >
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Username</span>
-                  <code className="text-sm font-bold text-[var(--dusk)]">{formData.username}</code>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">
+                    Username
+                  </span>
+                  <code className="text-sm font-bold text-[var(--dusk)]">
+                    {formData.username}
+                  </code>
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigator.clipboard?.writeText(formData.username)}
+                  onClick={() =>
+                    navigator.clipboard?.writeText(formData.username)
+                  }
                   className="text-[11px] text-[var(--ink-soft)] hover:text-[var(--dusk)] font-semibold flex items-center gap-1"
                   title="Copy username"
                 >
@@ -847,12 +915,19 @@ export function AddEditStudentModal({
               {/* Password row */}
               <div
                 className="flex items-center justify-between p-3 rounded-[var(--radius-sm)] border"
-                style={{ background: "var(--surface)", borderColor: "var(--border-strong)" }}
+                style={{
+                  background: "var(--surface)",
+                  borderColor: "var(--border-strong)",
+                }}
               >
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">Password</span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--ink-faint)]">
+                    Password
+                  </span>
                   <code className="text-sm font-bold text-[var(--ink)]">
-                    {showPassword ? formData.password : "•".repeat(Math.min(formData.password.length, 12))}
+                    {showPassword
+                      ? formData.password
+                      : "•".repeat(Math.min(formData.password.length, 12))}
                   </code>
                 </div>
                 <div className="flex items-center gap-2">
@@ -865,7 +940,9 @@ export function AddEditStudentModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigator.clipboard?.writeText(formData.password)}
+                    onClick={() =>
+                      navigator.clipboard?.writeText(formData.password)
+                    }
                     className="text-[11px] text-[var(--ink-soft)] hover:text-[var(--dusk)] font-semibold flex items-center gap-1"
                     title="Copy password"
                   >
@@ -881,8 +958,12 @@ export function AddEditStudentModal({
             <label
               className="flex items-start gap-3 p-3.5 rounded-[var(--radius-md)] border cursor-pointer mb-5"
               style={{
-                background: sendEmail ? "var(--success-soft, #F0FDF4)" : "var(--surface)",
-                borderColor: sendEmail ? "var(--success, #16a34a)" : "var(--border)",
+                background: sendEmail
+                  ? "var(--success-soft, #F0FDF4)"
+                  : "var(--surface)",
+                borderColor: sendEmail
+                  ? "var(--success, #16a34a)"
+                  : "var(--border)",
                 transition: "all 0.2s",
               }}
             >
@@ -897,8 +978,12 @@ export function AddEditStudentModal({
                   Send welcome email to student
                 </div>
                 <div className="text-xs text-[var(--ink-soft)] mt-0.5">
-                  A branded welcome email containing the username and password above will be delivered to{" "}
-                  <strong className="text-[var(--dusk)]">{formData.email}</strong>.
+                  A branded welcome email containing the username and password
+                  above will be delivered to{" "}
+                  <strong className="text-[var(--dusk)]">
+                    {formData.email}
+                  </strong>
+                  .
                 </div>
               </div>
             </label>
@@ -912,7 +997,10 @@ export function AddEditStudentModal({
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center justify-between gap-2.5 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+          <div
+            className="flex items-center justify-between gap-2.5 pt-2 border-t"
+            style={{ borderColor: "var(--border)" }}
+          >
             <button
               type="button"
               onClick={() => setStep("form")}
@@ -927,7 +1015,9 @@ export function AddEditStudentModal({
               className="btn btn--primary flex items-center gap-2"
             >
               <CheckIcon className="w-4 h-4" />
-              {sendEmail && formData.email ? "Confirm & Send Email" : "Confirm Enrollment"}
+              {sendEmail && formData.email
+                ? "Confirm & Send Email"
+                : "Confirm Enrollment"}
             </button>
           </div>
         </div>
@@ -942,12 +1032,19 @@ export function AddEditStudentModal({
         <h2 className="modal__title">{heading}</h2>
         {prefill && (
           <p className="view__note" style={{ margin: "-4px 0 14px" }}>
-            Name, contact info, and preferences came from their enquiry — review and save to enroll them.
+            Name, contact info, and preferences came from their enquiry — review
+            and save to enroll them.
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5">
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-3.5"
+        >
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Full name</span>
             <input
               type="text"
@@ -960,7 +1057,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Email</span>
             <input
               type="email"
@@ -972,7 +1072,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Phone</span>
             <input
               type="tel"
@@ -984,7 +1087,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Country</span>
             <input
               type="text"
@@ -997,7 +1103,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Student timezone</span>
             <select
               name="timezone"
@@ -1014,7 +1123,10 @@ export function AddEditStudentModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Instruction Language</span>
             <select
               name="language"
@@ -1030,7 +1142,10 @@ export function AddEditStudentModal({
             </select>
           </label>
 
-          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Yoga Goals &amp; Practice Focus</span>
             <input
               type="text"
@@ -1043,7 +1158,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Class type</span>
             <select
               name="classType"
@@ -1058,7 +1176,10 @@ export function AddEditStudentModal({
           </label>
 
           {formData.classType === "group" && (
-            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <label
+              className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+              style={{ color: "var(--ink-soft)" }}
+            >
               <span>Group name</span>
               <input
                 type="text"
@@ -1072,11 +1193,16 @@ export function AddEditStudentModal({
             </label>
           )}
 
-          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <div className="flex items-center justify-between">
               <span>Meeting URL (Google Meet / Zoom)</span>
               <span className="text-[11px] font-normal text-[var(--ink-soft)]">
-                {formData.classType === "private" ? "Required for Private 1:1" : "Optional override for group"}
+                {formData.classType === "private"
+                  ? "Required for Private 1:1"
+                  : "Optional override for group"}
               </span>
             </div>
             <input
@@ -1090,11 +1216,17 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <div className="flex items-center justify-between">
               <span>Instructor</span>
-              {(!formData.instructor || formData.instructor === "matching_in_progress") && (
-                <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400">24h SLA Notice</span>
+              {(!formData.instructor ||
+                formData.instructor === "matching_in_progress") && (
+                <span className="text-[11px] font-normal text-amber-600 dark:text-amber-400">
+                  24h SLA Notice
+                </span>
               )}
             </div>
             <select
@@ -1104,7 +1236,9 @@ export function AddEditStudentModal({
               className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer"
               style={{ borderColor: "var(--border-strong)" }}
             >
-              <option value="">⏳ Matching in Progress (Within 24 Hours)</option>
+              <option value="">
+                ⏳ Matching in Progress (Within 24 Hours)
+              </option>
               {INSTRUCTOR_NAMES.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -1113,7 +1247,10 @@ export function AddEditStudentModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Class time (IST)</span>
             <input
               type="time"
@@ -1126,7 +1263,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Duration</span>
             <select
               name="duration"
@@ -1143,7 +1283,10 @@ export function AddEditStudentModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Fee (₹ / month)</span>
             <input
               type="number"
@@ -1157,7 +1300,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Joining date</span>
             <input
               type="date"
@@ -1170,7 +1316,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Last payment date</span>
             <input
               type="date"
@@ -1185,7 +1334,10 @@ export function AddEditStudentModal({
 
           {/* Group Class Days or Private Note */}
           {formData.classType === "group" ? (
-            <div className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+            <div
+              className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold"
+              style={{ color: "var(--ink-soft)" }}
+            >
               <span>Class days (group meets on)</span>
               <div className="flex gap-1.5 flex-wrap">
                 {dayLabels.map(([v, l]) => (
@@ -1201,7 +1353,9 @@ export function AddEditStudentModal({
                     <input
                       type="checkbox"
                       value={v}
-                      checked={(formData.scheduleDays || []).includes(Number(v))}
+                      checked={(formData.scheduleDays || []).includes(
+                        Number(v),
+                      )}
                       onChange={() => handleDayToggle(v)}
                       className="accent-[#4C5FD5]"
                     />
@@ -1215,7 +1369,9 @@ export function AddEditStudentModal({
               className="col-span-1 sm:col-span-2 text-xs leading-relaxed"
               style={{ color: "var(--ink-soft)" }}
             >
-              Private classes are flexible — the student can attend and mark attendance on any day, so there's no fixed weekly schedule to set here.
+              Private classes are flexible — the student can attend and mark
+              attendance on any day, so there's no fixed weekly schedule to set
+              here.
             </p>
           )}
 
@@ -1232,11 +1388,15 @@ export function AddEditStudentModal({
               className="col-span-1 sm:col-span-2 text-[12px] -mt-2 mb-0.5 leading-relaxed"
               style={{ color: "var(--ink-soft)" }}
             >
-              Set the username and password the student will use to log in. You'll be able to review these before confirming.
+              Set the username and password the student will use to log in.
+              You'll be able to review these before confirming.
             </p>
           )}
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Username</span>
             <input
               type="text"
@@ -1250,7 +1410,10 @@ export function AddEditStudentModal({
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <div className="flex items-center justify-between">
               <span>
                 Password{" "}
@@ -1263,9 +1426,13 @@ export function AddEditStudentModal({
               <button
                 type="button"
                 onClick={() => {
-                  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$*";
+                  const chars =
+                    "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$*";
                   let gen = "";
-                  for (let i = 0; i < 10; i++) gen += chars.charAt(Math.floor(Math.random() * chars.length));
+                  for (let i = 0; i < 10; i++)
+                    gen += chars.charAt(
+                      Math.floor(Math.random() * chars.length),
+                    );
                   setFormData((prev) => ({ ...prev, password: gen }));
                 }}
                 className="text-[11px] text-[var(--dusk)] hover:underline font-semibold cursor-pointer"
@@ -1278,7 +1445,11 @@ export function AddEditStudentModal({
               name="password"
               required={isNew}
               autoComplete="new-password"
-              placeholder={isNew ? "Enter password or auto-generate" : "Leave blank to keep existing password"}
+              placeholder={
+                isNew
+                  ? "Enter password or auto-generate"
+                  : "Leave blank to keep existing password"
+              }
               value={formData.password}
               onChange={handleChange}
               className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)]"
@@ -1308,17 +1479,10 @@ export function AddEditStudentModal({
             )}
 
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="btn"
-              >
+              <button type="button" onClick={onClose} className="btn">
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="btn btn--primary"
-              >
+              <button type="submit" className="btn btn--primary">
                 {isNew ? "Review & confirm →" : "Save changes"}
               </button>
             </div>
@@ -1330,7 +1494,13 @@ export function AddEditStudentModal({
 }
 
 /* ================= 3. PAY NOW MODAL ================= */
-export function PayNowModal({ student, paymentSettings, onClose, onShowToast, onOpenReceipt }) {
+export function PayNowModal({
+  student,
+  paymentSettings,
+  onClose,
+  onShowToast,
+  onOpenReceipt,
+}) {
   if (!student) return null;
   const due = getCurrentDueDate(student);
   const dl = getDaysLeft(student);
@@ -1339,23 +1509,23 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
 
   const upiNote = encodeURIComponent(`yogaonlive - ${student.name}`);
   const upiUri = `upi://pay?pa=${encodeURIComponent(p.upiId)}&pn=${encodeURIComponent(
-    p.payeeName
+    p.payeeName,
   )}&am=${amount}&cu=INR&tn=${upiNote}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-    upiUri
+    upiUri,
   )}`;
   const waDigits = toWhatsAppDigits(p.adminWhatsApp);
   const waMsg = encodeURIComponent(
     `Hi, this is ${student.name}. I've just paid my class fee of ₹${amount.toLocaleString(
-      "en-IN"
-    )}. Please confirm when you get a chance. Thank you!`
+      "en-IN",
+    )}. Please confirm when you get a chance. Thank you!`,
   );
   const dueLine =
     dl < 0
       ? `Overdue since ${formatDateHuman(due)}`
       : dl === 0
-      ? "Due today"
-      : `Due ${formatDateHuman(due)}`;
+        ? "Due today"
+        : `Due ${formatDateHuman(due)}`;
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -1385,10 +1555,16 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
             className="flex items-center gap-2.5 rounded-[var(--radius-sm)] p-[10px_12px] mb-2.5"
             style={{ background: "var(--bg-alt)" }}
           >
-            <span className="text-xs font-bold flex-none" style={{ color: "var(--ink-soft)" }}>
+            <span
+              className="text-xs font-bold flex-none"
+              style={{ color: "var(--ink-soft)" }}
+            >
               UPI ID
             </span>
-            <code className="mono flex-1 text-sm break-all" style={{ color: "var(--ink)" }}>
+            <code
+              className="mono flex-1 text-sm break-all"
+              style={{ color: "var(--ink)" }}
+            >
               {p.upiId}
             </code>
             <button
@@ -1400,10 +1576,7 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
               <CopyIcon className="w-3.5 h-3.5" />
             </button>
           </div>
-          <a
-            href={upiUri}
-            className="btn btn--primary w-full gap-2"
-          >
+          <a href={upiUri} className="btn btn--primary w-full gap-2">
             <WalletIcon className="w-4 h-4" />
             <span>Open in a UPI app</span>
           </a>
@@ -1417,34 +1590,58 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
             style={{ background: "var(--bg-alt)" }}
           >
             <div>
-              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+              <span
+                className="block text-[11px] uppercase tracking-wider mb-0.5"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 Account name
               </span>
-              <strong className="text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+              <strong
+                className="text-[13.5px] font-semibold"
+                style={{ color: "var(--ink)" }}
+              >
                 {p.accountName}
               </strong>
             </div>
             <div>
-              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+              <span
+                className="block text-[11px] uppercase tracking-wider mb-0.5"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 Account number
               </span>
-              <strong className="mono text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+              <strong
+                className="mono text-[13.5px] font-semibold"
+                style={{ color: "var(--ink)" }}
+              >
                 {p.accountNumber}
               </strong>
             </div>
             <div>
-              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+              <span
+                className="block text-[11px] uppercase tracking-wider mb-0.5"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 IFSC
               </span>
-              <strong className="mono text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+              <strong
+                className="mono text-[13.5px] font-semibold"
+                style={{ color: "var(--ink)" }}
+              >
                 {p.ifsc}
               </strong>
             </div>
             <div>
-              <span className="block text-[11px] uppercase tracking-wider mb-0.5" style={{ color: "var(--ink-faint)" }}>
+              <span
+                className="block text-[11px] uppercase tracking-wider mb-0.5"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 Bank
               </span>
-              <strong className="text-[13.5px] font-semibold" style={{ color: "var(--ink)" }}>
+              <strong
+                className="text-[13.5px] font-semibold"
+                style={{ color: "var(--ink)" }}
+              >
                 {p.bankName}
               </strong>
             </div>
@@ -1467,7 +1664,10 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
             <button
               type="button"
               onClick={() => {
-                if (onShowToast) onShowToast("Thanks! Your instructor will confirm the payment shortly.");
+                if (onShowToast)
+                  onShowToast(
+                    "Thanks! Your instructor will confirm the payment shortly.",
+                  );
                 onClose();
               }}
               className="btn btn--primary w-full gap-2"
@@ -1495,7 +1695,8 @@ export function PayNowModal({ student, paymentSettings, onClose, onShowToast, on
         )}
 
         <p className="text-xs text-center" style={{ color: "var(--ink-soft)" }}>
-          Payments aren't verified automatically here — your instructor confirms it on their side once it's received.
+          Payments aren't verified automatically here — your instructor confirms
+          it on their side once it's received.
         </p>
       </div>
     </ModalBackdrop>
@@ -1512,9 +1713,15 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
     ifsc: settings?.ifsc || "ABCD0123456",
     bankName: settings?.bankName || "State Bank of India",
     adminWhatsApp: settings?.adminWhatsApp || "+91 90000 00000",
-    groupLinkDefault: settings?.groupClassLinks?.default || "https://meet.google.com/yol-studio-live",
-    groupLinkHindi: settings?.groupClassLinks?.hindi || "https://meet.google.com/yol-hindi-cohort",
-    groupLinkEnglish: settings?.groupClassLinks?.english || "https://meet.google.com/yol-eng-cohort",
+    groupLinkDefault:
+      settings?.groupClassLinks?.default ||
+      "https://meet.google.com/yol-studio-live",
+    groupLinkHindi:
+      settings?.groupClassLinks?.hindi ||
+      "https://meet.google.com/yol-hindi-cohort",
+    groupLinkEnglish:
+      settings?.groupClassLinks?.english ||
+      "https://meet.google.com/yol-eng-cohort",
   });
 
   const handleChange = (e) => {
@@ -1546,16 +1753,23 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
       <div>
         <h2 className="modal__title">Studio settings &amp; class links</h2>
         <p className="view__note" style={{ margin: "-4px 0 14px" }}>
-          Configure studio payment credentials and database-managed meeting links for group cohorts.
+          Configure studio payment credentials and database-managed meeting
+          links for group cohorts.
         </p>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 sm:grid-cols-2 gap-3.5"
+        >
           {/* Payment Coordinates Divider */}
           <div className="col-span-1 sm:col-span-2 text-[11.5px] font-bold uppercase tracking-wider text-[var(--ink-faint)] border-b pb-1">
             Tuition Payment Coordinates
           </div>
 
-          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>UPI ID</span>
             <input
               type="text"
@@ -1568,7 +1782,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Payee name (shown to students)</span>
             <input
               type="text"
@@ -1581,7 +1798,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Bank account name</span>
             <input
               type="text"
@@ -1593,7 +1813,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Account number</span>
             <input
               type="text"
@@ -1605,7 +1828,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>IFSC code</span>
             <input
               type="text"
@@ -1617,7 +1843,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Bank name</span>
             <input
               type="text"
@@ -1629,7 +1858,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Your WhatsApp number (for "I've paid" pings)</span>
             <input
               type="tel"
@@ -1645,11 +1877,18 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
           <div className="col-span-1 sm:col-span-2 text-[11.5px] font-bold uppercase tracking-wider text-[var(--ink-faint)] border-b pb-1 mt-2">
             Group Class Meeting Links (Cohort Defaults)
           </div>
-          <p className="col-span-1 sm:col-span-2 text-xs text-[var(--ink-soft)]" style={{ marginTop: "-6px" }}>
-            These meeting links are automatically inherited by students enrolled in group classes based on their selected language and cohort.
+          <p
+            className="col-span-1 sm:col-span-2 text-xs text-[var(--ink-soft)]"
+            style={{ marginTop: "-6px" }}
+          >
+            These meeting links are automatically inherited by students enrolled
+            in group classes based on their selected language and cohort.
           </p>
 
-          <label className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="col-span-1 sm:col-span-2 flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Default Group Meeting URL</span>
             <input
               type="url"
@@ -1662,7 +1901,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Hindi Cohort URL</span>
             <input
               type="url"
@@ -1675,7 +1917,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
             />
           </label>
 
-          <label className="flex flex-col gap-1.5 text-[12.5px] font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-[12.5px] font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>English Cohort URL</span>
             <input
               type="url"
@@ -1689,17 +1934,10 @@ export function PaymentSettingsModal({ settings, onClose, onSave }) {
           </label>
 
           <div className="col-span-1 sm:col-span-2 flex justify-end gap-2 mt-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn"
-            >
+            <button type="button" onClick={onClose} className="btn">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="btn btn--primary"
-            >
+            <button type="submit" className="btn btn--primary">
               Save settings &amp; links
             </button>
           </div>
@@ -1725,8 +1963,8 @@ export function EnquiryDetailModal({
     enquiry.classTypeInterest === "group"
       ? "Group"
       : enquiry.classTypeInterest === "private"
-      ? "Private"
-      : "No preference";
+        ? "Private"
+        : "No preference";
 
   const ENQUIRY_STATUS_LABEL = {
     pending: "Pending",
@@ -1760,7 +1998,9 @@ export function EnquiryDetailModal({
             <div className="profile-strip__name">{enquiry.name}</div>
             <div className="profile-strip__tags">
               <span className="tag tag--muted">{typeLabel}</span>
-              <span className={`tag tag--${ENQUIRY_STATUS_TAG[enquiry.status]}`}>
+              <span
+                className={`tag tag--${ENQUIRY_STATUS_TAG[enquiry.status]}`}
+              >
                 {ENQUIRY_STATUS_LABEL[enquiry.status]}
               </span>
             </div>
@@ -1785,7 +2025,9 @@ export function EnquiryDetailModal({
             </div>
             <div>
               <div className="infogrid__label">Age</div>
-              <div className="infogrid__value">{enquiry.age ? `${enquiry.age} yrs` : "—"}</div>
+              <div className="infogrid__value">
+                {enquiry.age ? `${enquiry.age} yrs` : "—"}
+              </div>
             </div>
           </div>
 
@@ -1795,7 +2037,9 @@ export function EnquiryDetailModal({
             </div>
             <div>
               <div className="infogrid__label">Height &amp; weight</div>
-              <div className="infogrid__value">{enquiry.heightWeight || "—"}</div>
+              <div className="infogrid__value">
+                {enquiry.heightWeight || "—"}
+              </div>
             </div>
           </div>
 
@@ -1805,7 +2049,9 @@ export function EnquiryDetailModal({
             </div>
             <div>
               <div className="infogrid__label">Preferred timings (IST)</div>
-              <div className="infogrid__value">{enquiry.preferredTimings || "—"}</div>
+              <div className="infogrid__value">
+                {enquiry.preferredTimings || "—"}
+              </div>
             </div>
           </div>
 
@@ -1816,7 +2062,9 @@ export function EnquiryDetailModal({
             <div>
               <div className="infogrid__label">Demo / trial session</div>
               <div className="infogrid__value">
-                {enquiry.demoDate ? formatDateHuman(parseDateOnly(enquiry.demoDate)) : "—"}
+                {enquiry.demoDate
+                  ? formatDateHuman(parseDateOnly(enquiry.demoDate))
+                  : "—"}
               </div>
             </div>
           </div>
@@ -1827,7 +2075,9 @@ export function EnquiryDetailModal({
             </div>
             <div>
               <div className="infogrid__label">Instructor preference</div>
-              <div className="infogrid__value">{enquiry.instructorPreference || "Any"}</div>
+              <div className="infogrid__value">
+                {enquiry.instructorPreference || "Any"}
+              </div>
             </div>
           </div>
         </div>
@@ -1835,13 +2085,22 @@ export function EnquiryDetailModal({
         {/* Reason / expectations Card */}
         <div className="card mb-4">
           <div className="card__label">Reason / expectations</div>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+          <p
+            className="text-sm leading-relaxed"
+            style={{ color: "var(--ink-soft)" }}
+          >
             {enquiry.reason || "—"}
           </p>
           {enquiry.otherInfo && (
-            <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="mt-3 pt-3 border-t"
+              style={{ borderColor: "var(--border)" }}
+            >
               <div className="card__label">Other information</div>
-              <p className="text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: "var(--ink-soft)" }}
+              >
                 {enquiry.otherInfo}
               </p>
             </div>
@@ -1854,7 +2113,9 @@ export function EnquiryDetailModal({
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span style={{ color: "var(--ink-soft)" }}>Phone</span>
-              <strong className="mono" style={{ color: "var(--ink)" }}>{enquiry.phone}</strong>
+              <strong className="mono" style={{ color: "var(--ink)" }}>
+                {enquiry.phone}
+              </strong>
             </div>
             <div className="flex justify-between">
               <span style={{ color: "var(--ink-soft)" }}>Email</span>
@@ -1867,14 +2128,19 @@ export function EnquiryDetailModal({
             <div className="flex justify-between">
               <span style={{ color: "var(--ink-soft)" }}>Submitted</span>
               <strong style={{ color: "var(--ink)" }}>
-                {enquiry.submittedDate ? formatDateHuman(parseDateOnly(enquiry.submittedDate)) : "—"}
+                {enquiry.submittedDate
+                  ? formatDateHuman(parseDateOnly(enquiry.submittedDate))
+                  : "—"}
               </strong>
             </div>
           </div>
         </div>
 
         {/* Actions Row */}
-        <div className="flex justify-between items-center gap-2 pt-2 border-t flex-wrap" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="flex justify-between items-center gap-2 pt-2 border-t flex-wrap"
+          style={{ borderColor: "var(--border)" }}
+        >
           <div>
             {onDeleteEnquiry && (
               <button
@@ -1915,57 +2181,57 @@ export function EnquiryDetailModal({
                 )}
               </>
             ) : enquiry.status === "declined" ? (
-            <button
-              type="button"
-              onClick={() => {
-                onUpdateStatus(enquiry.id, "pending");
-                onClose();
-              }}
-              className="btn btn--sm gap-1"
-            >
-              <UndoIcon className="w-3.5 h-3.5" />
-              <span>Reopen</span>
-            </button>
-          ) : (
-            <>
               <button
                 type="button"
                 onClick={() => {
-                  onUpdateStatus(enquiry.id, "in_progress");
+                  onUpdateStatus(enquiry.id, "pending");
                   onClose();
                 }}
-                disabled={enquiry.status === "in_progress"}
-                className="btn btn--sm"
+                className="btn btn--sm gap-1"
               >
-                In progress
+                <UndoIcon className="w-3.5 h-3.5" />
+                <span>Reopen</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onUpdateStatus(enquiry.id, "declined");
-                  onClose();
-                }}
-                className="btn btn--sm btn--danger"
-              >
-                Decline
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onAcceptEnquiry(enquiry);
-                }}
-                className="btn btn--sm btn--primary"
-              >
-                Accept
-              </button>
-            </>
-          )}
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStatus(enquiry.id, "in_progress");
+                    onClose();
+                  }}
+                  disabled={enquiry.status === "in_progress"}
+                  className="btn btn--sm"
+                >
+                  In progress
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStatus(enquiry.id, "declined");
+                    onClose();
+                  }}
+                  className="btn btn--sm btn--danger"
+                >
+                  Decline
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onAcceptEnquiry(enquiry);
+                  }}
+                  className="btn btn--sm btn--primary"
+                >
+                  Accept
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  </ModalBackdrop>
-);
+    </ModalBackdrop>
+  );
 }
 
 /* ================= 5B. BOOKING DETAIL MODAL ================= */
@@ -1980,13 +2246,15 @@ export function BookingDetailModal({
 }) {
   if (!booking) return null;
 
-  const palette = avatarColor(booking._id || booking.bookingRef || booking.email);
+  const palette = avatarColor(
+    booking._id || booking.bookingRef || booking.email,
+  );
   const classLabel =
     booking.classType === "private"
       ? "Private 1-to-1"
       : booking.classType === "group"
-      ? "Group Cohort"
-      : "Not sure";
+        ? "Group Cohort"
+        : "Not sure";
 
   const BOOKING_STATUS_LABEL = {
     pending: "Pending",
@@ -2025,7 +2293,9 @@ export function BookingDetailModal({
                 {booking.bookingRef || "Pending Ref"}
               </span>
               <span className="tag tag--muted">{classLabel}</span>
-              <span className={`tag tag--${BOOKING_STATUS_TAG[booking.status] || "pending"}`}>
+              <span
+                className={`tag tag--${BOOKING_STATUS_TAG[booking.status] || "pending"}`}
+              >
                 {BOOKING_STATUS_LABEL[booking.status] || booking.status}
               </span>
             </div>
@@ -2053,7 +2323,10 @@ export function BookingDetailModal({
             <div>
               <div className="infogrid__label">Tuition Fee</div>
               <div className="infogrid__value font-medium">
-                {booking.fee ? `₹${Number(booking.fee).toLocaleString("en-IN")}` : "₹2,500"} / month
+                {booking.fee
+                  ? `₹${Number(booking.fee).toLocaleString("en-IN")}`
+                  : "₹2,500"}{" "}
+                / month
               </div>
             </div>
           </div>
@@ -2065,7 +2338,8 @@ export function BookingDetailModal({
             <div>
               <div className="infogrid__label">Timezone &amp; Language</div>
               <div className="infogrid__value">
-                {booking.timezone || "Asia/Kolkata"} · {booking.language || "English"}
+                {booking.timezone || "Asia/Kolkata"} ·{" "}
+                {booking.language || "English"}
               </div>
             </div>
           </div>
@@ -2077,7 +2351,9 @@ export function BookingDetailModal({
             <div>
               <div className="infogrid__label">Requested Joining Date</div>
               <div className="infogrid__value">
-                {booking.joiningDate ? formatDateHuman(parseDateOnly(booking.joiningDate)) : "Immediate"}
+                {booking.joiningDate
+                  ? formatDateHuman(parseDateOnly(booking.joiningDate))
+                  : "Immediate"}
               </div>
             </div>
           </div>
@@ -2089,7 +2365,8 @@ export function BookingDetailModal({
             <div>
               <div className="infogrid__label">Demographics</div>
               <div className="infogrid__value">
-                {booking.age ? `${booking.age} yrs` : "—"} · {booking.gender || "—"}
+                {booking.age ? `${booking.age} yrs` : "—"} ·{" "}
+                {booking.gender || "—"}
               </div>
             </div>
           </div>
@@ -2110,8 +2387,13 @@ export function BookingDetailModal({
         {/* Message / Goals Card */}
         {booking.message && (
           <div className="card mb-4">
-            <div className="card__label">Health Goals / Prior Experience / Notes</div>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            <div className="card__label">
+              Health Goals / Prior Experience / Notes
+            </div>
+            <p
+              className="text-sm leading-relaxed"
+              style={{ color: "var(--ink-soft)" }}
+            >
               {booking.message}
             </p>
           </div>
@@ -2124,11 +2406,13 @@ export function BookingDetailModal({
             <div className="flex justify-between items-center">
               <span style={{ color: "var(--ink-soft)" }}>Phone</span>
               <div className="flex items-center gap-2">
-                <strong className="mono" style={{ color: "var(--ink)" }}>{booking.phone || "—"}</strong>
+                <strong className="mono" style={{ color: "var(--ink)" }}>
+                  {booking.phone || "—"}
+                </strong>
                 {booking.phone && (
                   <a
                     href={`https://wa.me/${toWhatsAppDigits(booking.phone)}?text=${encodeURIComponent(
-                      `Hi ${booking.name.split(" ")[0]}, namaste from yogaonlive! We received your online booking (${booking.bookingRef || ""}) for ${classLabel}. We would love to finalize your schedule.`
+                      `Hi ${booking.name.split(" ")[0]}, namaste from yogaonlive! We received your online booking (${booking.bookingRef || ""}) for ${classLabel}. We would love to finalize your schedule.`,
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -2153,19 +2437,29 @@ export function BookingDetailModal({
             </div>
             <div className="flex justify-between">
               <span style={{ color: "var(--ink-soft)" }}>Country</span>
-              <strong style={{ color: "var(--ink)" }}>{booking.country || "—"}</strong>
+              <strong style={{ color: "var(--ink)" }}>
+                {booking.country || "—"}
+              </strong>
             </div>
             <div className="flex justify-between">
               <span style={{ color: "var(--ink-soft)" }}>Submitted On</span>
               <strong style={{ color: "var(--ink)" }}>
-                {booking.createdAt ? new Date(booking.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                {booking.createdAt
+                  ? new Date(booking.createdAt).toLocaleString("en-IN", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })
+                  : "—"}
               </strong>
             </div>
           </div>
         </div>
 
         {/* Actions Row */}
-        <div className="flex justify-between items-center gap-2 pt-2 border-t flex-wrap" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="flex justify-between items-center gap-2 pt-2 border-t flex-wrap"
+          style={{ borderColor: "var(--border)" }}
+        >
           <div>
             {onDeleteBooking && (
               <button
@@ -2188,7 +2482,12 @@ export function BookingDetailModal({
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="tag tag--safe">
                   <CheckIcon className="w-4 h-4" />
-                  <span>Enrolled in Studio Roster {booking.enrolledStudentId ? `(#${booking.enrolledStudentId})` : ""}</span>
+                  <span>
+                    Enrolled in Studio Roster{" "}
+                    {booking.enrolledStudentId
+                      ? `(#${booking.enrolledStudentId})`
+                      : ""}
+                  </span>
                 </span>
                 {booking.enrollmentEmailStatus === "sent" && (
                   <span className="tag tag--safe text-xs">
@@ -2227,70 +2526,72 @@ export function BookingDetailModal({
                 )}
               </div>
             ) : booking.status === "declined" ? (
-            <button
-              type="button"
-              onClick={() => {
-                onUpdateStatus && onUpdateStatus(booking._id, "pending");
-                onClose();
-              }}
-              className="btn btn--sm gap-1"
-            >
-              <UndoIcon className="w-3.5 h-3.5" />
-              <span>Reopen</span>
-            </button>
-          ) : (
-            <>
-              {booking.status === "pending" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUpdateStatus && onUpdateStatus(booking._id, "contacted");
-                    onClose();
-                  }}
-                  className="btn btn--sm"
-                >
-                  Mark as Contacted
-                </button>
-              )}
-              {booking.status !== "confirmed" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUpdateStatus && onUpdateStatus(booking._id, "confirmed");
-                    onClose();
-                  }}
-                  className="btn btn--sm"
-                >
-                  Confirm Schedule
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => {
-                  onUpdateStatus && onUpdateStatus(booking._id, "declined");
+                  onUpdateStatus && onUpdateStatus(booking._id, "pending");
                   onClose();
                 }}
-                className="btn btn--sm btn--danger"
+                className="btn btn--sm gap-1"
               >
-                Decline
+                <UndoIcon className="w-3.5 h-3.5" />
+                <span>Reopen</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onEnrollBooking && onEnrollBooking(booking);
-                }}
-                className="btn btn--sm btn--primary"
-              >
-                Enroll as Student
-              </button>
-            </>
-          )}
+            ) : (
+              <>
+                {booking.status === "pending" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateStatus &&
+                        onUpdateStatus(booking._id, "contacted");
+                      onClose();
+                    }}
+                    className="btn btn--sm"
+                  >
+                    Mark as Contacted
+                  </button>
+                )}
+                {booking.status !== "confirmed" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateStatus &&
+                        onUpdateStatus(booking._id, "confirmed");
+                      onClose();
+                    }}
+                    className="btn btn--sm"
+                  >
+                    Confirm Schedule
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onUpdateStatus && onUpdateStatus(booking._id, "declined");
+                    onClose();
+                  }}
+                  className="btn btn--sm btn--danger"
+                >
+                  Decline
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onEnrollBooking && onEnrollBooking(booking);
+                  }}
+                  className="btn btn--sm btn--primary"
+                >
+                  Enroll as Student
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  </ModalBackdrop>
-);
+    </ModalBackdrop>
+  );
 }
 
 /* ================= 6. TUITION RECEIPT MODAL ================= */
@@ -2345,15 +2646,25 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
     <ModalBackdrop onClose={onClose}>
       <div className="space-y-5">
         {/* Printable Area */}
-        <div id="printable-receipt" className="border rounded-[var(--radius-lg)] p-6 sm:p-8 bg-white" style={{ borderColor: "var(--border)" }}>
+        <div
+          id="printable-receipt"
+          className="border rounded-[var(--radius-lg)] p-6 sm:p-8 bg-white"
+          style={{ borderColor: "var(--border)" }}
+        >
           {/* Masthead Header */}
-          <div className="flex items-start justify-between border-b pb-5 mb-5 flex-wrap gap-4" style={{ borderColor: "var(--border)" }}>
+          <div
+            className="flex items-start justify-between border-b pb-5 mb-5 flex-wrap gap-4"
+            style={{ borderColor: "var(--border)" }}
+          >
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <BrandLogo size={24} className="w-6 h-6 flex-none" />
                 <span
                   className="font-bold text-xl tracking-tight"
-                  style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    color: "var(--ink)",
+                  }}
                 >
                   yogaonlive
                 </span>
@@ -2361,7 +2672,10 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
               <p className="text-xs" style={{ color: "var(--ink-soft)" }}>
                 Studio Practice &amp; Client Learning Ledger
               </p>
-              <p className="mono text-[11px] mt-0.5" style={{ color: "var(--ink-faint)" }}>
+              <p
+                className="mono text-[11px] mt-0.5"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 Tax / Registration: YOL-YOGA-2026-ONLINE
               </p>
             </div>
@@ -2371,22 +2685,35 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
                 <span className="tag tag--safe mb-1.5">
                   Settled &amp; Verified
                 </span>
-                <div className="mono text-xs font-bold" style={{ color: "var(--ink)" }}>
+                <div
+                  className="mono text-xs font-bold"
+                  style={{ color: "var(--ink)" }}
+                >
                   {receiptNumber}
                 </div>
-                <div className="text-[11px]" style={{ color: "var(--ink-soft)" }}>
+                <div
+                  className="text-[11px]"
+                  style={{ color: "var(--ink-soft)" }}
+                >
                   Issued: {todayStr}
                 </div>
               </div>
 
               {/* Currency Converter Tabs */}
-              <div className="flex items-center gap-1 bg-[var(--bg)] p-1 rounded-[var(--radius-sm)] border" style={{ borderColor: "var(--border)" }}>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint)] px-1.5">Currency:</span>
+              <div
+                className="flex items-center gap-1 bg-[var(--bg)] p-1 rounded-[var(--radius-sm)] border"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--ink-faint)] px-1.5">
+                  Currency:
+                </span>
                 <button
                   type="button"
                   onClick={() => setCurrency("INR")}
                   className={`px-2 py-0.5 text-xs font-bold rounded cursor-pointer transition-colors ${
-                    currency === "INR" ? "bg-[var(--dusk)] text-white" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    currency === "INR"
+                      ? "bg-[var(--dusk)] text-white"
+                      : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
                   }`}
                 >
                   ₹ INR
@@ -2395,7 +2722,9 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
                   type="button"
                   onClick={() => setCurrency("USD")}
                   className={`px-2 py-0.5 text-xs font-bold rounded cursor-pointer transition-colors ${
-                    currency === "USD" ? "bg-[var(--dusk)] text-white" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    currency === "USD"
+                      ? "bg-[var(--dusk)] text-white"
+                      : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
                   }`}
                 >
                   $ USD
@@ -2404,7 +2733,9 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
                   type="button"
                   onClick={() => setCurrency("EUR")}
                   className={`px-2 py-0.5 text-xs font-bold rounded cursor-pointer transition-colors ${
-                    currency === "EUR" ? "bg-[var(--dusk)] text-white" : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    currency === "EUR"
+                      ? "bg-[var(--dusk)] text-white"
+                      : "text-[var(--ink-soft)] hover:text-[var(--ink)]"
                   }`}
                 >
                   € EUR
@@ -2414,41 +2745,71 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
           </div>
 
           {/* Coordinates */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b pb-5 mb-5 text-xs" style={{ borderColor: "var(--border)" }}>
+          <div
+            className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b pb-5 mb-5 text-xs"
+            style={{ borderColor: "var(--border)" }}
+          >
             <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider block mb-1" style={{ color: "var(--ink-faint)" }}>
+              <span
+                className="text-[10px] uppercase font-bold tracking-wider block mb-1"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 Student Name
               </span>
-              <strong className="text-sm font-bold block" style={{ color: "var(--ink)" }}>
+              <strong
+                className="text-sm font-bold block"
+                style={{ color: "var(--ink)" }}
+              >
                 {student.name}
               </strong>
-              <span className="text-[11px] block" style={{ color: "var(--ink-soft)" }}>
+              <span
+                className="text-[11px] block"
+                style={{ color: "var(--ink-soft)" }}
+              >
                 {student.country}
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider block mb-1" style={{ color: "var(--ink-faint)" }}>
+              <span
+                className="text-[10px] uppercase font-bold tracking-wider block mb-1"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 Enrolled Cohort
               </span>
-              <strong className="text-xs font-semibold block" style={{ color: "var(--ink)" }}>
+              <strong
+                className="text-xs font-semibold block"
+                style={{ color: "var(--ink)" }}
+              >
                 {student.classType === "group"
                   ? `Group (${student.groupName || "Standard"})`
                   : "Private 1-to-1 Practice"}
               </strong>
-              <span className="text-[11px] block" style={{ color: "var(--ink-soft)" }}>
+              <span
+                className="text-[11px] block"
+                style={{ color: "var(--ink-soft)" }}
+              >
                 Instructor: {student.instructor}
               </span>
             </div>
 
             <div>
-              <span className="text-[10px] uppercase font-bold tracking-wider block mb-1" style={{ color: "var(--ink-faint)" }}>
+              <span
+                className="text-[10px] uppercase font-bold tracking-wider block mb-1"
+                style={{ color: "var(--ink-faint)" }}
+              >
                 Billing Cycle
               </span>
-              <strong className="mono text-xs block" style={{ color: "var(--ink)" }}>
+              <strong
+                className="mono text-xs block"
+                style={{ color: "var(--ink)" }}
+              >
                 {formatDateHuman(cycleStart)}
               </strong>
-              <span className="mono text-[11px] block" style={{ color: "var(--ink-soft)" }}>
+              <span
+                className="mono text-[11px] block"
+                style={{ color: "var(--ink-soft)" }}
+              >
                 to {formatDateHuman(due)}
               </span>
             </div>
@@ -2458,39 +2819,77 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
           <div className="mb-5">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b font-bold text-[10.5px] uppercase tracking-wider" style={{ borderColor: "var(--border)", color: "var(--ink-faint)" }}>
+                <tr
+                  className="border-b font-bold text-[10.5px] uppercase tracking-wider"
+                  style={{
+                    borderColor: "var(--border)",
+                    color: "var(--ink-faint)",
+                  }}
+                >
                   <th className="py-2">Description</th>
                   <th className="py-2 text-center">Frequency</th>
                   <th className="py-2 text-right">Amount ({currency})</th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: "var(--border)" }}>
+              <tbody
+                className="divide-y"
+                style={{ borderColor: "var(--border)" }}
+              >
                 <tr>
-                  <td className="py-3 font-medium" style={{ color: "var(--ink)" }}>
+                  <td
+                    className="py-3 font-medium"
+                    style={{ color: "var(--ink)" }}
+                  >
                     yogaonlive Personalized Asana &amp; Yoga Guidance
-                    <span className="block text-[11px] font-normal" style={{ color: "var(--ink-soft)" }}>
-                      Live interactive practice, attendance ledgering, and timezone synchronization.
+                    <span
+                      className="block text-[11px] font-normal"
+                      style={{ color: "var(--ink-soft)" }}
+                    >
+                      Live interactive practice, attendance ledgering, and
+                      timezone synchronization.
                     </span>
                   </td>
-                  <td className="py-3 text-center mono" style={{ color: "var(--ink-soft)" }}>
+                  <td
+                    className="py-3 text-center mono"
+                    style={{ color: "var(--ink-soft)" }}
+                  >
                     30-Day Cycle
                   </td>
-                  <td className="py-3 text-right mono font-bold" style={{ color: "var(--ink)" }}>
+                  <td
+                    className="py-3 text-right mono font-bold"
+                    style={{ color: "var(--ink)" }}
+                  >
                     {getDisplayAmount(currency)}
-                    <span className="block text-[10.5px] font-normal" style={{ color: "var(--ink-soft)" }}>
+                    <span
+                      className="block text-[10.5px] font-normal"
+                      style={{ color: "var(--ink-soft)" }}
+                    >
                       {getConversionNotice(currency)}
                     </span>
                   </td>
                 </tr>
               </tbody>
               <tfoot>
-                <tr className="border-t" style={{ borderColor: "var(--border)" }}>
-                  <td colSpan={2} className="py-3 text-right mono font-bold text-xs uppercase" style={{ color: "var(--ink)" }}>
+                <tr
+                  className="border-t"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <td
+                    colSpan={2}
+                    className="py-3 text-right mono font-bold text-xs uppercase"
+                    style={{ color: "var(--ink)" }}
+                  >
                     Total Settlement Paid:
                   </td>
-                  <td className="py-3 text-right mono font-bold text-sm" style={{ color: "var(--ink)" }}>
+                  <td
+                    className="py-3 text-right mono font-bold text-sm"
+                    style={{ color: "var(--ink)" }}
+                  >
                     {getDisplayAmount(currency)}
-                    <span className="block text-[10.5px] font-normal" style={{ color: "var(--ink-soft)" }}>
+                    <span
+                      className="block text-[10.5px] font-normal"
+                      style={{ color: "var(--ink-soft)" }}
+                    >
                       {getConversionNotice(currency)}
                     </span>
                   </td>
@@ -2509,10 +2908,16 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
                 Payment Route: Direct Verified Settlement
               </div>
               <div className="mt-0.5" style={{ color: "var(--ink-soft)" }}>
-                Payee UPI ID: <span className="mono font-bold">{paymentSettings?.upiId || "yogaonlive@upi"}</span>
+                Payee UPI ID:{" "}
+                <span className="mono font-bold">
+                  {paymentSettings?.upiId || "yogaonlive@upi"}
+                </span>
               </div>
             </div>
-            <div className="mono text-[10.5px] text-right" style={{ color: "var(--ink-faint)" }}>
+            <div
+              className="mono text-[10.5px] text-right"
+              style={{ color: "var(--ink-faint)" }}
+            >
               yogaonlive Studio System Stamp
               <br />
               Digital Authorization Validated
@@ -2522,22 +2927,17 @@ export function ReceiptModal({ student, paymentSettings, onClose }) {
 
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-          <div className="text-xs font-mono" style={{ color: "var(--ink-soft)" }}>
+          <div
+            className="text-xs font-mono"
+            style={{ color: "var(--ink-soft)" }}
+          >
             Receipt with real-time INR ⇄ USD / EUR conversion.
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn"
-            >
+            <button type="button" onClick={onClose} className="btn">
               Close
             </button>
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="btn"
-            >
+            <button type="button" onClick={handlePrint} className="btn">
               Print ({currency})
             </button>
             <button
@@ -2572,16 +2972,22 @@ export function EnrollStudentConfirmModal({
   const phone = target.phone || "—";
   const country = target.country || "India";
   const classType =
-    target.classType || (target.classTypeInterest === "group" ? "group" : "private");
+    target.classType ||
+    (target.classTypeInterest === "group" ? "group" : "private");
   const cohortOrTime =
-    target.groupCohort || target.preferredTime || target.preferredTimings || "19:00 IST";
-  const fee =
-    target.fee || (classType === "private" ? 4000 : 2500);
+    target.groupCohort ||
+    target.preferredTime ||
+    target.preferredTimings ||
+    "19:00 IST";
+  const fee = target.fee || (classType === "private" ? 4000 : 2500);
   const initialInstructor = (() => {
     if (target.instructor && INSTRUCTOR_NAMES.includes(target.instructor)) {
       return target.instructor;
     }
-    if (target.instructorPreference && INSTRUCTOR_NAMES.includes(target.instructorPreference)) {
+    if (
+      target.instructorPreference &&
+      INSTRUCTOR_NAMES.includes(target.instructorPreference)
+    ) {
       return target.instructorPreference;
     }
     if (target.instructorPreference === "Female") {
@@ -2598,19 +3004,25 @@ export function EnrollStudentConfirmModal({
   const initialTimezone = target.timezone || "Asia/Kolkata";
 
   const defaultUsername = (() => {
-    const raw = (target.name || "").toLowerCase().trim().replace(/[^a-z0-9]/g, ".");
+    const raw = (target.name || "")
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, ".");
     const clean = raw.replace(/\.+/g, ".").replace(/^\.|\.$/g, "");
     return clean || "student";
   })();
 
   const generateRandomPassword = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$*";
+    const chars =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$*";
     let p = "";
-    for (let i = 0; i < 10; i++) p += chars.charAt(Math.floor(Math.random() * chars.length));
+    for (let i = 0; i < 10; i++)
+      p += chars.charAt(Math.floor(Math.random() * chars.length));
     return p;
   };
 
-  const [selectedInstructor, setSelectedInstructor] = useState(initialInstructor);
+  const [selectedInstructor, setSelectedInstructor] =
+    useState(initialInstructor);
   const [classLink, setClassLink] = useState(target.classLink || "");
 
   // Pre-generate credentials so admin sees and controls exactly what will be set and mailed
@@ -2625,9 +3037,14 @@ export function EnrollStudentConfirmModal({
   };
 
   const handleEnroll = () => {
-    const isMatching = !selectedInstructor || selectedInstructor === "matching_in_progress";
-    const finalInstructor = isMatching ? "Matching in Progress" : selectedInstructor;
-    const finalInstructorStatus = isMatching ? "matching_in_progress" : "assigned";
+    const isMatching =
+      !selectedInstructor || selectedInstructor === "matching_in_progress";
+    const finalInstructor = isMatching
+      ? "Matching in Progress"
+      : selectedInstructor;
+    const finalInstructorStatus = isMatching
+      ? "matching_in_progress"
+      : "assigned";
 
     onConfirmEnroll(
       {
@@ -2641,7 +3058,7 @@ export function EnrollStudentConfirmModal({
         username: customUsername.trim(),
         password: customPassword.trim(),
       },
-      type
+      type,
     );
   };
 
@@ -2656,7 +3073,8 @@ export function EnrollStudentConfirmModal({
           </div>
           <h2 className="modal__title">Enroll {name}</h2>
           <p className="view__note" style={{ margin: "-2px 0 0" }}>
-            Set login credentials and assign an instructor. After confirming, a welcome email with login details is sent to the student.
+            Set login credentials and assign an instructor. After confirming, a
+            welcome email with login details is sent to the student.
           </p>
         </div>
 
@@ -2681,22 +3099,34 @@ export function EnrollStudentConfirmModal({
           <ul className="text-xs space-y-1.5 text-[var(--ink)] font-medium">
             <li className="flex items-start gap-2">
               <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
-              <span>Creates official student account and adds them to the studio roster.</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
-              <span>Saves login credentials (username + password) you set below.</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
               <span>
-                Dispatches a branded HTML welcome email with login credentials directly to{" "}
-                <strong className="text-[var(--dusk)]">{email || "registered email"}</strong>.
+                Creates official student account and adds them to the studio
+                roster.
               </span>
             </li>
             <li className="flex items-start gap-2">
               <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
-              <span>Removes the enquiry from the active list and moves the student to the roster.</span>
+              <span>
+                Saves login credentials (username + password) you set below.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
+              <span>
+                Dispatches a branded HTML welcome email with login credentials
+                directly to{" "}
+                <strong className="text-[var(--dusk)]">
+                  {email || "registered email"}
+                </strong>
+                .
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckIcon className="w-3.5 h-3.5 text-[var(--success)] flex-none mt-0.5" />
+              <span>
+                Removes the enquiry from the active list and moves the student
+                to the roster.
+              </span>
             </li>
           </ul>
         </div>
@@ -2710,47 +3140,89 @@ export function EnrollStudentConfirmModal({
             Student Profile &amp; Class Preferences
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2.5 gap-x-4">
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
               <span className="text-[var(--ink-soft)]">Full Name:</span>
               <strong className="text-[var(--ink)]">{name}</strong>
             </div>
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
               <span className="text-[var(--ink-soft)]">Registered Email:</span>
-              <strong className="text-[var(--ink)] truncate max-w-[180px]" title={email}>
+              <strong
+                className="text-[var(--ink)] truncate max-w-[180px]"
+                title={email}
+              >
                 {email || "—"}
               </strong>
             </div>
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
               <span className="text-[var(--ink-soft)]">WhatsApp / Phone:</span>
               <span className="text-[var(--ink)] font-medium">{phone}</span>
             </div>
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
-              <span className="text-[var(--ink-soft)]">Country / Timezone:</span>
-              <span className="text-[var(--ink)] font-medium">{country} ({initialTimezone})</span>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <span className="text-[var(--ink-soft)]">
+                Country / Timezone:
+              </span>
+              <span className="text-[var(--ink)] font-medium">
+                {country} ({initialTimezone})
+              </span>
             </div>
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
               <span className="text-[var(--ink-soft)]">Class Type:</span>
               <span className="text-[var(--ink)] font-bold capitalize">
                 {classType === "private" ? "Private (1-to-1)" : "Group Cohort"}
               </span>
             </div>
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
               <span className="text-[var(--ink-soft)]">Language:</span>
-              <span className="text-[var(--ink)] font-medium">{initialLanguage}</span>
+              <span className="text-[var(--ink)] font-medium">
+                {initialLanguage}
+              </span>
             </div>
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
               <span className="text-[var(--ink-soft)]">Cohort / Slot:</span>
-              <span className="text-[var(--ink)] font-medium">{cohortOrTime}</span>
+              <span className="text-[var(--ink)] font-medium">
+                {cohortOrTime}
+              </span>
             </div>
-            <div className="flex justify-between border-b pb-1.5" style={{ borderColor: "var(--border)" }}>
+            <div
+              className="flex justify-between border-b pb-1.5"
+              style={{ borderColor: "var(--border)" }}
+            >
               <span className="text-[var(--ink-soft)]">Monthly Tuition:</span>
-              <strong className="text-[var(--success)]">₹{Number(fee).toLocaleString("en-IN")}</strong>
+              <strong className="text-[var(--success)]">
+                ₹{Number(fee).toLocaleString("en-IN")}
+              </strong>
             </div>
           </div>
 
           {initialGoals && (
-            <div className="mt-3 pt-2.5 border-t" style={{ borderColor: "var(--border)" }}>
-              <span className="text-xs text-[var(--ink-soft)] font-medium block mb-1">Student Goals &amp; Health Focus:</span>
+            <div
+              className="mt-3 pt-2.5 border-t"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <span className="text-xs text-[var(--ink-soft)] font-medium block mb-1">
+                Student Goals &amp; Health Focus:
+              </span>
               <div className="text-xs font-semibold text-[var(--ink)] bg-[var(--bg-alt)] p-2 rounded-[var(--radius-sm)]">
                 {initialGoals}
               </div>
@@ -2766,23 +3238,38 @@ export function EnrollStudentConfirmModal({
             borderColor: "#F59E0B44",
           }}
         >
-          <div className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: "#B45309" }}>
+          <div
+            className="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5"
+            style={{ color: "#B45309" }}
+          >
             <UserIcon className="w-3.5 h-3.5" />
             <span>Set Login Credentials</span>
           </div>
-          <p className="text-[11.5px] mb-3 leading-relaxed" style={{ color: "#92400E" }}>
-            The username and password below will be assigned to the student's account and emailed directly to their inbox upon enrollment. You can edit them freely.
+          <p
+            className="text-[11.5px] mb-3 leading-relaxed"
+            style={{ color: "#92400E" }}
+          >
+            The username and password below will be assigned to the student's
+            account and emailed directly to their inbox upon enrollment. You can
+            edit them freely.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Username */}
-            <label className="flex flex-col gap-1.5 text-xs font-bold" style={{ color: "var(--ink-soft)" }}>
+            <label
+              className="flex flex-col gap-1.5 text-xs font-bold"
+              style={{ color: "var(--ink-soft)" }}
+            >
               <span>Username to Assign &amp; Mail</span>
               <input
                 type="text"
                 placeholder="e.g. priya.sharma"
                 value={customUsername}
-                onChange={(e) => setCustomUsername(e.target.value.toLowerCase().replace(/\s/g, ""))}
+                onChange={(e) =>
+                  setCustomUsername(
+                    e.target.value.toLowerCase().replace(/\s/g, ""),
+                  )
+                }
                 disabled={isEnrolling}
                 autoComplete="off"
                 className="p-2 border rounded-[var(--radius-sm)] text-xs font-mono text-[var(--ink)] bg-[var(--surface)]"
@@ -2791,7 +3278,10 @@ export function EnrollStudentConfirmModal({
             </label>
 
             {/* Password */}
-            <label className="flex flex-col gap-1.5 text-xs font-bold" style={{ color: "var(--ink-soft)" }}>
+            <label
+              className="flex flex-col gap-1.5 text-xs font-bold"
+              style={{ color: "var(--ink-soft)" }}
+            >
               <div className="flex items-center justify-between">
                 <span>Password to Assign &amp; Mail</span>
                 <button
@@ -2831,7 +3321,10 @@ export function EnrollStudentConfirmModal({
 
         {/* Assignment & Meeting Link Configuration */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-          <label className="flex flex-col gap-1.5 text-xs font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-xs font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Assign Instructor</span>
             <select
               value={selectedInstructor}
@@ -2850,7 +3343,10 @@ export function EnrollStudentConfirmModal({
             </select>
           </label>
 
-          <label className="flex flex-col gap-1.5 text-xs font-bold" style={{ color: "var(--ink-soft)" }}>
+          <label
+            className="flex flex-col gap-1.5 text-xs font-bold"
+            style={{ color: "var(--ink-soft)" }}
+          >
             <span>Initial Meeting URL (Optional)</span>
             <input
               type="url"
@@ -2864,7 +3360,10 @@ export function EnrollStudentConfirmModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2.5 pt-2 border-t" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="flex items-center justify-end gap-2.5 pt-2 border-t"
+          style={{ borderColor: "var(--border)" }}
+        >
           <button
             type="button"
             onClick={onClose}
@@ -2911,40 +3410,62 @@ export function DeleteEnrolledStudentModal({
   const [confirmInput, setConfirmInput] = useState("");
   const [confirmCheckbox, setConfirmCheckbox] = useState(false);
 
-  const studentName = student?.name || booking?.name || enquiry?.name || "Student";
-  const studentId = student?.id || booking?.enrolledStudentId || enquiry?.convertedStudentId;
+  const studentName =
+    student?.name || booking?.name || enquiry?.name || "Student";
+  const studentId =
+    student?.id || booking?.enrolledStudentId || enquiry?.convertedStudentId;
   const studentUsername =
     student?.username ||
     (booking?.enrolledStudentId
       ? `Student #${booking.enrolledStudentId}`
       : enquiry?.convertedStudentId
-      ? `Student #${enquiry.convertedStudentId}`
-      : "—");
-  const studentEmail = student?.email || booking?.email || enquiry?.email || "—";
-  const studentPhone = student?.phone || booking?.phone || enquiry?.phone || "—";
-  const studentCountry = student?.country || booking?.country || enquiry?.country || "India";
-  const classType = student?.classType || booking?.classType || (enquiry?.classTypeInterest || "private");
+        ? `Student #${enquiry.convertedStudentId}`
+        : "—");
+  const studentEmail =
+    student?.email || booking?.email || enquiry?.email || "—";
+  const studentPhone =
+    student?.phone || booking?.phone || enquiry?.phone || "—";
+  const studentCountry =
+    student?.country || booking?.country || enquiry?.country || "India";
+  const classType =
+    student?.classType ||
+    booking?.classType ||
+    enquiry?.classTypeInterest ||
+    "private";
   const cohortOrTime =
     classType === "group"
       ? student?.groupName || booking?.groupCohort || "Group Cohort"
       : student?.classTimeIST
-      ? `${formatISTTime(student.classTimeIST)} IST`
-      : booking?.preferredTime || "1-to-1 Slot";
-  const instructor = student?.instructor || booking?.instructorPreference || enquiry?.instructorPreference || "Rohan Mehta";
-  const fee = student?.fee ?? (booking?.fee || (classType === "group" ? 2500 : 4000));
+        ? `${formatISTTime(student.classTimeIST)} IST`
+        : booking?.preferredTime || "1-to-1 Slot";
+  const instructor =
+    student?.instructor ||
+    booking?.instructorPreference ||
+    enquiry?.instructorPreference ||
+    "Rohan Mehta";
+  const fee =
+    student?.fee ?? (booking?.fee || (classType === "group" ? 2500 : 4000));
   const joiningDate = student?.joiningDate || booking?.joiningDate || "—";
 
   // Attendance and payment counts
   const attendanceCount = student?.attendance
-    ? Object.keys(student.attendance instanceof Map ? Object.fromEntries(student.attendance) : student.attendance).length
+    ? Object.keys(
+        student.attendance instanceof Map
+          ? Object.fromEntries(student.attendance)
+          : student.attendance,
+      ).length
     : 0;
-  const paymentCount = Array.isArray(student?.paymentHistory) ? student.paymentHistory.length : 0;
+  const paymentCount = Array.isArray(student?.paymentHistory)
+    ? student.paymentHistory.length
+    : 0;
 
   const recordType = booking ? "booking" : enquiry ? "inquiry" : null;
   const palette = avatarColor(studentId || studentName);
 
   // Challenge matching: user can type student's username or DELETE
-  const expectedKeyword = student?.username ? student.username.toLowerCase() : "delete";
+  const expectedKeyword = student?.username
+    ? student.username.toLowerCase()
+    : "delete";
   const isInputValid =
     confirmInput.trim().toLowerCase() === expectedKeyword ||
     confirmInput.trim().toUpperCase() === "DELETE";
@@ -2955,7 +3476,10 @@ export function DeleteEnrolledStudentModal({
     <ModalBackdrop onClose={() => !isDeleting && onClose()} maxWidth="620px">
       <div className="w-full">
         {/* Step Indicator Header */}
-        <div className="border-b pb-3.5 mb-4 pr-10" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="border-b pb-3.5 mb-4 pr-10"
+          style={{ borderColor: "var(--border)" }}
+        >
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full bg-[var(--danger-soft)] text-[var(--danger)] flex items-center justify-center shrink-0">
@@ -3035,16 +3559,24 @@ export function DeleteEnrolledStudentModal({
                     </span>
                   )}
                   {booking ? (
-                    <span className="tag tag--safe text-[10px]">From Booking ({booking.bookingRef || "Ref"})</span>
+                    <span className="tag tag--safe text-[10px]">
+                      From Booking ({booking.bookingRef || "Ref"})
+                    </span>
                   ) : enquiry ? (
-                    <span className="tag tag--safe text-[10px]">From Inquiry (#{enquiry.id})</span>
+                    <span className="tag tag--safe text-[10px]">
+                      From Inquiry (#{enquiry.id})
+                    </span>
                   ) : (
-                    <span className="tag tag--muted text-[10px]">Active Student</span>
+                    <span className="tag tag--muted text-[10px]">
+                      Active Student
+                    </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2.5 mt-1 flex-wrap text-xs">
                   <span className="tag tag--muted capitalize text-[11px]">
-                    {classType === "private" ? "Private 1-to-1" : "Group Cohort"}
+                    {classType === "private"
+                      ? "Private 1-to-1"
+                      : "Group Cohort"}
                   </span>
                   <div className="flex items-center gap-1 text-[var(--ink-soft)] font-medium">
                     <CountryFlag country={studentCountry} size="xs" />
@@ -3073,38 +3605,65 @@ export function DeleteEnrolledStudentModal({
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-[var(--border)]/60">
-                  <span className="text-[var(--ink-soft)]">Registered Email:</span>
-                  <span className="text-[var(--ink)] truncate max-w-[170px]" title={studentEmail}>
+                  <span className="text-[var(--ink-soft)]">
+                    Registered Email:
+                  </span>
+                  <span
+                    className="text-[var(--ink)] truncate max-w-[170px]"
+                    title={studentEmail}
+                  >
                     {studentEmail}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-[var(--border)]/60">
-                  <span className="text-[var(--ink-soft)]">Phone / WhatsApp:</span>
+                  <span className="text-[var(--ink-soft)]">
+                    Phone / WhatsApp:
+                  </span>
                   <span className="mono text-[var(--ink)]">{studentPhone}</span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-[var(--border)]/60">
-                  <span className="text-[var(--ink-soft)]">Assigned Instructor:</span>
-                  <span className="text-[var(--ink)] font-medium">{instructor}</span>
+                  <span className="text-[var(--ink-soft)]">
+                    Assigned Instructor:
+                  </span>
+                  <span className="text-[var(--ink)] font-medium">
+                    {instructor}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-[var(--border)]/60">
                   <span className="text-[var(--ink-soft)]">Schedule Slot:</span>
-                  <span className="text-[var(--ink)] font-medium">{cohortOrTime}</span>
+                  <span className="text-[var(--ink)] font-medium">
+                    {cohortOrTime}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-[var(--border)]/60">
                   <span className="text-[var(--ink-soft)]">Monthly Fee:</span>
-                  <span className="mono font-bold text-[var(--ink)]">₹{fee.toLocaleString("en-IN")} INR</span>
+                  <span className="mono font-bold text-[var(--ink)]">
+                    ₹{fee.toLocaleString("en-IN")} INR
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-1 border-b border-[var(--border)]/60">
                   <span className="text-[var(--ink-soft)]">Joining Date:</span>
-                  <span className="mono text-[var(--ink)]">{joiningDate ? formatDateHuman(parseDateOnly(joiningDate)) : "—"}</span>
+                  <span className="mono text-[var(--ink)]">
+                    {joiningDate
+                      ? formatDateHuman(parseDateOnly(joiningDate))
+                      : "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-1 sm:border-b sm:border-[var(--border)]/60">
-                  <span className="text-[var(--ink-soft)]">Attendance Sessions:</span>
-                  <span className="mono font-bold text-[var(--ink)]">{attendanceCount} sessions logged</span>
+                  <span className="text-[var(--ink-soft)]">
+                    Attendance Sessions:
+                  </span>
+                  <span className="mono font-bold text-[var(--ink)]">
+                    {attendanceCount} sessions logged
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-[var(--ink-soft)]">Payment History:</span>
-                  <span className="mono font-bold text-[var(--ink)]">{paymentCount} transactions</span>
+                  <span className="text-[var(--ink-soft)]">
+                    Payment History:
+                  </span>
+                  <span className="mono font-bold text-[var(--ink)]">
+                    {paymentCount} transactions
+                  </span>
                 </div>
               </div>
             </div>
@@ -3117,13 +3676,19 @@ export function DeleteEnrolledStudentModal({
               </div>
               <ul className="space-y-1 text-[11.5px] leading-relaxed list-disc list-inside text-[var(--ink)]/90">
                 <li>
-                  Student user login account (<span className="font-mono font-semibold">{studentUsername}</span>) and password will be deleted.
+                  Student user login account (
+                  <span className="font-mono font-semibold">
+                    {studentUsername}
+                  </span>
+                  ) and password will be deleted.
                 </li>
                 <li>
-                  All {attendanceCount} attendance logs and {paymentCount} payment transaction ledger receipts will be wiped permanently.
+                  All {attendanceCount} attendance logs and {paymentCount}{" "}
+                  payment transaction ledger receipts will be wiped permanently.
                 </li>
                 <li>
-                  The student will be removed from all active studio metrics, attendance registers, and rosters.
+                  The student will be removed from all active studio metrics,
+                  attendance registers, and rosters.
                 </li>
               </ul>
             </div>
@@ -3140,7 +3705,8 @@ export function DeleteEnrolledStudentModal({
                   />
                   <div>
                     <span className="font-bold text-[var(--ink)]">
-                      Also delete the original {recordType} record ({booking?.bookingRef || `#${enquiry?.id}`})
+                      Also delete the original {recordType} record (
+                      {booking?.bookingRef || `#${enquiry?.id}`})
                     </span>
                     <p className="text-[var(--ink-soft)] text-[11px] mt-0.5 leading-relaxed">
                       {alsoDeleteRecord
@@ -3160,11 +3726,7 @@ export function DeleteEnrolledStudentModal({
                 Step 1 of 2: Profile Verification
               </span>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn btn--sm"
-                >
+                <button type="button" onClick={onClose} className="btn btn--sm">
                   Cancel
                 </button>
                 <button
@@ -3192,9 +3754,12 @@ export function DeleteEnrolledStudentModal({
                   Permanent Data Destruction Warning
                 </h4>
                 <p className="text-[var(--ink)] leading-relaxed text-[11.5px]">
-                  You are about to permanently delete student <strong>{studentName}</strong> (Username:{" "}
-                  <span className="font-mono font-bold text-[var(--danger)]">{studentUsername}</span>). This action{" "}
-                  <strong>CANNOT</strong> be undone.
+                  You are about to permanently delete student{" "}
+                  <strong>{studentName}</strong> (Username:{" "}
+                  <span className="font-mono font-bold text-[var(--danger)]">
+                    {studentUsername}
+                  </span>
+                  ). This action <strong>CANNOT</strong> be undone.
                 </p>
               </div>
             </div>
@@ -3206,10 +3771,16 @@ export function DeleteEnrolledStudentModal({
                   Please type{" "}
                   {student?.username ? (
                     <>
-                      <span className="font-mono text-[var(--danger)] font-bold">{student.username}</span> or{" "}
+                      <span className="font-mono text-[var(--danger)] font-bold">
+                        {student.username}
+                      </span>{" "}
+                      or{" "}
                     </>
                   ) : null}
-                  <span className="font-mono text-[var(--danger)] font-bold">DELETE</span> to confirm:
+                  <span className="font-mono text-[var(--danger)] font-bold">
+                    DELETE
+                  </span>{" "}
+                  to confirm:
                 </span>
                 <div className="relative">
                   <input
@@ -3217,7 +3788,11 @@ export function DeleteEnrolledStudentModal({
                     autoFocus
                     value={confirmInput}
                     onChange={(e) => setConfirmInput(e.target.value)}
-                    placeholder={student?.username ? `Type ${student.username} or DELETE` : "Type DELETE"}
+                    placeholder={
+                      student?.username
+                        ? `Type ${student.username} or DELETE`
+                        : "Type DELETE"
+                    }
                     className={`w-full h-11 px-3.5 pr-9 border rounded-[var(--radius-sm)] font-mono text-sm text-[var(--ink)] bg-[var(--surface)] transition-all ${
                       isInputValid
                         ? "border-green-500 focus:border-green-600 focus:ring-1 focus:ring-green-500"
@@ -3242,7 +3817,10 @@ export function DeleteEnrolledStudentModal({
                     className="mt-0.5 w-4 h-4 rounded border-[var(--border)] text-[var(--danger)] focus:ring-[var(--danger)] cursor-pointer shrink-0"
                   />
                   <span className="text-[var(--ink)] leading-relaxed font-medium">
-                    I acknowledge that the student username (<strong>{studentUsername}</strong>), password credentials, attendance logs, and financial records will be permanently destroyed.
+                    I acknowledge that the student username (
+                    <strong>{studentUsername}</strong>), password credentials,
+                    attendance logs, and financial records will be permanently
+                    destroyed.
                   </span>
                 </label>
               </div>
@@ -3271,12 +3849,16 @@ export function DeleteEnrolledStudentModal({
                 <button
                   type="button"
                   disabled={!isStep2Ready}
-                  onClick={() => onConfirm({ student, booking, enquiry, alsoDeleteRecord })}
+                  onClick={() =>
+                    onConfirm({ student, booking, enquiry, alsoDeleteRecord })
+                  }
                   className="btn btn--sm btn--danger flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <TrashIcon className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    {isDeleting ? "Deleting Student…" : "Permanently Delete Student"}
+                    {isDeleting
+                      ? "Deleting Student…"
+                      : "Permanently Delete Student"}
                   </span>
                 </button>
               </div>
@@ -3337,7 +3919,9 @@ export function ResetStudentPasswordModal({
       return;
     }
     if (!/^[a-z0-9_.-]+$/.test(cleanUser)) {
-      setError("Username can only contain lowercase letters, numbers, dots, hyphens, and underscores.");
+      setError(
+        "Username can only contain lowercase letters, numbers, dots, hyphens, and underscores.",
+      );
       return;
     }
 
@@ -3358,7 +3942,9 @@ export function ResetStudentPasswordModal({
               <KeyIcon className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-[var(--ink)]">Manage Student Credentials</h3>
+              <h3 className="text-base font-bold text-[var(--ink)]">
+                Manage Student Credentials
+              </h3>
               <p className="text-[11.5px] text-[var(--ink-soft)]">
                 Update username and/or password for {student?.name}
               </p>
@@ -3376,11 +3962,19 @@ export function ResetStudentPasswordModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="p-3 bg-[var(--bg-alt)] border border-[var(--border)] rounded-[var(--radius-md)] text-xs space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[var(--ink-soft)] font-medium">Student:</span>
-              <span className="text-[var(--ink-faint)] font-mono">ID #{student?.id}</span>
+              <span className="text-[var(--ink-soft)] font-medium">
+                Student:
+              </span>
+              <span className="text-[var(--ink-faint)] font-mono">
+                ID #{student?.id}
+              </span>
             </div>
-            <div className="font-bold text-sm text-[var(--ink)]">{student?.name}</div>
-            <div className="text-[var(--ink-soft)] truncate">Email: {student?.email || "No email"}</div>
+            <div className="font-bold text-sm text-[var(--ink)]">
+              {student?.name}
+            </div>
+            <div className="text-[var(--ink-soft)] truncate">
+              Email: {student?.email || "No email"}
+            </div>
           </div>
 
           {/* Editable Username */}
@@ -3402,13 +3996,16 @@ export function ResetStudentPasswordModal({
                 type="text"
                 required
                 value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ""))}
+                onChange={(e) =>
+                  setUsername(e.target.value.toLowerCase().replace(/\s+/g, ""))
+                }
                 placeholder="e.g. john.doe"
                 className="input w-full font-mono text-sm h-10 px-3 pr-8"
               />
             </div>
             <span className="text-[10.5px] text-[var(--ink-faint)]">
-              Used by student to log into their dashboard. Letters, numbers, hyphens, and dots.
+              Used by student to log into their dashboard. Letters, numbers,
+              hyphens, and dots.
             </span>
           </label>
 
@@ -3446,16 +4043,24 @@ export function ResetStudentPasswordModal({
               )}
             </div>
             <span className="text-[10.5px] text-[var(--ink-faint)]">
-              Minimum 6 characters. If left empty, the current password will remain unchanged.
+              Minimum 6 characters. If left empty, the current password will
+              remain unchanged.
             </span>
           </label>
 
           <div className="p-2.5 rounded-[var(--radius-sm)] bg-[var(--surface)] border border-[var(--border)] text-[11px] text-[var(--ink-soft)] leading-relaxed">
-            💡 <strong>Login Tip:</strong> The student can log in using either their username (<strong>{username || student?.username}</strong>) or registered email address.
+            💡 <strong>Login Tip:</strong> The student can log in using either
+            their username (<strong>{username || student?.username}</strong>) or
+            registered email address.
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-[var(--border)]">
-            <button type="button" onClick={onClose} disabled={isSaving} className="btn btn--sm">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="btn btn--sm"
+            >
               Cancel
             </button>
             <button
@@ -3495,7 +4100,9 @@ export function DeleteRecordModal({
   const email = record.email || "—";
   const phone = record.phone || "—";
   const country = record.country || "India";
-  const classType = isBooking ? record.classType : (record.classTypeInterest || "private");
+  const classType = isBooking
+    ? record.classType
+    : record.classTypeInterest || "private";
   const timing = isBooking
     ? record.preferredTime || record.preferredTime2 || "Not Specified"
     : record.preferredTimings || "Not Specified";
@@ -3505,7 +4112,7 @@ export function DeleteRecordModal({
     record.enrolledStudentId ||
     record.convertedStudentId ||
     status === "converted" ||
-    status === "accepted"
+    status === "accepted",
   );
 
   const isChallengeValid =
@@ -3518,7 +4125,10 @@ export function DeleteRecordModal({
     <ModalBackdrop onClose={() => !isDeleting && onClose()} maxWidth="560px">
       <div className="w-full">
         {/* Step Indicator Header */}
-        <div className="border-b pb-3.5 mb-4 pr-10" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="border-b pb-3.5 mb-4 pr-10"
+          style={{ borderColor: "var(--border)" }}
+        >
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-full bg-[var(--danger-soft)] text-[var(--danger)] flex items-center justify-center shrink-0">
@@ -3529,7 +4139,9 @@ export function DeleteRecordModal({
                   {title}
                 </h3>
                 <span className="text-xs text-[var(--ink-soft)]">
-                  {isBooking ? "Permanent booking removal" : "Permanent inquiry removal"}
+                  {isBooking
+                    ? "Permanent booking removal"
+                    : "Permanent inquiry removal"}
                 </span>
               </div>
             </div>
@@ -3542,14 +4154,22 @@ export function DeleteRecordModal({
           {/* Progress bar */}
           <div className="grid grid-cols-2 gap-3 mt-3">
             <div>
-              <div className={`h-1.5 rounded-full ${step >= 1 ? "bg-[var(--danger)]" : "bg-[var(--border)]"}`} />
-              <div className={`text-[11px] mt-1.5 font-medium ${step === 1 ? "text-[var(--danger)] font-bold" : "text-[var(--ink-soft)]"}`}>
+              <div
+                className={`h-1.5 rounded-full ${step >= 1 ? "bg-[var(--danger)]" : "bg-[var(--border)]"}`}
+              />
+              <div
+                className={`text-[11px] mt-1.5 font-medium ${step === 1 ? "text-[var(--danger)] font-bold" : "text-[var(--ink-soft)]"}`}
+              >
                 1. Review Details
               </div>
             </div>
             <div>
-              <div className={`h-1.5 rounded-full ${step === 2 ? "bg-[var(--danger)]" : "bg-[var(--border)]"}`} />
-              <div className={`text-[11px] mt-1.5 font-medium ${step === 2 ? "text-[var(--danger)] font-bold" : "text-[var(--ink-soft)]"}`}>
+              <div
+                className={`h-1.5 rounded-full ${step === 2 ? "bg-[var(--danger)]" : "bg-[var(--border)]"}`}
+              />
+              <div
+                className={`text-[11px] mt-1.5 font-medium ${step === 2 ? "text-[var(--danger)] font-bold" : "text-[var(--ink-soft)]"}`}
+              >
                 2. Security Challenge
               </div>
             </div>
@@ -3559,13 +4179,16 @@ export function DeleteRecordModal({
         {step === 1 && (
           <div>
             <p className="text-xs text-[var(--ink-soft)] mb-3 leading-relaxed">
-              Please review the {isBooking ? "booking" : "inquiry"} details below before proceeding with permanent deletion:
+              Please review the {isBooking ? "booking" : "inquiry"} details
+              below before proceeding with permanent deletion:
             </p>
 
             <div className="bg-[var(--bg-alt)] border border-[var(--border)] rounded-[var(--radius-md)] p-3.5 mb-3 text-xs space-y-2">
               <div className="flex justify-between items-center py-0.5 border-b border-[var(--border)]/60">
                 <span className="text-[var(--ink-soft)]">Reference:</span>
-                <span className="font-mono font-bold text-[var(--ink)]">{refCode}</span>
+                <span className="font-mono font-bold text-[var(--ink)]">
+                  {refCode}
+                </span>
               </div>
               <div className="flex justify-between items-center py-0.5 border-b border-[var(--border)]/60">
                 <span className="text-[var(--ink-soft)]">Contact Name:</span>
@@ -3588,10 +4211,14 @@ export function DeleteRecordModal({
               </div>
               <div className="flex justify-between items-center py-0.5 border-b border-[var(--border)]/60">
                 <span className="text-[var(--ink-soft)]">Class Format:</span>
-                <span className="capitalize text-[var(--ink)] font-medium">{classType}</span>
+                <span className="capitalize text-[var(--ink)] font-medium">
+                  {classType}
+                </span>
               </div>
               <div className="flex justify-between items-center py-0.5">
-                <span className="text-[var(--ink-soft)]">Schedule / Timing:</span>
+                <span className="text-[var(--ink-soft)]">
+                  Schedule / Timing:
+                </span>
                 <span className="text-[var(--ink)]">{timing}</span>
               </div>
             </div>
@@ -3604,8 +4231,12 @@ export function DeleteRecordModal({
                   <span>Linked Enrolled Student Found</span>
                 </div>
                 <p className="text-[var(--ink)] text-[11.5px] leading-relaxed mb-2">
-                  This {recordType} is currently linked to an enrolled student account
-                  {linkedStudent ? ` (${linkedStudent.name}, Username: ${linkedStudent.username})` : ""}.
+                  This {recordType} is currently linked to an enrolled student
+                  account
+                  {linkedStudent
+                    ? ` (${linkedStudent.name}, Username: ${linkedStudent.username})`
+                    : ""}
+                  .
                 </p>
                 <label className="flex items-start gap-2.5 cursor-pointer font-medium text-[var(--ink)]">
                   <input
@@ -3615,7 +4246,8 @@ export function DeleteRecordModal({
                     className="mt-0.5 w-4 h-4 rounded border-[var(--border)] text-[var(--danger)] focus:ring-[var(--danger)] shrink-0"
                   />
                   <span className="leading-snug">
-                    Also permanently delete the enrolled student profile, username, password, attendance, and fee ledgers.
+                    Also permanently delete the enrolled student profile,
+                    username, password, attendance, and fee ledgers.
                   </span>
                 </label>
               </div>
@@ -3653,7 +4285,8 @@ export function DeleteRecordModal({
                   Security Verification Required
                 </h4>
                 <p className="text-[var(--ink)] leading-relaxed text-[11.5px]">
-                  Permanently deleting this {recordType} ({refCode} - {name}) is irreversible.
+                  Permanently deleting this {recordType} ({refCode} - {name}) is
+                  irreversible.
                 </p>
               </div>
             </div>
@@ -3661,7 +4294,11 @@ export function DeleteRecordModal({
             <div className="space-y-3 mb-4 text-xs">
               <label className="flex flex-col gap-1.5 font-semibold text-[var(--ink-soft)]">
                 <span>
-                  Please type <span className="font-mono text-[var(--danger)] font-bold">DELETE</span> to confirm:
+                  Please type{" "}
+                  <span className="font-mono text-[var(--danger)] font-bold">
+                    DELETE
+                  </span>{" "}
+                  to confirm:
                 </span>
                 <input
                   type="text"
@@ -3686,7 +4323,8 @@ export function DeleteRecordModal({
                     className="mt-0.5 w-4 h-4 rounded border-[var(--border)] text-[var(--danger)] focus:ring-[var(--danger)] cursor-pointer shrink-0"
                   />
                   <span className="text-[var(--ink)] font-medium leading-relaxed">
-                    I confirm that I want to permanently delete this {recordType} record from the system.
+                    I confirm that I want to permanently delete this{" "}
+                    {recordType} record from the system.
                   </span>
                 </label>
               </div>
@@ -3713,7 +4351,13 @@ export function DeleteRecordModal({
                 <button
                   type="button"
                   disabled={!isStep2Ready}
-                  onClick={() => onConfirm({ record, recordType, deleteStudent: deleteLinkedStudent })}
+                  onClick={() =>
+                    onConfirm({
+                      record,
+                      recordType,
+                      deleteStudent: deleteLinkedStudent,
+                    })
+                  }
                   className="btn btn--sm btn--danger flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <TrashIcon className="w-3.5 h-3.5 shrink-0" />
@@ -3727,3 +4371,935 @@ export function DeleteRecordModal({
     </ModalBackdrop>
   );
 }
+
+/* ================= 11. ADD / EDIT INSTRUCTOR MODAL ================= */
+export function AddEditInstructorModal({
+  instructor,
+  onClose,
+  onSave,
+  onDelete,
+}) {
+  const isNew = !instructor;
+
+  const [formData, setFormData] = useState(() => ({
+    name: instructor?.name || "",
+    username: instructor?.username || "",
+    password: instructor?.password || "",
+    gender: instructor?.gender || "Female",
+    phone: instructor?.phone || "",
+    email: instructor?.email || "",
+    meetLink: instructor?.meetLink || "",
+    language: instructor?.language || "Both",
+    profileImage: instructor?.profileImage || "",
+    bio: instructor?.bio || "",
+  }));
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [imageError, setImageError] = useState("");
+  const fileInputRef = useRef(null);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (
+        name === "name" &&
+        isNew &&
+        (!prev.username ||
+          prev.username === prev.name.toLowerCase().trim().replace(/\s+/g, "."))
+      ) {
+        next.username = value.toLowerCase().trim().replace(/\s+/g, ".");
+      }
+      return next;
+    });
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file type: accept JPG, PNG, WEBP
+    const validFormats = ["image/jpeg", "image/png", "image/webp"];
+    if (!validFormats.includes(file.type)) {
+      setImageError("Only JPG, PNG, and WEBP images are accepted.");
+      return;
+    }
+
+    // Check file size: max 1 MB (1,048,576 bytes)
+    const MAX_SIZE = 1 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      const mb = (file.size / (1024 * 1024)).toFixed(2);
+      setImageError(
+        `Image exceeds 1 MB limit (${mb} MB). Please choose a smaller image.`,
+      );
+      return;
+    }
+
+    setImageError("");
+    const reader = new FileReader();
+    reader.onload = (loadEvt) => {
+      setFormData((prev) => ({
+        ...prev,
+        profileImage: loadEvt.target.result,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({ ...prev, profileImage: "" }));
+    setImageError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const validate = () => {
+    const newErrors = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = "Instructor name is required.";
+    }
+
+    if (!formData.username.trim()) {
+      newErrors.username = "Username is required for instructor login.";
+    }
+
+    if (isNew && !formData.password.trim()) {
+      newErrors.password = "Password is required for new instructor.";
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Phone number is required.";
+    } else {
+      // Must contain numeric digits
+      const digitsOnly = formData.phone.replace(/[^0-9]/g, "");
+      if (digitsOnly.length < 7 || digitsOnly.length > 15) {
+        newErrors.phone = "Please enter a valid numeric phone number.";
+      }
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email address is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address.";
+    }
+
+    if (imageError) {
+      newErrors.image = imageError;
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+
+    const payload = {
+      ...formData,
+      name: formData.name.trim(),
+      username: formData.username.trim(),
+      password: formData.password
+        ? formData.password.trim()
+        : instructor?.password || "",
+      phone: formData.phone.trim(),
+      email: formData.email.trim(),
+      meetLink: formData.meetLink.trim(),
+      bio: formData.bio.trim(),
+    };
+
+    onSave(payload, instructor?.id);
+    onClose();
+  };
+
+  return (
+    <ModalBackdrop onClose={onClose} maxWidth="620px">
+      <div>
+        {/* Header */}
+        <div className="mb-4">
+          <div className="eyebrow flex items-center gap-1.5">
+            <TeacherIcon className="w-3.5 h-3.5 text-[var(--dawn)]" />
+            <span>{isNew ? "New Faculty Member" : "Faculty Profile"}</span>
+          </div>
+          <h2 className="modal__title">
+            {isNew
+              ? "Add New Instructor"
+              : `Edit ${formData.name || "Instructor"}`}
+          </h2>
+          <p className="view__note" style={{ margin: "-4px 0 0" }}>
+            {isNew
+              ? "Fill out the teacher's profile, contact details, and video meeting coordinates."
+              : "Update this instructor's credentials, bio, and assigned communication coordinates."}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Profile Image with Live Preview & <= 1MB size check */}
+          <div
+            className="p-3.5 rounded-[var(--radius-md)] border bg-[var(--bg)]"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <div className="text-[12.5px] font-bold text-[var(--ink-soft)] mb-2">
+              Profile Image{" "}
+              <span className="font-normal text-[11px] text-[var(--ink-faint)]">
+                (JPG, PNG, WEBP — Max 1 MB)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              {/* Preview Avatar */}
+              <div className="relative flex-none">
+                {formData.profileImage ? (
+                  <img
+                    src={formData.profileImage}
+                    alt="Instructor preview"
+                    className="w-16 h-16 rounded-full object-cover border-2 shadow-xs"
+                    style={{ borderColor: "var(--dusk)" }}
+                  />
+                ) : (
+                  <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center font-bold text-lg border-2 border-dashed text-[var(--ink-faint)] bg-[var(--surface)]"
+                    style={{ borderColor: "var(--border-strong)" }}
+                  >
+                    <UserIcon className="w-7 h-7" />
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Controls */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label
+                    htmlFor="instructor-photo-upload"
+                    className="btn btn--sm cursor-pointer inline-flex items-center gap-1.5"
+                  >
+                    <span>
+                      {formData.profileImage ? "Replace Photo" : "Upload Photo"}
+                    </span>
+                  </label>
+                  <input
+                    id="instructor-photo-upload"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+
+                  {formData.profileImage && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="btn btn--sm text-[var(--danger)] hover:bg-[var(--danger-soft)]"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {imageError ? (
+                  <div className="text-xs text-[var(--danger)] mt-1.5 font-medium flex items-center gap-1">
+                    <AlertIcon className="w-3 h-3 flex-none" />
+                    <span>{imageError}</span>
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-[var(--ink-faint)] mt-1">
+                    Accepts images up to 1 MB. Live preview displays
+                    immediately.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Form Fields Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Name */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span className="flex items-center gap-1">
+                Full Name <span className="text-[var(--danger)]">*</span>
+              </span>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="e.g. Priya Nair"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                style={{
+                  borderColor: errors.name
+                    ? "var(--danger)"
+                    : "var(--border-strong)",
+                }}
+              />
+              {errors.name && (
+                <span className="text-[11px] text-[var(--danger)] font-normal">
+                  {errors.name}
+                </span>
+              )}
+            </label>
+
+            {/* Gender */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span>Gender</span>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              >
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Other">Other</option>
+              </select>
+            </label>
+
+            {/* Phone Number */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span className="flex items-center gap-1">
+                Phone Number <span className="text-[var(--danger)]">*</span>
+              </span>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="e.g. 9820012345 or +91 98200 12345"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                style={{
+                  borderColor: errors.phone
+                    ? "var(--danger)"
+                    : "var(--border-strong)",
+                }}
+              />
+              {errors.phone && (
+                <span className="text-[11px] text-[var(--danger)] font-normal">
+                  {errors.phone}
+                </span>
+              )}
+            </label>
+
+            {/* Email */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span className="flex items-center gap-1">
+                Email Address <span className="text-[var(--danger)]">*</span>
+              </span>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="e.g. priya@yogaonlive.com"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                style={{
+                  borderColor: errors.email
+                    ? "var(--danger)"
+                    : "var(--border-strong)",
+                }}
+              />
+              {errors.email && (
+                <span className="text-[11px] text-[var(--danger)] font-normal">
+                  {errors.email}
+                </span>
+              )}
+            </label>
+
+            {/* Login Credentials Divider */}
+            <div
+              className="col-span-1 sm:col-span-2 text-[11.5px] font-bold uppercase tracking-wider border-t pt-3.5 mt-1"
+              style={{ color: "var(--dawn)", borderColor: "var(--border)" }}
+            >
+              Instructor Portal Credentials
+            </div>
+
+            {/* Username */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span className="flex items-center gap-1">
+                Username <span className="text-[var(--danger)]">*</span>
+              </span>
+              <input
+                type="text"
+                name="username"
+                autoComplete="off"
+                value={formData.username}
+                onChange={handleChange}
+                placeholder="e.g. priya.nair"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                style={{
+                  borderColor: errors.username
+                    ? "var(--danger)"
+                    : "var(--border-strong)",
+                }}
+              />
+              {errors.username && (
+                <span className="text-[11px] text-[var(--danger)] font-normal">
+                  {errors.username}
+                </span>
+              )}
+            </label>
+
+            {/* Password */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  Password{" "}
+                  {isNew && <span className="text-[var(--danger)]">*</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const chars =
+                      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$*";
+                    let gen = "";
+                    for (let i = 0; i < 10; i++)
+                      gen += chars.charAt(
+                        Math.floor(Math.random() * chars.length),
+                      );
+                    setFormData((prev) => ({ ...prev, password: gen }));
+                    if (errors.password)
+                      setErrors((prev) => ({ ...prev, password: "" }));
+                  }}
+                  className="text-[11px] text-[var(--dusk)] hover:underline font-semibold cursor-pointer"
+                >
+                  Generate password
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="new-password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder={
+                    isNew ? "Enter password" : "Leave blank to keep unchanged"
+                  }
+                  className="w-full p-[9px_11px] pr-10 border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                  style={{
+                    borderColor: errors.password
+                      ? "var(--danger)"
+                      : "var(--border-strong)",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--ink-soft)] hover:text-[var(--ink)] cursor-pointer"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOffIcon className="w-4 h-4" />
+                  ) : (
+                    <EyeIcon className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <span className="text-[11px] text-[var(--danger)] font-normal">
+                  {errors.password}
+                </span>
+              )}
+            </label>
+
+            {/* Private Meet Link */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)] sm:col-span-2">
+              <span>Teacher's Private Meet Link</span>
+              <div className="relative">
+                <input
+                  type="url"
+                  name="meetLink"
+                  value={formData.meetLink}
+                  onChange={handleChange}
+                  placeholder="https://meet.google.com/abc-defg-hij or Zoom URL"
+                  className="w-full p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                  style={{ borderColor: "var(--border-strong)" }}
+                />
+              </div>
+              <span className="text-[11px] text-[var(--ink-faint)] font-normal">
+                Permanent Google Meet or Zoom room used for 1:1 sessions.
+              </span>
+            </label>
+
+            {/* Language */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)] sm:col-span-2">
+              <span>Instruction Language</span>
+              <select
+                name="language"
+                value={formData.language}
+                onChange={handleChange}
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              >
+                <option value="Both">Both (English &amp; Hindi)</option>
+                <option value="English">English</option>
+                <option value="Hindi">Hindi</option>
+              </select>
+            </label>
+
+            {/* Bio / Note */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)] sm:col-span-2">
+              <span>
+                Bio / Notes{" "}
+                <span className="font-normal text-[11px] text-[var(--ink-faint)]">
+                  (Optional)
+                </span>
+              </span>
+              <textarea
+                name="bio"
+                rows={3}
+                value={formData.bio}
+                onChange={handleChange}
+                placeholder="Brief summary of certifications, yoga lineages, specializations, or teaching approach…"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] resize-y focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              />
+            </label>
+          </div>
+
+          {/* Action Buttons Footer */}
+          <div
+            className="flex items-center justify-between gap-2.5 pt-4 border-t mt-5"
+            style={{ borderColor: "var(--border)" }}
+          >
+            {!isNew && onDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Are you sure you want to remove ${formData.name}?`,
+                    )
+                  ) {
+                    onDelete(instructor.id);
+                    onClose();
+                  }
+                }}
+                className="btn btn--danger text-xs"
+              >
+                Delete Instructor
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onClose} className="btn text-xs">
+                Cancel
+              </button>
+              <button type="submit" className="btn btn--primary text-xs">
+                {isNew ? "Save Instructor" : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </ModalBackdrop>
+  );
+}
+
+/* ================= 15. ADD / EDIT CLASS SCHEDULE MODAL ================= */
+export function AddEditClassModal({
+  classItem,
+  instructors = [],
+  classes = [],
+  onClose,
+  onSave,
+  onDelete,
+}) {
+  const isNew = !classItem;
+
+  const initialTime =
+    normalizeTimeSlot(classItem?.timeSlot) ||
+    TIME_SLOT_OPTIONS[2] ||
+    "6:00-7:00 am";
+
+  const [formData, setFormData] = useState({
+    title: classItem?.title || "",
+    timeSlot: initialTime,
+    days: classItem?.days?.length
+      ? [...classItem.days]
+      : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    instructorId: classItem?.instructorId || "",
+    instructorName: classItem?.instructorName || "",
+    classType: classItem?.classType || "group",
+    meetingLink: classItem?.meetingLink || "",
+    language: classItem?.language || "Both",
+    maxCapacity: classItem?.maxCapacity ?? 15,
+    notes: classItem?.notes || "",
+  });
+
+  const [errors, setErrors] = useState({});
+
+  // Handle instructor selection with auto-fill
+  const handleInstructorChange = (e) => {
+    const selectedVal = e.target.value;
+    if (!selectedVal) {
+      setFormData((prev) => ({
+        ...prev,
+        instructorId: "",
+        instructorName: "",
+      }));
+      return;
+    }
+
+    const found = instructors.find(
+      (inst) =>
+        (inst.name || "").toLowerCase() === selectedVal.toLowerCase() ||
+        String(inst.id) === selectedVal,
+    );
+
+    if (found) {
+      setFormData((prev) => ({
+        ...prev,
+        instructorId: found.id,
+        instructorName: found.name,
+        // Auto-fill meeting link if instructor has one
+        meetingLink: found.meetLink || prev.meetingLink,
+        // Auto-fill language from instructor
+        language: found.language || prev.language || "Both",
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        instructorId: "",
+        instructorName: selectedVal,
+      }));
+    }
+  };
+
+  // Inline conflict detection: same instructor + same time slot
+  const conflictingClass = (() => {
+    if (!formData.instructorName || !formData.instructorName.trim()) return null;
+    const targetName = formData.instructorName.trim().toLowerCase();
+
+    return classes.find((c) => {
+      // Don't flag conflict against self when editing
+      if (classItem && String(c.id) === String(classItem.id)) return false;
+      // Class must have an assigned instructor
+      if (!c.instructorName || !c.instructorName.trim() || c.status === "free") return false;
+
+      const matchInst =
+        c.instructorName.trim().toLowerCase() === targetName ||
+        (formData.instructorId && String(c.instructorId) === String(formData.instructorId));
+      if (!matchInst) return false;
+
+      // Must be at the same time slot
+      return (
+        normalizeTimeSlot(c.timeSlot).toLowerCase() ===
+        normalizeTimeSlot(formData.timeSlot).toLowerCase()
+      );
+    });
+  })();
+
+  const handleChange = (e) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "number" ? (value === "" ? "" : Number(value)) : value,
+    }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const newErrors = {};
+    if (!formData.title.trim()) {
+      newErrors.title = "Class title is required";
+    }
+    if (!formData.timeSlot) {
+      newErrors.timeSlot = "Select a time slot";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const payload = {
+      ...formData,
+      timeSlot: normalizeTimeSlot(formData.timeSlot),
+      days: formData.days?.length
+        ? formData.days
+        : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      status:
+        formData.instructorName && formData.instructorName.trim()
+          ? "assigned"
+          : "free",
+    };
+
+    onSave(payload, classItem?.id);
+    onClose();
+  };
+
+  return (
+    <ModalBackdrop onClose={onClose} maxWidth="640px">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+            style={{
+              backgroundColor: "var(--dawn-soft)",
+              color: "var(--dusk)",
+            }}
+          >
+            <CalendarIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-[var(--ink)] leading-tight">
+              {isNew ? "Add New Class" : "Edit Class Schedule"}
+            </h2>
+            <p className="text-xs text-[var(--ink-soft)] mt-0.5">
+              {isNew
+                ? "Configure a new class slot and assign an instructor."
+                : `Updating class #${classItem.id} — ${classItem.title}`}
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            {/* Class Title */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)] sm:col-span-2">
+              <span className="flex items-center gap-1">
+                Class Name / Title <span className="text-[var(--danger)]">*</span>
+              </span>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleChange}
+                placeholder="e.g. Morning Hatha Flow, Evening Restorative Pranayama"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                style={{
+                  borderColor: errors.title
+                    ? "var(--danger)"
+                    : "var(--border-strong)",
+                }}
+              />
+              {errors.title && (
+                <span className="text-[11px] text-[var(--danger)] font-normal">
+                  {errors.title}
+                </span>
+              )}
+            </label>
+
+            {/* Time Slot */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span className="flex items-center gap-1">
+                Time Slot <span className="text-[var(--danger)]">*</span>
+              </span>
+              <select
+                name="timeSlot"
+                value={formData.timeSlot}
+                onChange={handleChange}
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer focus:border-[var(--dusk)] outline-none"
+                style={{
+                  borderColor: errors.timeSlot
+                    ? "var(--danger)"
+                    : "var(--border-strong)",
+                }}
+              >
+                {!TIME_SLOT_OPTIONS.includes(formData.timeSlot) && formData.timeSlot && (
+                  <option value={formData.timeSlot}>{formData.timeSlot}</option>
+                )}
+                {TIME_SLOT_OPTIONS.map((slot) => (
+                  <option key={slot} value={slot}>
+                    {slot}
+                  </option>
+                ))}
+              </select>
+              {errors.timeSlot && (
+                <span className="text-[11px] text-[var(--danger)] font-normal">
+                  {errors.timeSlot}
+                </span>
+              )}
+            </label>
+
+            {/* Class Type */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span>Class Type</span>
+              <select
+                name="classType"
+                value={formData.classType}
+                onChange={handleChange}
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              >
+                <option value="group">Group Class</option>
+                <option value="private">Private 1:1 Class</option>
+              </select>
+            </label>
+
+            {/* Instructor Dropdown */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)] sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <span>Assigned Instructor</span>
+                {!formData.instructorName && (
+                  <span className="text-[11px] font-semibold text-[var(--dawn)] bg-[var(--surface-sunken)] px-2 py-0.5 rounded">
+                    Unassigned (Free Slot)
+                  </span>
+                )}
+              </div>
+              <select
+                name="instructorName"
+                value={formData.instructorName}
+                onChange={handleInstructorChange}
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              >
+                <option value="">None / Free Slot (Unassigned)</option>
+                {instructors.map((inst) => (
+                  <option key={inst.id} value={inst.name}>
+                    {inst.name} — {inst.language || "Both"} — {inst.gender || "Instructor"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {/* Conflict Alert Banner (Non-blocking warning) */}
+            {conflictingClass && (
+              <div
+                className="col-span-1 sm:col-span-2 p-3 rounded-[var(--radius-sm)] border flex items-start gap-2.5 text-xs animate-in fade-in"
+                style={{
+                  backgroundColor: "rgba(245, 158, 11, 0.12)",
+                  borderColor: "rgba(245, 158, 11, 0.35)",
+                  color: "#b45309",
+                }}
+              >
+                <AlertIcon className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                <div className="flex-1 leading-relaxed">
+                  <div className="font-bold text-amber-900 dark:text-amber-200">
+                    ⚠️ Conflict Detected
+                  </div>
+                  <div className="text-[11.5px] mt-0.5 text-amber-800 dark:text-amber-300">
+                    <strong>{formData.instructorName}</strong> is already teaching{" "}
+                    <strong>"{conflictingClass.title}"</strong> at{" "}
+                    <strong>{normalizeTimeSlot(conflictingClass.timeSlot)}</strong>.
+                  </div>
+                  <div className="text-[10.5px] mt-1 text-amber-700/80 dark:text-amber-400/80">
+                    You can still save this assignment if intentional (e.g. co-teaching or team cover), but time slots overlap.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Language */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span>Group Language</span>
+              <select
+                name="language"
+                value={formData.language}
+                onChange={handleChange}
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] cursor-pointer focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              >
+                <option value="Both">Both (English &amp; Hindi)</option>
+                <option value="English">English</option>
+                <option value="Hindi">Hindi</option>
+              </select>
+            </label>
+
+            {/* Max Capacity */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)]">
+              <span>Max Capacity (Students)</span>
+              <input
+                type="number"
+                name="maxCapacity"
+                min={1}
+                max={100}
+                value={formData.maxCapacity}
+                onChange={handleChange}
+                placeholder="e.g. 15"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              />
+            </label>
+
+            {/* Meeting Link */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)] sm:col-span-2">
+              <span>Meeting Link</span>
+              <input
+                type="url"
+                name="meetingLink"
+                value={formData.meetingLink}
+                onChange={handleChange}
+                placeholder="https://meet.google.com/xxx-xxxx-xxx or Zoom URL"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              />
+              <span className="text-[11px] text-[var(--ink-faint)] font-normal">
+                Auto-populated from the assigned instructor's meet link, but can be customized for this slot.
+              </span>
+            </label>
+
+            {/* Notes */}
+            <label className="flex flex-col gap-1.5 text-[12.5px] font-bold text-[var(--ink-soft)] sm:col-span-2">
+              <span>
+                Notes / Instructions{" "}
+                <span className="font-normal text-[11px] text-[var(--ink-faint)]">
+                  (Optional)
+                </span>
+              </span>
+              <textarea
+                name="notes"
+                rows={2}
+                value={formData.notes}
+                onChange={handleChange}
+                placeholder="Class sequence focus, required yoga props, recommended prerequisites…"
+                className="p-[9px_11px] border rounded-[var(--radius-sm)] font-medium text-sm text-[var(--ink)] bg-[var(--surface)] resize-y focus:border-[var(--dusk)] outline-none"
+                style={{ borderColor: "var(--border-strong)" }}
+              />
+            </label>
+          </div>
+
+          {/* Action Buttons Footer */}
+          <div
+            className="flex items-center justify-between gap-2.5 pt-4 border-t mt-5"
+            style={{ borderColor: "var(--border)" }}
+          >
+            {!isNew && onDelete ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Are you sure you want to delete "${formData.title}"? This cannot be undone.`,
+                    )
+                  ) {
+                    onDelete(classItem.id);
+                    onClose();
+                  }
+                }}
+                className="btn btn--danger text-xs"
+              >
+                Delete Class
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onClose} className="btn text-xs">
+                Cancel
+              </button>
+              <button type="submit" className="btn btn--primary text-xs">
+                {isNew ? "Create Class" : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </ModalBackdrop>
+  );
+}
+

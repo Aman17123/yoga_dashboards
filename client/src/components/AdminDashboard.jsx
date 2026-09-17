@@ -232,6 +232,7 @@ export default function AdminDashboard({
             <tr>
               <th>Student</th>
               <th>Type</th>
+              <th>Medium</th>
               <th>Instructor</th>
               <th>Class Link</th>
               <th>Country</th>
@@ -248,7 +249,7 @@ export default function AdminDashboard({
           <tbody>
             {filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={13} className="empty-row">
+                <td colSpan={14} className="empty-row">
                   No students match this search.
                 </td>
               </tr>
@@ -310,6 +311,21 @@ export default function AdminDashboard({
                       <span className={`tag tag--${s.classType === "group" ? "group" : "private"}`}>
                         {typeLabel}
                       </span>
+                    </td>
+                    <td>
+                      {(() => {
+                        const med = (s.medium || s.language || "").toLowerCase();
+                        const label = med.includes("english") ? "English" : "Hindi";
+                        return (
+                          <span className={`tag text-[11px] py-0.5 px-2.5 font-bold ${
+                            label === "English"
+                              ? "bg-blue-100 text-blue-800 border border-blue-200"
+                              : "bg-orange-100 text-orange-800 border border-orange-200"
+                          }`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td>
                       {s.instructorStatus === "matching_in_progress" || !s.instructor ? (

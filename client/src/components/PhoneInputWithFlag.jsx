@@ -4,13 +4,18 @@ import CountryFlag from "./CountryFlag";
 
 export default function PhoneInputWithFlag({
   value = "",
+  phoneCountry,
   country = "India",
+  onCountryChange,
   onChange,
   error = false,
   id = "phone",
 }) {
   // Detect country info
-  const initialCountry = findCountry(country) || COUNTRIES_DATA[0]; // defaults to India
+  const initialCountry =
+    (phoneCountry && findCountry(phoneCountry)) ||
+    findCountry(country) ||
+    COUNTRIES_DATA[0]; // defaults to India
   const [selectedCountry, setSelectedCountry] = useState(initialCountry);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -19,6 +24,10 @@ export default function PhoneInputWithFlag({
 
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  // NOTE: We intentionally do NOT sync selectedCountry from phoneCountry prop
+  // after mount — the phone flag is owned entirely by the user's dial-code selection.
+  // Syncing from the prop caused the phone flag to follow country-of-residence changes.
 
   // Parse incoming value on initial load or if value prop is updated from outside
   useEffect(() => {
@@ -43,6 +52,9 @@ export default function PhoneInputWithFlag({
       strippedNumber = value.slice(matchedCountry.dialCode.length).trim();
       setSelectedCountry(matchedCountry);
       setPhoneNumber(strippedNumber);
+      if (onCountryChange) {
+        onCountryChange(matchedCountry);
+      }
     } else {
       setPhoneNumber(value);
     }
@@ -89,8 +101,12 @@ export default function PhoneInputWithFlag({
     setSelectedCountry(c);
     setIsDropdownOpen(false);
     setDialSearch("");
-    if (onChange && phoneNumber.trim()) {
-      onChange(`${c.dialCode} ${phoneNumber.trim()}`);
+    if (onCountryChange) {
+      onCountryChange(c);
+    }
+    if (onChange) {
+      const full = phoneNumber.trim() ? `${c.dialCode} ${phoneNumber.trim()}` : `${c.dialCode} `;
+      onChange(full);
     }
   };
 

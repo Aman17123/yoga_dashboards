@@ -157,4 +157,41 @@ export const api = {
         method: "DELETE",
       }),
   },
+
+  classes: {
+    getAll: () => request("/classes"),
+    create: (classData) =>
+      request("/classes", {
+        method: "POST",
+        body: JSON.stringify(classData),
+      }),
+    update: (id, classData) =>
+      request(`/classes/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(classData),
+      }),
+    delete: (id) =>
+      request(`/classes/${id}`, {
+        method: "DELETE",
+      }),
+  },
+
+  instructors: {
+    getAll: () => request("/instructors"),
+    create: (instructorData) =>
+      request("/instructors", {
+        method: "POST",
+        body: JSON.stringify(instructorData),
+      }),
+    update: (id, instructorData) =>
+      request(`/instructors/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(instructorData),
+      }),
+    delete: (id) =>
+      request(`/instructors/${id}`, {
+        method: "DELETE",
+      }),
+  },
 };
+

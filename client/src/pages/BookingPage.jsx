@@ -4,7 +4,7 @@ import CountrySelect from "../components/CountrySelect";
 import PhoneInputWithFlag from "../components/PhoneInputWithFlag";
 import CountryFlag from "../components/CountryFlag";
 import Navbar from "../components/Navbar";
-import { findCountry } from "../constants/countries";
+import { findCountry, findCountryByDialCode } from "../constants/countries";
 import { api } from "../services/api";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -611,7 +611,8 @@ export default function BookingPage() {
     country: "India",
     timezone: "Asia/Kolkata",
     language: "English",
-    classType: "group",
+    classType: "",
+    phoneCountry: "India",
     privatePlanCategory: "regular",
     privateFrequency: "5 Days a Week",
     goals: ["Flexibility & Posture", "Stress Relief & Meditation"],
@@ -773,15 +774,23 @@ export default function BookingPage() {
       errs.country = "Please select your country.";
     }
 
-    if (form.classType === "private") {
+    // Class Type: must be selected
+    if (!form.classType) {
+      errs.classType = "Please select a class type (Private or Group).";
+    } else if (form.classType === "private") {
+      if (!form.language)
+        errs.language = "Please select your instruction medium.";
       if (!form.preferredTime1)
         errs.preferredTime1 = "Please select your primary time slot.";
       if (!form.preferredTime2)
-        errs.preferredTime2 = "Please select your secondary time slot.";
-    } else {
+        errs.preferredTime2 = "Please select your secondary / backup time slot.";
+    } else if (form.classType === "group") {
+      if (!form.groupCohortId)
+        errs.groupCohortId = "Please select a group cohort.";
       if (!form.groupTimeSlot)
         errs.groupTimeSlot = "Please select your group batch time slot.";
     }
+
     if (!form.joiningDate) {
       errs.joiningDate = "Please choose your preferred trial / joining date.";
     }
@@ -794,7 +803,14 @@ export default function BookingPage() {
     setGlobalError("");
     if (!validateForm()) {
       setGlobalError("Please review and fill in all required fields.");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        const firstErr = document.querySelector(".field-error-msg, [aria-invalid='true']");
+        if (firstErr) {
+          firstErr.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 50);
       return;
     }
     setViewMode("review");
@@ -802,6 +818,10 @@ export default function BookingPage() {
   };
 
   const currentCountryObj = findCountry(form.country);
+  const phoneCountryObj =
+    findCountryByDialCode(form.phone) ||
+    findCountry(form.phoneCountry) ||
+    findCountry("India");
   const activeCohort =
     GROUP_COHORTS[form.groupCohortId] || GROUP_COHORTS.english;
   const privateLangKey = (form.language || "English")
@@ -1064,7 +1084,8 @@ export default function BookingPage() {
                     <PhoneInputWithFlag
                       id="phone"
                       value={form.phone}
-                      country={form.country}
+                      phoneCountry={form.phoneCountry}
+                      onCountryChange={(c) => set("phoneCountry", c?.name || c)}
                       onChange={(val) => set("phone", val)}
                       error={!!errors.phone}
                     />
@@ -1114,83 +1135,29 @@ export default function BookingPage() {
                   </span>
                 </div>
 
-                {/* Class Format Selection: Two Visible Buttons / Cards */}
+                {/* Class Type Dropdown + Conditional Panel */}
                 <div className="booking-field">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <label className="field-label" id="class-format-label">
-                      Select Class Format
-                      <span className="field-required">*</span>
-                    </label>
-                    <span className="text-[11px] font-semibold text-[#6B7089]">
-                      Choose Private 1:1 or Group Experience
-                    </span>
-                  </div>
-
-                  <div
-                    className="class-format-section-wrapper"
-                    role="radiogroup"
-                    aria-labelledby="class-format-label"
-                  >
-                    {/* Option 1: Private 1:1 Class Card */}
-                    <button
-                      type="button"
-                      id="select-private-class-btn"
-                      role="radio"
-                      aria-checked={form.classType === "private"}
-                      onClick={() => set("classType", "private")}
-                      className={`class-format-card private-card ${form.classType === "private" ? "selected" : ""}`}
+                  <Field label="Class Type" required error={errors.classType}>
+                    <Select
+                      id="class-type-dropdown"
+                      value={form.classType}
+                      onChange={(e) => set("classType", e.target.value)}
                     >
-                      <div className="class-card-header">
-                        <span className="class-card-badge private-badge">
-                          ✨ 1-on-1 Dedicated
-                        </span>
-                        <div
-                          className={`class-card-radio ${form.classType === "private" ? "checked" : ""}`}
-                        >
-                          {form.classType === "private" && (
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 12 12"
-                              fill="none"
-                            >
-                              <path
-                                d="M2.5 6.2l2.6 2.6L9.5 3.2"
-                                stroke="#FFFFFF"
-                                strokeWidth="2.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
+                      <option value="" disabled>
+                        Select class type…
+                      </option>
+                      <option value="private" data-icon="🧘" data-sublabel="Dedicated 1-on-1 · From ₹4,299/mo">
+                        Private Class (1:1)
+                      </option>
+                      <option value="group" data-icon="👥" data-sublabel="Live Community · From ₹999/mo">
+                        Group Class
+                      </option>
+                    </Select>
+                  </Field>
+                </div>
 
-                      <div className="class-card-body">
-                        <div className="class-card-title-row">
-                          <span className="class-card-emoji">🧘</span>
-                          <div>
-                            <h3 className="class-card-title">
-                              Private 1:1 Class
-                            </h3>
-                            <div className="class-card-price-tag">
-                              From ₹4,299 / month
-                            </div>
-                          </div>
-                        </div>
-                        <p className="class-card-description">
-                          Personalized 1-on-1 yoga tailored specifically to your
-                          body condition, flexibility goals &amp; custom IST
-                          schedule.
-                        </p>
-                      </div>
-
-                      <div className="class-card-footer">
-                        <span className="class-card-highlight">
-                          🎯 Dedicated Teacher · 1st Trial Session Free
-                        </span>
-                      </div>
-                    </button>
+                {/* ── Conditional panels rendered below the dropdown ── */}
+                <div>
 
                     {/* ─── PRIVATE 1:1 COACHING SUBSECTION (Inline below Private card on phone) ─── */}
                     {form.classType === "private" && (
@@ -1423,64 +1390,6 @@ export default function BookingPage() {
                       </div>
                     )}
 
-                    {/* Option 2: Group Class Card */}
-                    <button
-                      type="button"
-                      id="select-group-class-btn"
-                      role="radio"
-                      aria-checked={form.classType === "group"}
-                      onClick={() => set("classType", "group")}
-                      className={`class-format-card group-card ${form.classType === "group" ? "selected" : ""}`}
-                    >
-                      <div className="class-card-header">
-                        <span className="class-card-badge group-badge">
-                          👥 Live Community
-                        </span>
-                        <div
-                          className={`class-card-radio ${form.classType === "group" ? "checked" : ""}`}
-                        >
-                          {form.classType === "group" && (
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 12 12"
-                              fill="none"
-                            >
-                              <path
-                                d="M2.5 6.2l2.6 2.6L9.5 3.2"
-                                stroke="#FFFFFF"
-                                strokeWidth="2.2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="class-card-body">
-                        <div className="class-card-title-row">
-                          <span className="class-card-emoji">👥</span>
-                          <div>
-                            <h3 className="class-card-title">Group Class</h3>
-                            <div className="class-card-price-tag">
-                              Starting ₹999 / month
-                            </div>
-                          </div>
-                        </div>
-                        <p className="class-card-description">
-                          Interactive daily group cohorts led by certified
-                          masters with lively peer motivation &amp; structured
-                          practice.
-                        </p>
-                      </div>
-
-                      <div className="class-card-footer">
-                        <span className="class-card-highlight">
-                          ⚡ 8 Daily Slots · Hindi &amp; English Batches
-                        </span>
-                      </div>
-                    </button>
 
                     {/* ─── GROUP CLASS SUBSECTION (Inline below Group card on phone) ─── */}
                     {form.classType === "group" && (
@@ -1569,7 +1478,6 @@ export default function BookingPage() {
                         </div>
                       </div>
                     )}
-                  </div>
                 </div>
 
                 {/* Preferred Trial Date */}
@@ -1685,7 +1593,7 @@ export default function BookingPage() {
                 <ReviewRow label="Gender" value={form.gender} />
                 <ReviewRow label="Phone / WhatsApp">
                   <div className="flex items-center gap-2 justify-end">
-                    <CountryFlag country={currentCountryObj} size="xs" />
+                    <CountryFlag country={phoneCountryObj} size="xs" />
                     <span>{form.phone}</span>
                   </div>
                 </ReviewRow>

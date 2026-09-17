@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { SunIcon, UsersIcon, UserIcon, ChatIcon } from "./Icons";
+import { SunIcon, UsersIcon, UserIcon, ChatIcon, TeacherIcon, CalendarIcon } from "./Icons";
+
+
 import BrandLogo from "./BrandLogo";
 import { getWallTime } from "../utils/dateUtils";
 
@@ -36,15 +38,25 @@ export default function Sidebar({
     >
       {/* Top Row: Brand, Live Badge & Mobile Hamburger */}
       <div className="flex items-center justify-between w-full md:mb-6">
-        <div className="flex items-center gap-2">
-          <BrandLogo size={28} className="w-[28px] h-[28px]" />
+        <a
+          href="/"
+          onClick={(e) => {
+            if (onVisitWebsite) {
+              e.preventDefault();
+              onVisitWebsite();
+            }
+          }}
+          className="flex items-center gap-2 no-underline group cursor-pointer"
+          title="Return to Home Page"
+        >
+          <BrandLogo size={28} className="w-[28px] h-[28px] group-hover:scale-105 transition-transform" />
           <span
-            className="font-bold text-[18px] tracking-tight"
+            className="font-bold text-[18px] tracking-tight group-hover:text-[#F2994A] transition-colors"
             style={{ fontFamily: "var(--font-display)", color: "var(--ink)" }}
           >
             yogaonlive
           </span>
-        </div>
+        </a>
 
         {/* Live indicator & Mobile Hamburger */}
         <div className="flex items-center gap-2">
@@ -109,7 +121,7 @@ export default function Sidebar({
               <span className="w-[18px] h-[18px] flex-none">
                 <UsersIcon className="w-full h-full" />
               </span>
-              <span>Admin Console</span>
+              <span>Students</span>
             </button>
 
             <button
@@ -138,6 +150,36 @@ export default function Sidebar({
                   {pendingEnquiryCount}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabClick("instructors")}
+              className={`flex items-center gap-2.5 w-full p-[10px_12px] text-left text-sm font-semibold rounded-[var(--radius-sm)] border border-transparent transition-colors cursor-pointer ${
+                activeAdminTab === "instructors"
+                  ? "bg-[var(--dusk-soft)] text-[var(--dusk)]"
+                  : "text-[var(--ink-soft)] hover:bg-[var(--bg-alt)] hover:text-[var(--ink)]"
+              }`}
+            >
+              <span className="w-[18px] h-[18px] flex-none">
+                <TeacherIcon className="w-full h-full" />
+              </span>
+              <span>Instructors</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleTabClick("schedule")}
+              className={`flex items-center gap-2.5 w-full p-[10px_12px] text-left text-sm font-semibold rounded-[var(--radius-sm)] border border-transparent transition-colors cursor-pointer ${
+                activeAdminTab === "schedule"
+                  ? "bg-[var(--dusk-soft)] text-[var(--dusk)]"
+                  : "text-[var(--ink-soft)] hover:bg-[var(--bg-alt)] hover:text-[var(--ink)]"
+              }`}
+            >
+              <span className="w-[18px] h-[18px] flex-none">
+                <CalendarIcon className="w-full h-full" />
+              </span>
+              <span>Class Schedule</span>
             </button>
           </>
         ) : (

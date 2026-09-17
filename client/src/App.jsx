@@ -4,11 +4,15 @@ import HomePage from "./components/HomePage";
 import StudentDashboard from "./components/StudentDashboard";
 import AdminDashboard from "./components/AdminDashboard";
 import EnquiriesView from "./components/EnquiriesView";
+import InstructorsView from "./components/InstructorsView";
+import ScheduleView from "./components/ScheduleView";
 import NotificationCenter from "./components/NotificationCenter";
 import Toast from "./components/Toast";
 import {
   StudentDetailModal,
   AddEditStudentModal,
+  AddEditInstructorModal,
+  AddEditClassModal,
   PayNowModal,
   PaymentSettingsModal,
   EnquiryDetailModal,
@@ -25,12 +29,15 @@ import {
   DEFAULT_PAYMENT_SETTINGS,
   INITIAL_STUDENTS,
   INITIAL_ENQUIRIES,
+  INITIAL_INSTRUCTORS,
+  INITIAL_CLASSES,
 } from "./constants/initialData";
+
 import { generateAttendance, formatDateHuman, getCurrentDueDate } from "./utils/dateUtils";
 import { api } from "./services/api";
 import { socket, initSocketConnection } from "./services/socket";
 
-export default function App() {
+export default function App({ forcedView }) {
   // Initialize with initial data, then hydrate from backend API
   const [students, setStudents] = useState(() => {
     return INITIAL_STUDENTS.map((s) => ({
@@ -51,13 +58,45 @@ export default function App() {
       return null;
     }
   }); // { role: "admin" } or { role: "student", id: 1 }
-  const [currentView, setCurrentView] = useState("dashboard"); // "dashboard" | "home"
+  const [currentView, setCurrentView] = useState(() => {
+    // If forced by URL (/admin or /student), set view immediately
+    if (forcedView === "admin") return "dashboard";
+    if (forcedView === "student") return "home";
+    return "home";
+  }); // "dashboard" | "home"
   const [activeAdminTab, setActiveAdminTab] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab");
     if (tab === "enquiries" || tab === "bookings") return "enquiries";
+    if (tab === "instructors") return "instructors";
+    if (tab === "schedule" || tab === "classes") return "schedule";
     return "students";
   });
+  const [instructors, setInstructors] = useState(() => {
+    try {
+      const saved = localStorage.getItem("yoga_instructors");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Could not load instructors from localStorage:", e);
+    }
+    return INITIAL_INSTRUCTORS;
+  });
+  const [classes, setClasses] = useState(() => {
+    try {
+      const saved = localStorage.getItem("yoga_classes");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Could not load classes from localStorage:", e);
+    }
+    return INITIAL_CLASSES;
+  });
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [activeModal, setActiveModal] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
@@ -83,25 +122,39 @@ export default function App() {
   const loadDatabaseData = useCallback(async (silent = false) => {
     if (!silent) setIsRefreshing(true);
     try {
-      const [fetchedStudents, fetchedEnquiries, fetchedSettings, fetchedBookings] =
-        await Promise.all([
-          api.students.getAll().catch((err) => {
-            console.warn("Could not fetch students from API:", err);
-            return null;
-          }),
-          api.enquiries.getAll().catch((err) => {
-            console.warn("Could not fetch enquiries from API:", err);
-            return null;
-          }),
-          api.settings.getPayment().catch((err) => {
-            console.warn("Could not fetch settings from API:", err);
-            return null;
-          }),
-          api.bookings.getAll().catch((err) => {
-            console.warn("Could not fetch bookings from API:", err);
-            return null;
-          }),
-        ]);
+      const [
+        fetchedStudents,
+        fetchedEnquiries,
+        fetchedSettings,
+        fetchedBookings,
+        fetchedClasses,
+        fetchedInstructors,
+      ] = await Promise.all([
+        api.students.getAll().catch((err) => {
+          console.warn("Could not fetch students from API:", err);
+          return null;
+        }),
+        api.enquiries.getAll().catch((err) => {
+          console.warn("Could not fetch enquiries from API:", err);
+          return null;
+        }),
+        api.settings.getPayment().catch((err) => {
+          console.warn("Could not fetch settings from API:", err);
+          return null;
+        }),
+        api.bookings.getAll().catch((err) => {
+          console.warn("Could not fetch bookings from API:", err);
+          return null;
+        }),
+        api.classes.getAll().catch((err) => {
+          console.warn("Could not fetch classes from API:", err);
+          return null;
+        }),
+        api.instructors.getAll().catch((err) => {
+          console.warn("Could not fetch instructors from API:", err);
+          return null;
+        }),
+      ]);
 
       if (Array.isArray(fetchedStudents) && fetchedStudents.length > 0) {
         setStudents(fetchedStudents);
@@ -114,6 +167,12 @@ export default function App() {
       }
       if (Array.isArray(fetchedBookings)) {
         setBookings(fetchedBookings);
+      }
+      if (Array.isArray(fetchedClasses) && fetchedClasses.length > 0) {
+        setClasses(fetchedClasses);
+      }
+      if (Array.isArray(fetchedInstructors) && fetchedInstructors.length > 0) {
+        setInstructors(fetchedInstructors);
       }
     } catch (err) {
       console.warn("Error hydrating from backend API:", err);
@@ -240,6 +299,44 @@ export default function App() {
       setEnquiries((prev) => prev.filter((q) => q.id !== id));
     };
 
+    const handleClassCreated = ({ classItem }) => {
+      if (!classItem) return;
+      setClasses((prev) => {
+        if (prev.some((c) => c.id === classItem.id)) return prev;
+        return [...prev, classItem];
+      });
+    };
+
+    const handleClassUpdated = ({ classItem }) => {
+      if (!classItem) return;
+      setClasses((prev) =>
+        prev.map((c) => (c.id === classItem.id ? classItem : c))
+      );
+    };
+
+    const handleClassDeleted = ({ id }) => {
+      setClasses((prev) => prev.filter((c) => c.id !== id));
+    };
+
+    const handleInstructorCreated = ({ instructor }) => {
+      if (!instructor) return;
+      setInstructors((prev) => {
+        if (prev.some((i) => i.id === instructor.id)) return prev;
+        return [instructor, ...prev];
+      });
+    };
+
+    const handleInstructorUpdated = ({ instructor }) => {
+      if (!instructor) return;
+      setInstructors((prev) =>
+        prev.map((i) => (i.id === instructor.id ? instructor : i))
+      );
+    };
+
+    const handleInstructorDeleted = ({ id }) => {
+      setInstructors((prev) => prev.filter((i) => i.id !== id));
+    };
+
     const handleStatsUpdated = () => {
       // Background re-fetch to ensure exact consistency
       loadDatabaseData(true);
@@ -254,6 +351,12 @@ export default function App() {
     socket.on("enquiry:created", handleEnquiryCreated);
     socket.on("enquiry:updated", handleEnquiryUpdated);
     socket.on("enquiry:deleted", handleEnquiryDeleted);
+    socket.on("class:created", handleClassCreated);
+    socket.on("class:updated", handleClassUpdated);
+    socket.on("class:deleted", handleClassDeleted);
+    socket.on("instructor:created", handleInstructorCreated);
+    socket.on("instructor:updated", handleInstructorUpdated);
+    socket.on("instructor:deleted", handleInstructorDeleted);
     socket.on("stats:updated", handleStatsUpdated);
 
     return () => {
@@ -267,6 +370,12 @@ export default function App() {
       socket.off("enquiry:created", handleEnquiryCreated);
       socket.off("enquiry:updated", handleEnquiryUpdated);
       socket.off("enquiry:deleted", handleEnquiryDeleted);
+      socket.off("class:created", handleClassCreated);
+      socket.off("class:updated", handleClassUpdated);
+      socket.off("class:deleted", handleClassDeleted);
+      socket.off("instructor:created", handleInstructorCreated);
+      socket.off("instructor:updated", handleInstructorUpdated);
+      socket.off("instructor:deleted", handleInstructorDeleted);
       socket.off("stats:updated", handleStatsUpdated);
     };
   }, [loadDatabaseData]);
@@ -536,6 +645,120 @@ export default function App() {
     }
     setActiveModal(null);
   };
+
+  const handleSaveInstructor = async (instructorData, instructorId) => {
+    let updated;
+    if (instructorId) {
+      updated = instructors.map((inst) =>
+        inst.id === instructorId ? { ...inst, ...instructorData } : inst
+      );
+      setInstructors(updated);
+      showToast(`Instructor "${instructorData.name}" updated successfully.`);
+      try {
+        await api.instructors.update(instructorId, instructorData);
+      } catch (err) {
+        console.warn("Could not save instructor to API:", err);
+      }
+    } else {
+      const newInstructor = {
+        ...instructorData,
+        id: Date.now(),
+        createdAt: new Date().toISOString().slice(0, 10),
+      };
+      updated = [newInstructor, ...instructors];
+      setInstructors(updated);
+      showToast(`Instructor "${instructorData.name}" added successfully.`);
+      try {
+        const res = await api.instructors.create(instructorData);
+        if (res?.instructor) {
+          setInstructors((prev) =>
+            prev.map((i) => (i.id === newInstructor.id ? res.instructor : i))
+          );
+        }
+      } catch (err) {
+        console.warn("Could not save instructor to API:", err);
+      }
+    }
+    try {
+      localStorage.setItem("yoga_instructors", JSON.stringify(updated));
+    } catch (err) {
+      console.warn("Could not persist instructors to localStorage:", err);
+    }
+  };
+
+  const handleDeleteInstructor = async (instructorId) => {
+    const target = instructors.find((i) => i.id === instructorId);
+    const updated = instructors.filter((i) => i.id !== instructorId);
+    setInstructors(updated);
+    try {
+      localStorage.setItem("yoga_instructors", JSON.stringify(updated));
+    } catch (err) {
+      console.warn("Could not persist instructors to localStorage:", err);
+    }
+    showToast(`Instructor "${target ? target.name : "Faculty"}" removed.`);
+    try {
+      await api.instructors.delete(instructorId);
+    } catch (err) {
+      console.warn("Could not delete instructor from API:", err);
+    }
+  };
+
+  const handleSaveClass = async (classData, classId) => {
+    let updated;
+    if (classId) {
+      updated = classes.map((c) =>
+        c.id === classId ? { ...c, ...classData } : c
+      );
+      setClasses(updated);
+      showToast(`Class "${classData.title}" updated.`);
+      try {
+        await api.classes.update(classId, classData);
+      } catch (err) {
+        console.warn("Could not save class to API:", err);
+      }
+    } else {
+      const newClass = {
+        ...classData,
+        id: Date.now(),
+      };
+      updated = [...classes, newClass];
+      setClasses(updated);
+      showToast(`Class "${classData.title}" created.`);
+      try {
+        const res = await api.classes.create(classData);
+        if (res?.classItem) {
+          setClasses((prev) =>
+            prev.map((c) => (c.id === newClass.id ? res.classItem : c))
+          );
+        }
+      } catch (err) {
+        console.warn("Could not save class to API:", err);
+      }
+    }
+    try {
+      localStorage.setItem("yoga_classes", JSON.stringify(updated));
+    } catch (err) {
+      console.warn("Could not persist classes to localStorage:", err);
+    }
+  };
+
+  const handleDeleteClass = async (classId) => {
+    const target = classes.find((c) => c.id === classId);
+    const updated = classes.filter((c) => c.id !== classId);
+    setClasses(updated);
+    try {
+      localStorage.setItem("yoga_classes", JSON.stringify(updated));
+    } catch (err) {
+      console.warn("Could not persist classes to localStorage:", err);
+    }
+    showToast(`Class "${target ? target.title : "Slot"}" deleted.`);
+    try {
+      await api.classes.delete(classId);
+    } catch (err) {
+      console.warn("Could not delete class from API:", err);
+    }
+  };
+
 
   const handleRequestDeleteStudent = (student) => {
     setActiveModal({
@@ -913,8 +1136,16 @@ export default function App() {
       ? students.find((s) => s.id === session.id) || students[0]
       : null;
 
-  // If not logged in or user chose to view homepage, display the yogaonlive Home Page
-  if (!session || currentView === "home") {
+  // If not logged in, always show HomePage (login screen)
+  // If logged in AND on /admin or /student URL, go straight to dashboard
+  // If logged in but explicitly viewing "home" (e.g., clicked homepage link), show HomePage
+  const showHomePage =
+    !session ||
+    (currentView === "home" && forcedView !== "admin" && forcedView !== "student") ||
+    (currentView === "home" && forcedView === "student" && session?.role !== "student") ||
+    (currentView === "home" && forcedView === "admin" && session?.role !== "admin");
+
+  if (showHomePage) {
     return (
       <HomePage
         session={session}
@@ -954,8 +1185,12 @@ export default function App() {
             <span className="mono text-xs" style={{ color: "var(--ink-soft)" }}>
               {session.role === "admin"
                 ? activeAdminTab === "students"
-                  ? "Admin Console / All students"
-                  : "Admin Console / Enquiries & Bookings"
+                  ? "Admin / Students"
+                  : activeAdminTab === "instructors"
+                  ? "Admin / Instructors"
+                  : activeAdminTab === "schedule"
+                  ? "Admin / Class Schedule"
+                  : "Admin / Enquiries & Bookings"
                 : "Student / Practice Desk"}
             </span>
             <span style={{ color: "var(--border)" }}>|</span>
@@ -1076,6 +1311,32 @@ export default function App() {
                   }}
                 />
               )}
+
+              {activeAdminTab === "instructors" && (
+                <InstructorsView
+                  instructors={instructors}
+                  onAddInstructor={() =>
+                    setActiveModal({ type: "addEditInstructor", instructor: null })
+                  }
+                  onEditInstructor={(instructor) =>
+                    setActiveModal({ type: "addEditInstructor", instructor })
+                  }
+                />
+              )}
+
+              {activeAdminTab === "schedule" && (
+                <ScheduleView
+                  classes={classes}
+                  instructors={instructors}
+                  onAddClass={() =>
+                    setActiveModal({ type: "addEditClass", classItem: null })
+                  }
+                  onEditClass={(classItem) =>
+                    setActiveModal({ type: "addEditClass", classItem })
+                  }
+                  onDeleteClass={handleDeleteClass}
+                />
+              )}
             </>
           )}
         </main>
@@ -1145,6 +1406,27 @@ export default function App() {
           onRequestDelete={handleRequestDeleteStudent}
         />
       )}
+
+      {activeModal?.type === "addEditInstructor" && (
+        <AddEditInstructorModal
+          instructor={activeModal.instructor}
+          onClose={() => setActiveModal(null)}
+          onSave={handleSaveInstructor}
+          onDelete={handleDeleteInstructor}
+        />
+      )}
+
+      {activeModal?.type === "addEditClass" && (
+        <AddEditClassModal
+          classItem={activeModal.classItem}
+          instructors={instructors}
+          classes={classes}
+          onClose={() => setActiveModal(null)}
+          onSave={handleSaveClass}
+          onDelete={handleDeleteClass}
+        />
+      )}
+
 
       {activeModal?.type === "enrollConfirm" && (
         <EnrollStudentConfirmModal

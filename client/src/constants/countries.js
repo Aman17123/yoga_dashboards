@@ -91,6 +91,20 @@ export function findCountry(query) {
   return null;
 }
 
+export function findCountryByDialCode(dialCodeOrPhone) {
+  if (!dialCodeOrPhone) return null;
+  const str = String(dialCodeOrPhone).trim();
+  let bestMatch = null;
+  for (const c of COUNTRIES_DATA) {
+    if (str.startsWith(c.dialCode)) {
+      if (!bestMatch || c.dialCode.length > bestMatch.dialCode.length) {
+        bestMatch = c;
+      }
+    }
+  }
+  return bestMatch;
+}
+
 export function getFlagUrl(code) {
   if (!code || code === "Other") return null;
   return `https://flagcdn.com/w40/${code.toLowerCase()}.png`;

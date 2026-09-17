@@ -345,6 +345,44 @@ function generateAttendance(student) {
 
 export async function seedDatabaseIfEmpty() {
   try {
+    // Ensure instructors and classes tables exist
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS instructors (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        username VARCHAR(255) DEFAULT '',
+        password VARCHAR(255) DEFAULT '',
+        gender VARCHAR(50) DEFAULT 'Female',
+        phone VARCHAR(50) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        meet_link VARCHAR(500) DEFAULT '',
+        language VARCHAR(50) DEFAULT 'Both',
+        profile_image LONGTEXT DEFAULT NULL,
+        bio TEXT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `).catch((err) => console.warn("[DB] Could not ensure instructors table:", err.message));
+
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS classes (
+        id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        time_slot VARCHAR(100) NOT NULL,
+        days JSON DEFAULT NULL,
+        instructor_id INT DEFAULT NULL,
+        instructor_name VARCHAR(255) DEFAULT '',
+        class_type ENUM('group', 'private') DEFAULT 'group',
+        meeting_link VARCHAR(500) DEFAULT '',
+        language VARCHAR(50) DEFAULT 'Both',
+        max_capacity INT DEFAULT 15,
+        notes TEXT DEFAULT NULL,
+        status ENUM('assigned', 'free') DEFAULT 'free',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `).catch((err) => console.warn("[DB] Could not ensure classes table:", err.message));
+
     const [sCountRows] = await pool.execute("SELECT COUNT(*) AS cnt FROM students");
     if (sCountRows[0].cnt === 0) {
       console.log("Seeding initial student records...");
@@ -455,9 +493,9 @@ export async function seedDatabaseIfEmpty() {
       );
       await pool.execute(
         `INSERT INTO payment_settings_group_links (cohort_key, meet_url) VALUES
-          ('hindi', 'https://meet.google.com/yol-hindi-cohort'),
-          ('english', 'https://meet.google.com/yol-english-cohort'),
-          ('default', 'https://meet.google.com/yol-live-group')
+          ('hindi', 'https://zoom.us/j/9819023456'),
+          ('english', 'https://zoom.us/j/9820012345'),
+          ('default', 'https://zoom.us/j/9833034567')
         ON DUPLICATE KEY UPDATE meet_url=VALUES(meet_url)`
       );
       console.log("Successfully seeded payment settings.");

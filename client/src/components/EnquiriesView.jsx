@@ -555,12 +555,12 @@ export default function EnquiriesView({
             <table className="stable">
               <thead>
                 <tr>
-                  <th>Student</th>
-                  <th>Ref</th>
-                  <th>Contact</th>
-                  <th>Class / Cohort</th>
-                  <th>Source</th>
-                  <th>Received</th>
+                  <th>Student Details</th>
+                  <th>Class Type</th>
+                  <th>Medium</th>
+                  <th>Instructor Assigned</th>
+                  <th>Time Slot</th>
+                  <th>Tuition</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -577,8 +577,13 @@ export default function EnquiriesView({
                 ) : (
                   filteredBookings.map((b) => {
                     const palette = avatarColor(b._id || b.bookingRef || b.email);
-                    const classLabel = CLASS_TYPE_LABEL[b.classType] || "Class";
-                    const cohortLabel = b.groupCohort || b.preferredTime || "Flexible";
+                    const classLabel = b.classType === "private" ? "Private (1:1)" : "Group Class";
+                    const bMedium = (b.medium || b.language || "Hindi").toLowerCase().includes("english") ? "English" : "Hindi";
+                    const assignedInstructor =
+                      b.instructor ||
+                      b.instructorPreference ||
+                      (b.classType === "group" ? (bMedium === "Hindi" ? "Rohan Mehta" : "Priya Nair") : "Assigned Master");
+                    const timeSlot = b.preferredTime || b.groupTimeSlot || "Flexible";
                     return (
                       <tr
                         key={b._id || b.bookingRef}
@@ -596,34 +601,45 @@ export default function EnquiriesView({
                               <div className="text-xs flex items-center gap-1.5" style={{ color: "var(--ink-soft)" }}>
                                 <CountryFlag country={b.country} size="xs" />
                                 <span>{b.country || "—"}</span>
+                                {b.age && <span>• {b.age}y</span>}
                               </div>
+                              <div className="text-[11px] text-[var(--ink-faint)] font-mono">{b.email}</div>
                             </div>
                           </div>
                         </td>
                         <td>
-                          <span className="mono text-xs font-semibold px-2 py-0.5 rounded bg-[var(--dusk-soft)] text-[var(--dusk)]">
-                            {b.bookingRef || "—"}
+                          <span className={`tag text-xs font-semibold ${b.classType === "private" ? "tag--private" : "tag--group"}`}>
+                            {classLabel}
                           </span>
                         </td>
                         <td>
-                          <div className="text-xs font-medium">{b.email}</div>
-                          {b.phone && <div className="mono text-xs" style={{ color: "var(--ink-soft)" }}>{b.phone}</div>}
+                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${
+                            bMedium === "Hindi" ? "bg-orange-100 text-orange-800 border border-orange-200" : "bg-blue-100 text-blue-800 border border-blue-200"
+                          }`}>
+                            {bMedium}
+                          </span>
                         </td>
                         <td>
-                          <div className="text-xs font-semibold">{classLabel}</div>
-                          <div className="text-xs" style={{ color: "var(--ink-soft)" }}>
-                            {cohortLabel}
+                          <div className="font-semibold text-xs text-[var(--ink)] flex items-center gap-1.5">
+                            <span>🧘</span>
+                            <span>{assignedInstructor}</span>
                           </div>
+                        </td>
+                        <td>
+                          <div className="text-xs font-medium text-[var(--ink)] flex items-center gap-1">
+                            <span>⏰</span>
+                            <span>{timeSlot}</span>
+                          </div>
+                        </td>
+                        <td>
                           {b.fee ? (
-                            <div className="text-[11px] font-mono font-medium" style={{ color: "var(--dusk)" }}>
+                            <div className="text-xs font-mono font-bold" style={{ color: "var(--dusk)" }}>
                               ₹{Number(b.fee).toLocaleString("en-IN")}
                             </div>
-                          ) : null}
+                          ) : (
+                            <span className="text-xs text-[var(--ink-faint)]">—</span>
+                          )}
                         </td>
-                        <td>
-                          <span className="tag tag--muted text-xs">{b.source || "direct"}</span>
-                        </td>
-                        <td className="mono text-xs">{formatBookingDate(b.createdAt)}</td>
                         <td>
                           <span className={`tag tag--${BOOKING_STATUS_TAG[b.status] || "pending"}`}>
                             {BOOKING_STATUS_LABEL[b.status] || b.status}

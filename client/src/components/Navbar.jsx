@@ -62,7 +62,7 @@ export default function Navbar({
     if (onNavigateDashboard) {
       onNavigateDashboard();
     } else {
-      window.location.href = "/";
+      window.location.href = isAdmin ? "/admin" : "/student";
     }
   };
 
@@ -124,35 +124,6 @@ export default function Navbar({
           ) : (
             /* Logged In: Direct Dashboard Access Button + Account Profile Pill */
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Direct "My Dashboard" / "Admin Console" Navigation Button */}
-              <button
-                type="button"
-                id="navbar-dashboard-btn"
-                onClick={onNavigateDashboard}
-                className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-[8px] bg-gradient-to-r from-[#4C5FD5] to-[#6B3FA8] hover:from-[#3D4EC4] hover:to-[#5B3195] text-white text-xs sm:text-sm font-bold tracking-wide shadow-md shadow-[#4C5FD5]/20 hover:shadow-lg transition-all cursor-pointer flex-none"
-                title={
-                  isAdmin ? "Open Admin Console" : "Open My Student Dashboard"
-                }
-              >
-                <span>{isAdmin ? "⚙️" : "🧘"}</span>
-                <span>{isAdmin ? "Admin Console" : "My Dashboard"}</span>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="hidden sm:inline"
-                >
-                  <path
-                    d="M6 3l5 5-5 5"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-
               {/* Account Dropdown Pill */}
               <div className="relative" ref={dropdownRef}>
                 <button

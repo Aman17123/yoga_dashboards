@@ -161,4 +161,46 @@ CREATE TABLE IF NOT EXISTS `payment_settings_group_links` (
   `meet_url` VARCHAR(500) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ------------------------------------------------------------
+-- 8. Table: instructors
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `instructors` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(255) NOT NULL,
+  `username` VARCHAR(255) DEFAULT '',
+  `password` VARCHAR(255) DEFAULT '',
+  `gender` VARCHAR(50) DEFAULT 'Female',
+  `phone` VARCHAR(50) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `meet_link` VARCHAR(500) DEFAULT '',
+  `language` VARCHAR(50) DEFAULT 'Both',
+  `profile_image` LONGTEXT DEFAULT NULL,
+  `bio` TEXT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+-- 9. Table: classes (Schedule entries)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `classes` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `title` VARCHAR(255) NOT NULL,
+  `time_slot` VARCHAR(100) NOT NULL,
+  `days` JSON DEFAULT NULL,
+  `instructor_id` INT DEFAULT NULL,
+  `instructor_name` VARCHAR(255) DEFAULT '',
+  `class_type` ENUM('group', 'private') DEFAULT 'group',
+  `meeting_link` VARCHAR(500) DEFAULT '',
+  `language` VARCHAR(50) DEFAULT 'Both',
+  `max_capacity` INT DEFAULT 15,
+  `notes` TEXT DEFAULT NULL,
+  `status` ENUM('assigned', 'free') DEFAULT 'free',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_classes_time_slot` (`time_slot`),
+  INDEX `idx_classes_instructor` (`instructor_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
+

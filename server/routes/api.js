@@ -4,8 +4,11 @@ import * as studentController from "../controllers/studentController.js";
 import * as enquiryController from "../controllers/enquiryController.js";
 import * as settingsController from "../controllers/settingsController.js";
 import * as bookingController from "../controllers/bookingController.js";
+import * as classController from "../controllers/classController.js";
+import * as instructorController from "../controllers/instructorController.js";
 
 const router = Router();
+
 
 // Health check
 router.get("/health", (req, res) => {
@@ -56,4 +59,17 @@ router.delete("/bookings/:id", bookingController.deleteBooking);
 router.get("/settings/payment", settingsController.getPaymentSettings);
 router.put("/settings/payment", settingsController.updatePaymentSettings);
 
+// Classes (Schedule slots)
+router.get("/classes", classController.getAllClasses);
+router.post("/classes", classController.createClass);
+router.put("/classes/:id", classController.updateClass);
+router.delete("/classes/:id", classController.deleteClass);
+
+// Instructors
+router.get("/instructors", instructorController.getAllInstructors);
+router.post("/instructors", instructorController.createInstructor);
+router.put("/instructors/:id", instructorController.updateInstructor);
+router.delete("/instructors/:id", instructorController.deleteInstructor);
+
 export default router;
+

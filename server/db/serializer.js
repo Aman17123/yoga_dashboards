@@ -134,6 +134,8 @@ export async function getAllFullStudents(executor) {
 
 export function formatBooking(row) {
   if (!row) return null;
+  const rawLang = row.language || "English";
+  const cleanMedium = rawLang.toLowerCase().includes("hindi") ? "Hindi" : "English";
   return {
     _id: String(row.id),
     id: Number(row.id),
@@ -144,7 +146,8 @@ export function formatBooking(row) {
     phone: row.phone || "",
     country: row.country || "",
     timezone: row.timezone || "Asia/Kolkata",
-    language: row.language || "English",
+    language: cleanMedium,
+    medium: cleanMedium,
     classType: row.class_type || "group",
     preferredTime: row.preferred_time || "",
     preferredTime2: row.preferred_time2 || "",

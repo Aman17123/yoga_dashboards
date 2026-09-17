@@ -84,6 +84,9 @@ export async function createBooking(req, res) {
       }
     }
 
+    const mediumVal = (req.body.medium || language || "English").toString().trim();
+    const cleanMedium = mediumVal.toLowerCase().includes("hindi") ? "Hindi" : "English";
+
     const stamp = Date.now().toString(36).toUpperCase();
     const rand = Math.random().toString(36).substring(2, 5).toUpperCase();
     const bookingRef = `YOL-${stamp}-${rand}`;
@@ -103,7 +106,7 @@ export async function createBooking(req, res) {
         phone?.trim() || "",
         country?.trim() || "",
         timezone || "Asia/Kolkata",
-        language?.trim() || "English",
+        cleanMedium,
         classType === "private" ? "private" : "group",
         preferredTime?.trim() || "",
         preferredTime2?.trim() || "",
