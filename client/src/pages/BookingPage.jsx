@@ -1,40 +1,51 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import CountrySelect from "../components/CountrySelect";
 import PhoneInputWithFlag from "../components/PhoneInputWithFlag";
 import CountryFlag from "../components/CountryFlag";
 import Navbar from "../components/Navbar";
-import { findCountry, findCountryByDialCode } from "../constants/countries";
+import { findCountry, findCountryByDialCode, COUNTRIES_DATA } from "../constants/countries";
 import { api } from "../services/api";
+import {
+  INITIAL_INSTRUCTORS,
+  INITIAL_CLASSES,
+  getTeacherTitle,
+  normalizeTimeSlot,
+} from "../constants/initialData";
+import {
+  convertSlotToTimezone,
+  parseSlotIST,
+  offsetSentence,
+} from "../utils/dateUtils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const TIMEZONES = [
-  { value: "Asia/Kolkata", label: "India (IST — UTC+5:30)", flag: "🇮🇳" },
-  { value: "America/New_York", label: "USA East (EST/EDT)", flag: "🇺🇸" },
-  { value: "America/Chicago", label: "USA Central (CST/CDT)", flag: "🇺🇸" },
-  { value: "America/Denver", label: "USA Mountain (MST/MDT)", flag: "🇺🇸" },
-  { value: "America/Los_Angeles", label: "USA West (PST/PDT)", flag: "🇺🇸" },
-  { value: "Europe/London", label: "UK (GMT/BST)", flag: "🇬🇧" },
-  { value: "Europe/Berlin", label: "Germany / France (CET)", flag: "🇩🇪" },
-  { value: "Europe/Amsterdam", label: "Netherlands (CET)", flag: "🇳🇱" },
-  { value: "Europe/Stockholm", label: "Sweden (CET)", flag: "🇸🇪" },
-  { value: "Europe/Zurich", label: "Switzerland (CET)", flag: "🇨🇭" },
-  { value: "Asia/Dubai", label: "UAE (GST — UTC+4)", flag: "🇦🇪" },
-  { value: "Asia/Singapore", label: "Singapore (SGT — UTC+8)", flag: "🇸🇬" },
-  { value: "Asia/Tokyo", label: "Japan (JST — UTC+9)", flag: "🇯🇵" },
-  { value: "Australia/Sydney", label: "Australia East (AEST)", flag: "🇦🇺" },
-  { value: "Australia/Perth", label: "Australia West (AWST)", flag: "🇦🇺" },
-  { value: "Pacific/Auckland", label: "New Zealand (NZST)", flag: "🇳🇿" },
-  { value: "America/Toronto", label: "Canada East (EST/EDT)", flag: "🇨🇦" },
-  { value: "America/Vancouver", label: "Canada West (PST/PDT)", flag: "🇨🇦" },
-  { value: "Africa/Lagos", label: "Nigeria (WAT — UTC+1)", flag: "🇳🇬" },
-  {
-    value: "Africa/Johannesburg",
-    label: "South Africa (SAST — UTC+2)",
-    flag: "🇿🇦",
-  },
-  { value: "Asia/Riyadh", label: "Saudi Arabia (AST — UTC+3)", flag: "🇸🇦" },
+const PRIMARY_TIMEZONES = [
+  { value: "Asia/Kolkata", label: "India (IST — UTC+5:30)", flag: "🇮🇳", country: "India" },
+  { value: "America/New_York", label: "United States - East (EST/EDT)", flag: "🇺🇸", country: "United States" },
+  { value: "America/Chicago", label: "United States - Central (CST/CDT)", flag: "🇺🇸", country: "United States" },
+  { value: "America/Denver", label: "United States - Mountain (MST/MDT)", flag: "🇺🇸", country: "United States" },
+  { value: "America/Los_Angeles", label: "United States - West (PST/PDT)", flag: "🇺🇸", country: "United States" },
+  { value: "Europe/London", label: "United Kingdom (GMT/BST)", flag: "🇬🇧", country: "United Kingdom" },
+  { value: "Asia/Dubai", label: "United Arab Emirates (GST — UTC+4)", flag: "🇦🇪", country: "United Arab Emirates" },
+  { value: "Asia/Qatar", label: "Qatar (AST — UTC+3)", flag: "🇶🇦", country: "Qatar" },
+  { value: "Asia/Singapore", label: "Singapore (SGT — UTC+8)", flag: "🇸🇬", country: "Singapore" },
+  { value: "America/Toronto", label: "Canada - East (EST/EDT)", flag: "🇨🇦", country: "Canada" },
+  { value: "America/Vancouver", label: "Canada - West (PST/PDT)", flag: "🇨🇦", country: "Canada" },
+  { value: "Australia/Sydney", label: "Australia - East (AEST)", flag: "🇦🇺", country: "Australia" },
+  { value: "Australia/Perth", label: "Australia - West (AWST)", flag: "🇦🇺", country: "Australia" },
 ];
+
+const primaryTzSet = new Set(PRIMARY_TIMEZONES.map((t) => t.value));
+const OTHER_TIMEZONES = COUNTRIES_DATA.filter(
+  (c) => c.defaultTz && !primaryTzSet.has(c.defaultTz) && c.code !== "Other"
+).map((c) => ({
+  value: c.defaultTz,
+  label: `${c.name} (${c.defaultTz.split("/")[1]?.replace(/_/g, " ") || c.defaultTz})`,
+  flag: c.flag,
+  country: c.name,
+}));
+
+const TIMEZONES = [...PRIMARY_TIMEZONES, ...OTHER_TIMEZONES];
 
 const YOGA_GOALS = [
   "Weight Loss & Toning",
@@ -241,15 +252,16 @@ const PRIVATE_TIME_SLOTS = [
   "8:30 pm - 9:30 pm IST",
 ];
 
-function Field({ label, required, error, children, id }) {
+function Field({ label, hint, required, error, children, id }) {
   return (
     <div className={`booking-field ${error ? "has-error" : ""}`}>
       {label && (
         <label htmlFor={id} className="field-label">
-          {label}
+          <span>{label}</span>
           {required && <span className="field-required">*</span>}
         </label>
       )}
+      {hint && <p className="field-hint-text">{hint}</p>}
       {children}
       {error && <div className="field-error-text">{error}</div>}
     </div>
@@ -677,8 +689,32 @@ export default function BookingPage() {
     }));
   };
 
-  const handleCountryChange = (countryName) => {
-    set("country", countryName);
+  const handleCountryChange = (countryName, countryObj) => {
+    const cObj = countryObj || findCountry(countryName);
+    const targetTz = cObj?.defaultTz || form.timezone;
+    setForm((prev) => ({
+      ...prev,
+      country: countryName,
+      timezone: targetTz,
+    }));
+    if (errors.country) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.country;
+        return next;
+      });
+    }
+  };
+
+  const handleTimezoneChange = (tzValue) => {
+    const tzMatch = TIMEZONES.find((t) => t.value === tzValue);
+    const countryMatch = COUNTRIES_DATA.find((c) => c.defaultTz === tzValue);
+    const targetCountry = tzMatch?.country || countryMatch?.name || form.country;
+    setForm((prev) => ({
+      ...prev,
+      timezone: tzValue,
+      country: targetCountry,
+    }));
     if (errors.country) {
       setErrors((prev) => {
         const next = { ...prev };
@@ -841,6 +877,188 @@ export default function BookingPage() {
     activePrivatePlan.frequencies[2] ||
     activePrivatePlan.frequencies[0];
 
+  // Live faculty and timetable state from backend / initialData
+  const [instructorsList, setInstructorsList] = useState(() => {
+    try {
+      const saved = localStorage.getItem("yoga_instructors");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_INSTRUCTORS;
+  });
+
+  const [classesList, setClassesList] = useState(() => {
+    try {
+      const saved = localStorage.getItem("yoga_classes");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return INITIAL_CLASSES;
+  });
+
+  const [selectedGroupTeacherId, setSelectedGroupTeacherId] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    api.instructors
+      .getAll()
+      .then((data) => {
+        if (mounted && Array.isArray(data) && data.length > 0) {
+          const enriched = data.map((inst) => {
+            const init = INITIAL_INSTRUCTORS.find(
+              (i) => i.id === inst.id || i.name === inst.name
+            );
+            return {
+              ...inst,
+              profileImage:
+                inst.profileImage ||
+                init?.profileImage ||
+                "/instructors/priya-nair.jpg",
+            };
+          });
+          setInstructorsList(enriched);
+        }
+      })
+      .catch(() => {});
+
+    api.classes
+      .getAll()
+      .then((data) => {
+        if (mounted && Array.isArray(data) && data.length > 0) {
+          setClassesList(data);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Time slot matching helper (handles "7:00 am - 8:00 am IST" vs "7:00-8:00 am")
+  const matchTimeSlots = (slotA, slotB) => {
+    if (!slotA || !slotB) return false;
+    const sA = String(slotA).toLowerCase().replace(/\s*ist\s*/g, "").trim();
+    const sB = String(slotB).toLowerCase().replace(/\s*ist\s*/g, "").trim();
+    if (sA === sB) return true;
+
+    const pA = parseSlotIST(slotA);
+    const pB = parseSlotIST(slotB);
+    if (pA && pB) {
+      return (
+        pA.startH === pB.startH &&
+        pA.startM === pB.startM &&
+        pA.endH === pB.endH
+      );
+    }
+    return false;
+  };
+
+  // Only show teachers who are marked as available during that time in the Scheduler tab
+  const availableGroupTeachers = useMemo(() => {
+    if (!form.groupTimeSlot) return [];
+    const cohortLang = (activeCohort?.language || form.language || "").toLowerCase();
+    const available = [];
+    const seenKeys = new Set();
+
+    // 1. Check classes in scheduler timetable
+    (classesList || []).forEach((cls) => {
+      if (cls.instructorName && matchTimeSlots(cls.timeSlot, form.groupTimeSlot)) {
+        const instObj = (instructorsList || []).find(
+          (inst) =>
+            (cls.instructorId && inst.id === cls.instructorId) ||
+            (inst.name && inst.name.toLowerCase() === cls.instructorName.toLowerCase())
+        );
+        if (instObj && !seenKeys.has(instObj.id || instObj.name)) {
+          const instLang = (instObj.language || instObj.medium || "").toLowerCase();
+          if (
+            !cohortLang ||
+            instLang.includes(cohortLang) ||
+            cohortLang.includes(instLang) ||
+            instLang === "both"
+          ) {
+            seenKeys.add(instObj.id || instObj.name);
+            available.push({
+              ...instObj,
+              isScheduledLead: true,
+              scheduledClass: cls.title,
+            });
+          }
+        }
+      }
+    });
+
+    // 2. Check instructor availableSlots in Scheduler
+    (instructorsList || []).forEach((inst) => {
+      const key = inst.id || inst.name;
+      if (seenKeys.has(key)) return;
+
+      const hasSlot =
+        Array.isArray(inst.availableSlots) &&
+        inst.availableSlots.some((s) => matchTimeSlots(s, form.groupTimeSlot));
+
+      if (hasSlot) {
+        const instLang = (inst.language || inst.medium || "").toLowerCase();
+        if (
+          !cohortLang ||
+          instLang.includes(cohortLang) ||
+          cohortLang.includes(instLang) ||
+          instLang === "both"
+        ) {
+          seenKeys.add(key);
+          available.push({
+            ...inst,
+            isScheduledLead: false,
+          });
+        }
+      }
+    });
+
+    return available;
+  }, [form.groupTimeSlot, activeCohort, classesList, instructorsList]);
+
+  // Keep selectedGroupTeacherId in sync
+  useEffect(() => {
+    if (availableGroupTeachers.length > 0) {
+      const exists = availableGroupTeachers.some((t) => t.id === selectedGroupTeacherId);
+      if (!exists) {
+        setSelectedGroupTeacherId(availableGroupTeachers[0].id);
+      }
+    } else {
+      setSelectedGroupTeacherId(null);
+    }
+  }, [availableGroupTeachers, selectedGroupTeacherId]);
+
+  const activeGroupTeacher = useMemo(() => {
+    if (selectedGroupTeacherId) {
+      return (
+        instructorsList.find((i) => i.id === selectedGroupTeacherId) ||
+        availableGroupTeachers[0] ||
+        null
+      );
+    }
+    return availableGroupTeachers[0] || null;
+  }, [selectedGroupTeacherId, availableGroupTeachers, instructorsList]);
+
+  // Matched faculty for 1-on-1 Private Class preview
+  const matchingPrivateTeachers = useMemo(() => {
+    const lang = (form.language || "English").toLowerCase();
+    const pref = form.instructorPreference;
+    return (instructorsList || []).filter((inst) => {
+      const instLang = (inst.language || inst.medium || "").toLowerCase();
+      const langMatch =
+        instLang.includes(lang) || lang.includes(instLang) || instLang === "both";
+      if (!langMatch) return false;
+      if (pref === "Female") return inst.gender === "Female";
+      if (pref === "Male") return inst.gender === "Male";
+      return true;
+    });
+  }, [form.language, form.instructorPreference, instructorsList]);
+
   const handleSubmitBooking = async () => {
     setGlobalError("");
     setLoading(true);
@@ -883,6 +1101,12 @@ export default function BookingPage() {
       instructorPreference:
         form.classType === "private"
           ? form.instructorPreference
+          : activeGroupTeacher
+          ? activeGroupTeacher.name
+          : selectedCohort?.instructor || "Any",
+      assignedInstructor:
+        form.classType === "group" && activeGroupTeacher
+          ? `${getTeacherTitle(activeGroupTeacher.gender)} ${activeGroupTeacher.name}`
           : selectedCohort?.instructor || "Any",
       groupCohort: finalGroupCohort,
       fee: finalFee,
@@ -1110,7 +1334,7 @@ export default function BookingPage() {
                   <Field label="Your Timezone" required>
                     <Select
                       value={form.timezone}
-                      onChange={(e) => set("timezone", e.target.value)}
+                      onChange={(e) => handleTimezoneChange(e.target.value)}
                     >
                       {TIMEZONES.map((tz) => (
                         <option
@@ -1162,19 +1386,19 @@ export default function BookingPage() {
                     {/* ─── PRIVATE 1:1 COACHING SUBSECTION (Inline below Private card on phone) ─── */}
                     {form.classType === "private" && (
                       <div className="format-panel-box private-theme animate-fadeIn private-panel-item">
-                        <div className="format-panel-header">
+                        <div className="format-panel-header mb-3">
                           <div className="format-panel-badge private-theme">
-                            <span>🧘 Private 1:1 Coaching Configuration</span>
+                            <span>🧘 Private 1-on-1 Coaching</span>
                           </div>
                           <span className="text-xs font-semibold text-[#4C5FD5]">
-                            100% Dedicated Attention
+                            Dedicated 1-on-1 Guidance
                           </span>
                         </div>
 
                         <div className="form-grid-2">
                           {/* Dropdown 1: Instruction Language */}
                           <Field
-                            label="Instruction Language"
+                            label="Preferred Language"
                             required
                             error={errors.language}
                           >
@@ -1188,22 +1412,25 @@ export default function BookingPage() {
                               <option
                                 value="English"
                                 data-icon="🌐"
-                                data-sublabel="Global & NRI"
+                                data-sublabel="Global & NRI · English Medium"
                               >
                                 English Medium
                               </option>
                               <option
                                 value="Hindi"
                                 data-icon="🇮🇳"
-                                data-sublabel="Popular in India"
+                                data-sublabel="Popular across India · Hindi Medium"
                               >
-                                Hindi Medium
+                                Hindi Medium (हिंदी)
                               </option>
                             </Select>
                           </Field>
 
                           {/* Dropdown 2: Private Yoga Program */}
-                          <Field label="Private Yoga Program" required>
+                          <Field
+                            label="Yoga Style & Focus"
+                            required
+                          >
                             <Select
                               id="private-plan-dropdown"
                               value={form.privatePlanCategory}
@@ -1214,31 +1441,31 @@ export default function BookingPage() {
                               <option
                                 value="regular"
                                 data-icon="🧘"
-                                data-sublabel="Beginner to Intermediate"
+                                data-sublabel="Beginner to Intermediate · Tailored Routine"
                               >
-                                Regular Yoga Plan
+                                Regular Yoga Plan (Mobility & Core)
                               </option>
                               <option
                                 value="advanced"
                                 data-icon="✨"
-                                data-sublabel="Prenatal / Ashtanga / Therapy"
+                                data-sublabel="Doctor-Aligned · Prenatal / Ashtanga / Therapy"
                               >
-                                Pregnancy &amp; Advanced Yoga
+                                Pregnancy &amp; Advanced Yoga (Specialized Therapy)
                               </option>
                             </Select>
                           </Field>
                         </div>
 
-                        {/* ═══ LIVE PLAN CARD MATCHING THE EXACT REFERENCE DESIGN WITH HARMONIOUS THEME ═══ */}
+                        {/* ═══ LIVE PLAN CARD ═══ */}
                         <div className="yoga-pricing-card">
                           <div className="card-top-badges">
                             <div className="flex items-center gap-2">
                               <span className="badge-language">
-                                {form.language.toUpperCase()}
+                                {form.language.toUpperCase()} MEDIUM
                               </span>
                               {activePrivatePlan.isSpecialized && (
                                 <span className="badge-specialized">
-                                  ★ SPECIALIZED
+                                  ★ SPECIALIZED THERAPY
                                 </span>
                               )}
                             </div>
@@ -1254,8 +1481,10 @@ export default function BookingPage() {
                             {activePrivatePlan.desc}
                           </p>
 
-                          <div className="frequency-label">
-                            Select Weekly Frequency:
+                          <div className="mt-3 mb-2">
+                            <div className="font-bold text-sm text-[#171A32]">
+                              Weekly Schedule
+                            </div>
                           </div>
 
                           <div className="frequency-options-list">
@@ -1327,10 +1556,10 @@ export default function BookingPage() {
                           </div>
                         </div>
 
-                        {/* Preferred IST Time Slots */}
+                        {/* Preferred Practice Time Slots */}
                         <div className="form-grid-2 mt-4">
                           <Field
-                            label="1st Preferred Time Slot (IST)"
+                            label="Primary Practice Time"
                             required
                             error={errors.preferredTime1}
                           >
@@ -1349,7 +1578,7 @@ export default function BookingPage() {
                           </Field>
 
                           <Field
-                            label="2nd Preferred Time Slot (IST)"
+                            label="Alternate Practice Time (Backup)"
                             required
                             error={errors.preferredTime2}
                           >
@@ -1368,8 +1597,69 @@ export default function BookingPage() {
                           </Field>
                         </div>
 
+                        {/* Sleek Timezone & Timing Indicator for Private Class */}
+                        <div className="mt-2.5 mb-3 p-3 px-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs space-y-2.5">
+                          {/* Primary Practice Time */}
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">🕒</span>
+                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#4C5FD5] bg-[#EEF2FF] px-2 py-0.5 rounded-md border border-[#C7D2FE]">
+                                Primary
+                              </span>
+                              <span className="font-semibold text-[#1E293B]">
+                                Your Time:{" "}
+                                <span className="text-[#4C5FD5] font-bold">
+                                  {convertSlotToTimezone(form.preferredTime1, form.timezone).localTimeStr}
+                                </span>
+                                {convertSlotToTimezone(form.preferredTime1, form.timezone).dayOffsetNote && (
+                                  <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                    {convertSlotToTimezone(form.preferredTime1, form.timezone).dayOffsetNote}
+                                  </span>
+                                )}
+                                <span className="ml-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EEF2FF] text-[#4C5FD5] border border-[#C7D2FE]">
+                                  {form.country || form.timezone.split("/")[1]?.replace(/_/g, " ") || "Local"}
+                                </span>
+                              </span>
+                            </div>
+                            <div className="text-[#64748B]">
+                              IST: <strong className="text-[#1E293B]">{form.preferredTime1}</strong>
+                            </div>
+                          </div>
+
+                          {/* Alternate Practice Time (Backup) */}
+                          {form.preferredTime2 && (
+                            <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-[#E2E8F0]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">🔄</span>
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#475569] bg-[#F1F5F9] px-2 py-0.5 rounded-md border border-[#CBD5E1]">
+                                  Backup
+                                </span>
+                                <span className="font-semibold text-[#1E293B]">
+                                  Your Time:{" "}
+                                  <span className="text-[#4C5FD5] font-bold">
+                                    {convertSlotToTimezone(form.preferredTime2, form.timezone).localTimeStr}
+                                  </span>
+                                  {convertSlotToTimezone(form.preferredTime2, form.timezone).dayOffsetNote && (
+                                    <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                      {convertSlotToTimezone(form.preferredTime2, form.timezone).dayOffsetNote}
+                                    </span>
+                                  )}
+                                  <span className="ml-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EEF2FF] text-[#4C5FD5] border border-[#C7D2FE]">
+                                    {form.country || form.timezone.split("/")[1]?.replace(/_/g, " ") || "Local"}
+                                  </span>
+                                </span>
+                              </div>
+                              <div className="text-[#64748B]">
+                                IST: <strong className="text-[#1E293B]">{form.preferredTime2}</strong>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
                         {/* Instructor Preference Dropdown */}
-                        <Field label="Instructor Preference">
+                        <Field
+                          label="Teacher Preference (Optional)"
+                        >
                           <Select
                             value={form.instructorPreference}
                             onChange={(e) =>
@@ -1377,16 +1667,60 @@ export default function BookingPage() {
                             }
                           >
                             <option value="Any" data-icon="👥">
-                              Any Instructor (Male or Female)
+                              Any (Yogi or Yogini)
                             </option>
-                            <option value="Female" data-icon="👩">
-                              Female Instructor
+                            <option value="Female" data-icon="🧘‍♀️">
+                              Yogini (Female Teacher)
                             </option>
-                            <option value="Male" data-icon="👨">
-                              Male Instructor
+                            <option value="Male" data-icon="🧘‍♂️">
+                              Yogi (Male Teacher)
                             </option>
                           </Select>
                         </Field>
+
+                        {/* Private Faculty Preview Card */}
+                        {matchingPrivateTeachers.length > 0 && (
+                          <div className="mt-3.5 p-3 bg-white rounded-xl border border-[#CBD8F7] shadow-xs">
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-[#4C5FD5] mb-2 flex items-center gap-1.5">
+                              <span>✨ Matched Certified Faculty for 1-on-1 Practice</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {matchingPrivateTeachers.slice(0, 2).map((teacher) => {
+                                const title = getTeacherTitle(teacher.gender);
+                                return (
+                                  <div
+                                    key={teacher.id || teacher.name}
+                                    className="flex items-center gap-3 p-2.5 rounded-lg border border-[#E7E4DC] bg-[#FCFAF7]"
+                                  >
+                                    <img
+                                      src={teacher.profileImage || "/instructors/priya-nair.jpg"}
+                                      alt={teacher.name}
+                                      className="w-10 h-10 rounded-full object-cover border flex-none"
+                                      style={{ borderColor: "var(--border)" }}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-bold text-xs text-[#171A32] flex items-center gap-1 truncate">
+                                        <span
+                                          className={
+                                            title === "Yogini"
+                                              ? "text-purple-700 font-semibold"
+                                              : "text-emerald-700 font-semibold"
+                                          }
+                                        >
+                                          {title}
+                                        </span>
+                                        <span className="truncate">{teacher.name}</span>
+                                      </div>
+                                      <div className="text-[10px] text-[#4C5FD5] font-semibold mt-0.5">
+                                        ✓ {teacher.language} Medium · Certified Master
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1403,7 +1737,7 @@ export default function BookingPage() {
                           </span>
                         </div>
 
-                        <div className="form-grid-2">
+                        <div className="form-grid-2 mb-4">
                           <Field label="Group Cohort &amp; Language" required>
                             <Select
                               id="group-cohort-dropdown"
@@ -1430,7 +1764,7 @@ export default function BookingPage() {
                           </Field>
 
                           <Field
-                            label={`Select Class Timing (${activeCohort.language} Cohort)`}
+                            label="Select Class Timing"
                             required
                             error={errors.groupTimeSlot}
                           >
@@ -1450,40 +1784,136 @@ export default function BookingPage() {
                           </Field>
                         </div>
 
-                        {/* Group Instructor & Selected Timing Summary */}
-                        <div className="group-summary-banner">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xl">🧘‍♂️</span>
+                        {/* ── Sleek 1-Column Timezone & Timing Indicator ── */}
+                        <div className="mb-3 p-2.5 px-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-2 flex-wrap text-xs">
+                          <div className="flex items-center gap-2">
+                            <span>🕒</span>
+                            <span className="font-semibold text-[#1E293B]">
+                              Your Time:{" "}
+                              <span className="text-[#4C5FD5] font-bold">
+                                {convertSlotToTimezone(form.groupTimeSlot, form.timezone).localTimeStr}
+                              </span>
+                              {convertSlotToTimezone(form.groupTimeSlot, form.timezone).dayOffsetNote && (
+                                <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                  {convertSlotToTimezone(form.groupTimeSlot, form.timezone).dayOffsetNote}
+                                </span>
+                              )}
+                              <span className="ml-1.5 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EEF2FF] text-[#4C5FD5] border border-[#C7D2FE]">
+                                {form.country || form.timezone.split("/")[1]?.replace(/_/g, " ") || "Local"}
+                              </span>
+                            </span>
+                          </div>
+                          <div className="text-[#64748B]">
+                            IST: <strong className="text-[#1E293B]">{form.groupTimeSlot}</strong>
+                          </div>
+                        </div>
+
+                        {/* ── Available Faculty in Scheduler for Selected Time Slot ── */}
+                        <div className="slot-teacher-section mt-3 pt-3 border-t border-[#E7E4DC]">
+                          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
                             <div>
-                              <div className="text-[10px] uppercase font-bold tracking-wider text-[#6B7089]">
-                                Group Lead Instructor
-                              </div>
-                              <div className="font-bold text-[#171A32] text-sm">
-                                {activeCohort.instructor} (
-                                {activeCohort.language})
+                              <div className="text-xs font-bold uppercase tracking-wider text-[#171A32] flex items-center gap-1.5">
+                                <span>🧑‍🏫 Available Faculty for this Slot</span>
+                                <span className="text-[11px] font-normal text-[#6B7089]">
+                                  ({form.groupTimeSlot})
+                                </span>
                               </div>
                             </div>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EBF7EE] text-[#1E9E63] border border-[#C6EBD0]">
+                              {availableGroupTeachers.length}{" "}
+                              {availableGroupTeachers.length === 1
+                                ? "Teacher Available"
+                                : "Teachers Available"}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-xl">⏰</span>
-                            <div>
-                              <div className="text-[10px] uppercase font-bold tracking-wider text-[#6B7089]">
-                                Batch Timing &amp; Monthly Fee
-                              </div>
-                              <div className="font-bold text-[#4C5FD5] text-sm">
-                                {form.groupTimeSlot} · {activeCohort.priceLabel}
-                              </div>
+
+                          {availableGroupTeachers.length === 0 ? (
+                            <div className="p-2.5 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl text-xs text-[#92400E] flex items-center gap-2">
+                              <span>ℹ️</span>
+                              <span>
+                                No instructor is directly scheduled for this slot in the Scheduler. A certified teacher will be paired upon confirmation.
+                              </span>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              {availableGroupTeachers.map((teacher) => {
+                                const title = getTeacherTitle(teacher.gender); // "Yogini" or "Yogi"
+                                const isSelected =
+                                  selectedGroupTeacherId === teacher.id;
+                                return (
+                                  <div
+                                    key={teacher.id || teacher.name}
+                                    onClick={() =>
+                                      setSelectedGroupTeacherId(teacher.id)
+                                    }
+                                    className={`teacher-available-card ${isSelected ? "selected" : ""}`}
+                                  >
+                                    <div className="flex items-start gap-2.5">
+                                      <div className="relative flex-none">
+                                        <img
+                                          src={
+                                            teacher.profileImage ||
+                                            "/instructors/priya-nair.jpg"
+                                          }
+                                          alt={teacher.name}
+                                          className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-xs"
+                                        />
+                                        <span
+                                          className={`absolute -bottom-1 -right-1 text-[8.5px] font-extrabold uppercase px-1 rounded shadow-xs ${
+                                            title === "Yogini"
+                                              ? "bg-purple-600 text-white"
+                                              : "bg-emerald-600 text-white"
+                                          }`}
+                                        >
+                                          {title}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between gap-1">
+                                          <div className="font-bold text-xs text-[#171A32] truncate flex items-center gap-1">
+                                            <span
+                                              className={
+                                                title === "Yogini"
+                                                  ? "text-purple-700"
+                                                  : "text-emerald-700"
+                                              }
+                                            >
+                                              {title}
+                                            </span>
+                                            <span className="truncate">
+                                              {teacher.name}
+                                            </span>
+                                          </div>
+                                          {isSelected && (
+                                            <span className="text-[9px] font-bold uppercase tracking-wider text-[#4C5FD5] bg-[#EEF2FF] px-1 py-0.5 rounded">
+                                              Selected
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 mt-1 text-[10px] text-[#4C5FD5] font-semibold">
+                                          <span>✓ {teacher.language} Medium</span>
+                                          {teacher.isScheduledLead && (
+                                            <span>· Timetable Lead</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
                 </div>
 
-                {/* Preferred Trial Date */}
+                {/* Preferred Start Date */}
                 <div className="mt-4">
                   <Field
-                    label="Preferred Trial / Joining Date"
+                    label="Preferred Start Date"
                     required
                     error={errors.joiningDate}
                     id="joiningDate"
@@ -1498,38 +1928,34 @@ export default function BookingPage() {
                   </Field>
                 </div>
 
-                {/* Big Health Notes / Specific Inquiries Section (900 character limit) */}
-                <div className="mt-5 pt-4 border-t border-[#E7E4DC]">
-                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
+                {/* Health Notes Section */}
+                <div className="mt-4 pt-3 border-t border-[#E7E4DC]">
+                  <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
                     <label
                       htmlFor="health-notes"
                       className="field-label text-sm font-bold text-[#171A32] mb-0"
                     >
-                      Health Notes / Specific Inquiries (Optional)
+                      Health Notes &amp; Inquiries (Optional)
                     </label>
                     <span
                       className={`text-xs font-mono font-semibold ${form.message.length >= 850 ? "text-amber-600 font-bold" : "text-[#7B8098]"}`}
                     >
-                      {form.message.length} / 900 characters
+                      {form.message.length} / 900
                     </span>
                   </div>
-                  <p className="text-xs text-[#5B607A] mb-3 leading-relaxed">
-                    Please share any medical conditions, injuries (e.g.
-                    back/neck/knee pain), recent surgeries, pregnancy,
-                    flexibility concerns, or specific practice goals. Our
-                    certified yoga masters review these notes prior to your
-                    first live trial session.
+                  <p className="text-xs text-[#5B607A] mb-2">
+                    Share any back or knee pain, injuries, or goals for your instructor before your first session.
                   </p>
                   <textarea
                     id="health-notes"
-                    rows={6}
+                    rows={3}
                     maxLength={900}
                     value={form.message}
                     onChange={(e) =>
                       set("message", e.target.value.slice(0, 900))
                     }
-                    placeholder="e.g. Recovering from a lower back injury, working long desk hours, looking for gentle stretching, posture correction, and breathing exercises..."
-                    className="booking-textarea w-full p-3.5 rounded-xl border border-[#D5D8E4] focus:border-[#4C5FD5] focus:ring-2 focus:ring-[#4C5FD5]/20 text-sm text-[#171A32] placeholder-[#A0A4B8] bg-white transition-all outline-none resize-y min-h-[140px] leading-relaxed"
+                    placeholder="e.g. Back stiffness, desk fatigue, looking for gentle stretching and breathwork..."
+                    className="booking-textarea w-full p-3 rounded-xl border border-[#D5D8E4] focus:border-[#4C5FD5] focus:ring-2 focus:ring-[#4C5FD5]/20 text-sm text-[#171A32] placeholder-[#A0A4B8] bg-white transition-all outline-none resize-y min-h-[90px] leading-relaxed"
                   />
                 </div>
               </div>
@@ -1654,28 +2080,76 @@ export default function BookingPage() {
                       value={form.preferredTime2}
                     />
                     <ReviewRow
-                      label="Instructor Preference"
+                      label="Teacher Preference"
                       value={
                         form.instructorPreference === "Any"
-                          ? "Any (Male or Female)"
-                          : `${form.instructorPreference} Instructor`
+                          ? "Any Yoga Master (Yogi or Yogini)"
+                          : form.instructorPreference === "Female"
+                          ? "Yogini (Female Teacher)"
+                          : "Yogi (Male Teacher)"
                       }
                     />
+                    {matchingPrivateTeachers.length > 0 && (
+                      <ReviewRow label="Assigned Faculty">
+                        <div className="flex items-center gap-2 justify-end flex-wrap">
+                          {matchingPrivateTeachers.slice(0, 2).map((t) => (
+                            <div
+                              key={t.id || t.name}
+                              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#FCFAF7] border border-[#CBD8F7]"
+                            >
+                              <img
+                                src={t.profileImage || "/instructors/priya-nair.jpg"}
+                                alt={t.name}
+                                className="w-5 h-5 rounded-full object-cover"
+                              />
+                              <span className="font-semibold text-xs text-[#171A32]">
+                                {getTeacherTitle(t.gender)} {t.name}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </ReviewRow>
+                    )}
                   </>
                 ) : (
                   <>
                     <ReviewRow label="Cohort Tier" value={activeCohort.name} />
-                    <ReviewRow
-                      label="Lead Instructor"
-                      value={activeCohort.instructor}
-                    />
+                    <ReviewRow label="Assigned Yoga Faculty">
+                      <div className="flex items-center gap-2.5 justify-end">
+                        {activeGroupTeacher?.profileImage && (
+                          <img
+                            src={activeGroupTeacher.profileImage}
+                            alt={activeGroupTeacher.name}
+                            className="w-7 h-7 rounded-full object-cover border-2 border-[#4C5FD5]/30 shadow-2xs"
+                          />
+                        )}
+                        <span className="font-bold text-sm text-[#171A32]">
+                          {activeGroupTeacher
+                            ? `${getTeacherTitle(activeGroupTeacher.gender)} ${activeGroupTeacher.name}`
+                            : activeCohort.instructor}
+                        </span>
+                        <span
+                          className={`text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded shadow-2xs ${
+                            getTeacherTitle(activeGroupTeacher?.gender) === "Yogini"
+                              ? "bg-purple-600 text-white"
+                              : "bg-emerald-600 text-white"
+                          }`}
+                        >
+                          {getTeacherTitle(activeGroupTeacher?.gender)}
+                        </span>
+                      </div>
+                    </ReviewRow>
                     <ReviewRow
                       label="Class Timings"
                       value={activeCohort.timingSchedule}
                     />
                     <ReviewRow
                       label="Selected Batch Time"
-                      value={form.groupTimeSlot}
+                      value={
+                        form.timezone !== "Asia/Kolkata"
+                          ? `${convertSlotToTimezone(form.groupTimeSlot, form.timezone).fullLocalStr} · (${form.groupTimeSlot})`
+                          : form.groupTimeSlot
+                      }
                     />
                     <ReviewRow label="Language" value={activeCohort.language} />
                     <ReviewRow
@@ -2046,6 +2520,85 @@ export default function BookingPage() {
           color: #D93025;
           margin-top: 2px;
           font-weight: 500;
+        }
+
+        .field-hint-text {
+          font-size: 12px;
+          color: #5B607A;
+          line-height: 1.45;
+          margin: -2px 0 6px 0;
+        }
+
+        .timezone-converter-card {
+          background: linear-gradient(135deg, #F8FAFF 0%, #EFF4FE 100%);
+          border: 1.5px solid #CBD8F7;
+          border-radius: 12px;
+          padding: 14px 16px;
+        }
+
+        .slot-tz-card {
+          background: #FFFFFF;
+          border: 1.5px solid #E7E4DC;
+          border-radius: 10px;
+          padding: 10px 12px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          user-select: none;
+        }
+
+        .slot-tz-card:hover {
+          border-color: #4C5FD5;
+          box-shadow: 0 2px 8px rgba(76, 95, 213, 0.08);
+        }
+
+        .slot-tz-card.selected {
+          border-color: #4C5FD5;
+          background: #F4F6FF;
+          box-shadow: 0 0 0 2px rgba(76, 95, 213, 0.2);
+        }
+
+        .slot-radio-circle {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 1.5px solid #B0B5C6;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .slot-radio-circle.checked {
+          border-color: #4C5FD5;
+          background: #4C5FD5;
+        }
+
+        .slot-radio-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #FFFFFF;
+        }
+
+        .teacher-available-card {
+          background: #FFFFFF;
+          border: 1.5px solid #E7E4DC;
+          border-radius: 12px;
+          padding: 12px 14px;
+          cursor: pointer;
+          transition: all 0.18s ease;
+          user-select: none;
+        }
+
+        .teacher-available-card:hover {
+          border-color: #4C5FD5;
+          box-shadow: 0 3px 10px rgba(76, 95, 213, 0.08);
+        }
+
+        .teacher-available-card.selected {
+          border-color: #4C5FD5;
+          background: #F4F6FF;
+          box-shadow: 0 0 0 2px rgba(76, 95, 213, 0.2);
         }
 
         .booking-input {

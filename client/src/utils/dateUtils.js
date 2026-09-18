@@ -132,6 +132,123 @@ export function convertISTTimeToZone(timeStr, tz, referenceDate = new Date()) {
   }
 }
 
+export function parseSlotIST(slotStr) {
+  if (!slotStr) return null;
+  const clean = slotStr.replace(/\s*IST\s*/i, "").trim();
+  const parts = clean.split(/\s*[-–—]\s*/);
+  if (parts.length < 2) return null;
+
+  function parseTimePart(p, fallbackPeriod = "am") {
+    p = p.trim();
+    const periodMatch = p.match(/(am|pm)/i);
+    const period = periodMatch ? periodMatch[1].toLowerCase() : fallbackPeriod;
+    const numPart = p.replace(/(am|pm)/i, "").trim();
+    const [hStr, mStr] = numPart.split(":");
+    let h = parseInt(hStr, 10) || 0;
+    const m = parseInt(mStr, 10) || 0;
+    if (period === "pm" && h < 12) h += 12;
+    if (period === "am" && h === 12) h = 0;
+    return { h, m, period };
+  }
+
+  const endParsed = parseTimePart(parts[1], "am");
+  const startParsed = parseTimePart(parts[0], endParsed.period);
+
+  return {
+    startH: startParsed.h,
+    startM: startParsed.m,
+    endH: endParsed.h,
+    endM: endParsed.m,
+  };
+}
+
+export function convertSlotToTimezone(slotStr, tz, referenceDate = new Date()) {
+  if (!slotStr) return { localTimeStr: "--:--", dayOffsetNote: "", fullLocalStr: "--:--", period: "" };
+  if (!tz || tz === "Asia/Kolkata") {
+    return {
+      localTimeStr: slotStr,
+      dayOffsetNote: "",
+      fullLocalStr: slotStr,
+      period: slotStr.toLowerCase().includes("pm") ? "Evening" : "Morning",
+    };
+  }
+
+  try {
+    const parsed = parseSlotIST(slotStr);
+    if (!parsed) {
+      return { localTimeStr: slotStr, dayOffsetNote: "", fullLocalStr: slotStr, period: "" };
+    }
+
+    const y = referenceDate.getFullYear();
+    const mo = referenceDate.getMonth();
+    const d = referenceDate.getDate();
+
+    // IST is fixed UTC+5:30 (330 minutes)
+    const istOffsetMs = 330 * 60000;
+    const startUtcMs = Date.UTC(y, mo, d, parsed.startH, parsed.startM) - istOffsetMs;
+    const endUtcMs = Date.UTC(y, mo, d, parsed.endH, parsed.endM) - istOffsetMs;
+
+    const startDate = new Date(startUtcMs);
+    const endDate = new Date(endUtcMs);
+
+    const timeFmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    const startLocalStr = timeFmt.format(startDate);
+    const endLocalStr = timeFmt.format(endDate);
+
+    // Calculate calendar day difference between IST and local target
+    const localParts = {};
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      hourCycle: "h23",
+    })
+      .formatToParts(startDate)
+      .forEach((p) => {
+        if (p.type !== "literal") localParts[p.type] = +p.value;
+      });
+
+    let dayOffsetNote = "";
+    if (localParts.year && localParts.month && localParts.day) {
+      const localDateMid = new Date(localParts.year, localParts.month - 1, localParts.day).getTime();
+      const istDateMid = new Date(y, mo, d).getTime();
+      if (localDateMid < istDateMid) dayOffsetNote = "Prev Day";
+      else if (localDateMid > istDateMid) dayOffsetNote = "Next Day";
+    }
+
+    const hNum = localParts.hour || 0;
+    let period = "Morning";
+    if (hNum >= 12 && hNum < 17) period = "Afternoon";
+    else if (hNum >= 17 && hNum < 21) period = "Evening";
+    else if (hNum >= 21 || hNum < 5) period = "Night";
+
+    const localTimeCombined = `${startLocalStr} – ${endLocalStr}`;
+    const fullLocalStr = dayOffsetNote
+      ? `${localTimeCombined} (${dayOffsetNote})`
+      : localTimeCombined;
+
+    return {
+      localTimeStr: localTimeCombined,
+      dayOffsetNote,
+      fullLocalStr,
+      period,
+      startLocalStr,
+      endLocalStr,
+    };
+  } catch (err) {
+    console.warn("Timezone conversion error:", err);
+    return { localTimeStr: slotStr, dayOffsetNote: "", fullLocalStr: slotStr, period: "" };
+  }
+}
+
 export function getCurrentDueDate(student) {
   return addMonthsClamped(parseDateOnly(student.lastPaymentDate), 1);
 }
