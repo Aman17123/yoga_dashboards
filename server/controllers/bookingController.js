@@ -1,6 +1,5 @@
 import { pool } from "../db/pool.js";
 import { formatBooking } from "../db/serializer.js";
-import { emitRealtimeEvent } from "../index.js";
 import {
   sendUserConfirmationEmail,
   sendAdminNotificationEmail,
@@ -167,8 +166,6 @@ export async function createBooking(req, res) {
       currentBooking = formatBooking(rows[0]);
     }
 
-    emitRealtimeEvent("booking:created", { booking: currentBooking });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.status(201).json({
       success: true,
@@ -227,8 +224,6 @@ export async function updateBookingStatus(req, res) {
     );
     const bookingJson = formatBooking(rows[0]);
 
-    emitRealtimeEvent("booking:updated", { booking: bookingJson });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json({ success: true, booking: bookingJson });
   } catch (error) {
@@ -353,13 +348,10 @@ export async function deleteEnrolledStudentFromBooking(req, res) {
         username: studentRow.username,
       };
       await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
-      emitRealtimeEvent("student:deleted", { id: studentRow.id });
     }
 
     if (alsoDeleteBooking === "true" || alsoDeleteBooking === true) {
       await pool.execute("DELETE FROM bookings WHERE id = ?", [bookingRow.id]);
-      emitRealtimeEvent("booking:deleted", { id: bookingRow.id });
-      emitRealtimeEvent("stats:updated", {});
       return res.json({
         success: true,
         bookingDeleted: true,
@@ -386,8 +378,6 @@ export async function deleteEnrolledStudentFromBooking(req, res) {
     );
     const bookingJson = formatBooking(updatedRows[0]);
 
-    emitRealtimeEvent("booking:updated", { booking: bookingJson });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,
@@ -441,13 +431,10 @@ export async function deleteBooking(req, res) {
       }
       if (studentRow) {
         await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
-        emitRealtimeEvent("student:deleted", { id: studentRow.id });
       }
     }
 
     await pool.execute("DELETE FROM bookings WHERE id = ?", [bookingRow.id]);
-    emitRealtimeEvent("booking:deleted", { id: bookingRow.id });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,

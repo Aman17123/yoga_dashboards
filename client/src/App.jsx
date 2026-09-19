@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "./components/Sidebar";
 import HomePage from "./components/HomePage";
 import StudentDashboard from "./components/StudentDashboard";
@@ -35,7 +35,6 @@ import {
 
 import { generateAttendance, formatDateHuman, getCurrentDueDate } from "./utils/dateUtils";
 import { api } from "./services/api";
-import { socket, initSocketConnection } from "./services/socket";
 
 export default function App({ forcedView }) {
   // Initialize with initial data, then hydrate from backend API
@@ -102,6 +101,20 @@ export default function App({ forcedView }) {
   const [toastMessage, setToastMessage] = useState(null);
   const [legalModalType, setLegalModalType] = useState(null);
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(true);
+  const seenBookingIdsRef = useRef(null);
+  const seenEnquiryIdsRef = useRef(null);
+  const sessionRoleRef = useRef(session?.role);
+
+  useEffect(() => {
+    sessionRoleRef.current = session?.role;
+  }, [session?.role]);
+
+  const announce = useCallback((msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 3600);
+  }, []);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [enrollError, setEnrollError] = useState(null);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
@@ -156,16 +169,50 @@ export default function App({ forcedView }) {
         }),
       ]);
 
+      const arraysReturned =
+        Array.isArray(fetchedStudents) &&
+        Array.isArray(fetchedEnquiries) &&
+        Array.isArray(fetchedBookings);
+      setIsRealtimeConnected(arraysReturned);
+
       if (Array.isArray(fetchedStudents) && fetchedStudents.length > 0) {
         setStudents(fetchedStudents);
       }
-      if (Array.isArray(fetchedEnquiries) && fetchedEnquiries.length > 0) {
-        setEnquiries(fetchedEnquiries);
+      if (Array.isArray(fetchedEnquiries)) {
+        if (seenEnquiryIdsRef.current !== null && sessionRoleRef.current === "admin") {
+          const newItems = fetchedEnquiries.filter(
+            (q) => !seenEnquiryIdsRef.current.has(q.id ?? q._id)
+          );
+          if (newItems.length === 1) {
+            announce(`New inquiry received from ${newItems[0].name}!`);
+          } else if (newItems.length > 1) {
+            announce(`${newItems.length} new inquiries received!`);
+          }
+        }
+        seenEnquiryIdsRef.current = new Set(
+          fetchedEnquiries.map((q) => q.id ?? q._id)
+        );
+        if (fetchedEnquiries.length > 0) {
+          setEnquiries(fetchedEnquiries);
+        }
       }
       if (fetchedSettings && fetchedSettings.upiId) {
         setPaymentSettings(fetchedSettings);
       }
       if (Array.isArray(fetchedBookings)) {
+        if (seenBookingIdsRef.current !== null && sessionRoleRef.current === "admin") {
+          const newItems = fetchedBookings.filter(
+            (b) => !seenBookingIdsRef.current.has(b.id ?? b._id)
+          );
+          if (newItems.length === 1) {
+            announce(`New online booking received from ${newItems[0].name}!`);
+          } else if (newItems.length > 1) {
+            announce(`${newItems.length} new online bookings received!`);
+          }
+        }
+        seenBookingIdsRef.current = new Set(
+          fetchedBookings.map((b) => b.id ?? b._id)
+        );
         setBookings(fetchedBookings);
       }
       if (Array.isArray(fetchedClasses) && fetchedClasses.length > 0) {
@@ -176,10 +223,11 @@ export default function App({ forcedView }) {
       }
     } catch (err) {
       console.warn("Error hydrating from backend API:", err);
+      setIsRealtimeConnected(false);
     } finally {
       if (!silent) setIsRefreshing(false);
     }
-  }, []);
+  }, [announce]);
 
   useEffect(() => {
     loadDatabaseData();
@@ -201,192 +249,10 @@ export default function App({ forcedView }) {
     };
   }, [loadDatabaseData]);
 
-  // Real-time WebSocket synchronization
-  useEffect(() => {
-    const cleanupSocket = initSocketConnection(({ connected }) => {
-      setIsRealtimeConnected(connected);
-    });
 
-    const handleStudentEnrolled = ({ student, emailStatus, bookingId, enquiryId }) => {
-      setStudents((prev) => {
-        const exists = prev.some((s) => s.id === student.id);
-        if (exists) return prev.map((s) => (s.id === student.id ? student : s));
-        return [...prev, student];
-      });
-
-      if (bookingId) {
-        setBookings((prev) =>
-          prev.map((b) =>
-            b._id === bookingId
-              ? {
-                  ...b,
-                  status: "converted",
-                  enrolledStudentId: student.id,
-                  enrollmentEmailStatus: emailStatus?.success ? "sent" : "failed",
-                }
-              : b
-          )
-        );
-      }
-
-      if (enquiryId) {
-        setEnquiries((prev) =>
-          prev.map((q) =>
-            q.id === enquiryId
-              ? { ...q, status: "accepted", convertedStudentId: student.id }
-              : q
-          )
-        );
-      }
-
-      if (emailStatus?.success) {
-        showToast("Student enrolled successfully. Login credentials have been sent to the student’s email.");
-      } else if (emailStatus?.error) {
-        showToast(`Student enrolled, but welcome email failed: ${emailStatus.error}`);
-      }
-    };
-
-    const handleStudentUpdated = ({ student }) => {
-      if (!student) return;
-      setStudents((prev) =>
-        prev.map((s) => (s.id === student.id ? student : s))
-      );
-    };
-
-    const handleStudentDeleted = ({ id }) => {
-      setStudents((prev) => prev.filter((s) => s.id !== id));
-    };
-
-    const handleBookingCreated = ({ booking }) => {
-      if (!booking) return;
-      setBookings((prev) => {
-        if (prev.some((b) => (b._id || b.bookingRef) === (booking._id || booking.bookingRef))) {
-          return prev;
-        }
-        return [booking, ...prev];
-      });
-      showToast(`New online booking received from ${booking.name}!`);
-    };
-
-    const handleBookingUpdated = ({ booking }) => {
-      if (!booking) return;
-      setBookings((prev) =>
-        prev.map((b) => (b._id === booking._id ? booking : b))
-      );
-    };
-
-    const handleBookingDeleted = ({ id }) => {
-      setBookings((prev) => prev.filter((b) => b._id !== id));
-    };
-
-    const handleEnquiryCreated = ({ enquiry }) => {
-      if (!enquiry) return;
-      setEnquiries((prev) => {
-        if (prev.some((q) => q.id === enquiry.id)) return prev;
-        return [enquiry, ...prev];
-      });
-      showToast(`New inquiry received from ${enquiry.name}!`);
-    };
-
-    const handleEnquiryUpdated = ({ enquiry }) => {
-      if (!enquiry) return;
-      setEnquiries((prev) =>
-        prev.map((q) => (q.id === enquiry.id ? enquiry : q))
-      );
-    };
-
-    const handleEnquiryDeleted = ({ id }) => {
-      setEnquiries((prev) => prev.filter((q) => q.id !== id));
-    };
-
-    const handleClassCreated = ({ classItem }) => {
-      if (!classItem) return;
-      setClasses((prev) => {
-        if (prev.some((c) => c.id === classItem.id)) return prev;
-        return [...prev, classItem];
-      });
-    };
-
-    const handleClassUpdated = ({ classItem }) => {
-      if (!classItem) return;
-      setClasses((prev) =>
-        prev.map((c) => (c.id === classItem.id ? classItem : c))
-      );
-    };
-
-    const handleClassDeleted = ({ id }) => {
-      setClasses((prev) => prev.filter((c) => c.id !== id));
-    };
-
-    const handleInstructorCreated = ({ instructor }) => {
-      if (!instructor) return;
-      setInstructors((prev) => {
-        if (prev.some((i) => i.id === instructor.id)) return prev;
-        return [instructor, ...prev];
-      });
-    };
-
-    const handleInstructorUpdated = ({ instructor }) => {
-      if (!instructor) return;
-      setInstructors((prev) =>
-        prev.map((i) => (i.id === instructor.id ? instructor : i))
-      );
-    };
-
-    const handleInstructorDeleted = ({ id }) => {
-      setInstructors((prev) => prev.filter((i) => i.id !== id));
-    };
-
-    const handleStatsUpdated = () => {
-      // Background re-fetch to ensure exact consistency
-      loadDatabaseData(true);
-    };
-
-    socket.on("student:enrolled", handleStudentEnrolled);
-    socket.on("student:updated", handleStudentUpdated);
-    socket.on("student:deleted", handleStudentDeleted);
-    socket.on("booking:created", handleBookingCreated);
-    socket.on("booking:updated", handleBookingUpdated);
-    socket.on("booking:deleted", handleBookingDeleted);
-    socket.on("enquiry:created", handleEnquiryCreated);
-    socket.on("enquiry:updated", handleEnquiryUpdated);
-    socket.on("enquiry:deleted", handleEnquiryDeleted);
-    socket.on("class:created", handleClassCreated);
-    socket.on("class:updated", handleClassUpdated);
-    socket.on("class:deleted", handleClassDeleted);
-    socket.on("instructor:created", handleInstructorCreated);
-    socket.on("instructor:updated", handleInstructorUpdated);
-    socket.on("instructor:deleted", handleInstructorDeleted);
-    socket.on("stats:updated", handleStatsUpdated);
-
-    return () => {
-      cleanupSocket();
-      socket.off("student:enrolled", handleStudentEnrolled);
-      socket.off("student:updated", handleStudentUpdated);
-      socket.off("student:deleted", handleStudentDeleted);
-      socket.off("booking:created", handleBookingCreated);
-      socket.off("booking:updated", handleBookingUpdated);
-      socket.off("booking:deleted", handleBookingDeleted);
-      socket.off("enquiry:created", handleEnquiryCreated);
-      socket.off("enquiry:updated", handleEnquiryUpdated);
-      socket.off("enquiry:deleted", handleEnquiryDeleted);
-      socket.off("class:created", handleClassCreated);
-      socket.off("class:updated", handleClassUpdated);
-      socket.off("class:deleted", handleClassDeleted);
-      socket.off("instructor:created", handleInstructorCreated);
-      socket.off("instructor:updated", handleInstructorUpdated);
-      socket.off("instructor:deleted", handleInstructorDeleted);
-      socket.off("stats:updated", handleStatsUpdated);
-    };
-  }, [loadDatabaseData]);
 
   // Toast auto-dismiss
-  const showToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 3600);
-  };
+  const showToast = announce;
 
   // Close modals on Escape key
   useEffect(() => {

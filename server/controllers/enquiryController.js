@@ -1,6 +1,5 @@
 import { pool } from "../db/pool.js";
 import { formatEnquiry } from "../db/serializer.js";
-import { emitRealtimeEvent } from "../index.js";
 
 async function findEnquiry(rawId) {
   const num = Number(rawId);
@@ -68,8 +67,6 @@ export async function createEnquiry(req, res) {
     );
     const enquiryJson = formatEnquiry(rows[0]);
 
-    emitRealtimeEvent("enquiry:created", { enquiry: enquiryJson });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.status(201).json(enquiryJson);
   } catch (error) {
@@ -102,8 +99,6 @@ export async function updateEnquiryStatus(req, res) {
     );
     const enquiryJson = formatEnquiry(rows[0]);
 
-    emitRealtimeEvent("enquiry:updated", { enquiry: enquiryJson });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json(enquiryJson);
   } catch (error) {
@@ -154,16 +149,10 @@ export async function deleteEnrolledStudentFromEnquiry(req, res) {
         username: studentRow.username,
       };
       await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
-      emitRealtimeEvent("student:deleted", { id: studentRow.id });
     }
 
     if (alsoDeleteEnquiry === "true" || alsoDeleteEnquiry === true) {
       await pool.execute("DELETE FROM enquiries WHERE id = ?", [enquiryRow.id]);
-      emitRealtimeEvent("enquiry:deleted", {
-        id: enquiryRow.id,
-        _id: String(enquiryRow.id),
-      });
-      emitRealtimeEvent("stats:updated", {});
       return res.json({
         success: true,
         enquiryDeleted: true,
@@ -185,8 +174,6 @@ export async function deleteEnrolledStudentFromEnquiry(req, res) {
     );
     const enquiryJson = formatEnquiry(updatedRows[0]);
 
-    emitRealtimeEvent("enquiry:updated", { enquiry: enquiryJson });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,
@@ -239,16 +226,10 @@ export async function deleteEnquiry(req, res) {
       }
       if (studentRow) {
         await pool.execute("DELETE FROM students WHERE id = ?", [studentRow.id]);
-        emitRealtimeEvent("student:deleted", { id: studentRow.id });
       }
     }
 
     await pool.execute("DELETE FROM enquiries WHERE id = ?", [enquiryRow.id]);
-    emitRealtimeEvent("enquiry:deleted", {
-      id: enquiryRow.id,
-      _id: String(enquiryRow.id),
-    });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,

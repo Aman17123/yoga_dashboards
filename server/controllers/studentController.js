@@ -1,13 +1,9 @@
 import bcrypt from "bcryptjs";
 import { pool } from "../db/pool.js";
 import {
-  formatBooking,
-  formatEnquiry,
-  formatStudent,
   getFullStudentById,
   getAllFullStudents,
 } from "../db/serializer.js";
-import { emitRealtimeEvent } from "../index.js";
 import { sendStudentWelcomeEmail } from "../utils/emailService.js";
 
 // Helper: generate clean base username
@@ -361,30 +357,7 @@ export async function enrollStudent(req, res) {
       }
     }
 
-    // Broadcast updated booking/enquiry
-    if (targetBooking) {
-      const [bRows] = await pool.execute("SELECT * FROM bookings WHERE id = ?", [targetBooking.id]);
-      if (bRows.length > 0) {
-        emitRealtimeEvent("booking:updated", { booking: formatBooking(bRows[0]) });
-      }
-    }
-    if (targetEnquiry) {
-      const [eRows] = await pool.execute("SELECT * FROM enquiries WHERE id = ?", [targetEnquiry.id]);
-      if (eRows.length > 0) {
-        emitRealtimeEvent("enquiry:updated", { enquiry: formatEnquiry(eRows[0]) });
-      }
-    }
-
     const studentJson = await getFullStudentById(pool, nextId);
-
-    // Real-time broadcast
-    emitRealtimeEvent("student:enrolled", {
-      student: studentJson,
-      emailStatus: emailResult,
-      bookingId: targetBooking?.id || null,
-      enquiryId: targetEnquiry?.id || null,
-    });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.status(201).json({
       success: true,
@@ -458,7 +431,6 @@ export async function resendWelcomeEmail(req, res) {
     }
 
     const studentJson = await getFullStudentById(pool, id);
-    emitRealtimeEvent("student:updated", { student: studentJson });
 
     return res.json({
       success: emailResult.success,
@@ -601,8 +573,6 @@ export async function createStudent(req, res) {
     }
 
     const studentJson = await getFullStudentById(pool, nextId);
-    emitRealtimeEvent("student:enrolled", { student: studentJson, emailStatus: emailResult });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.status(201).json({
       success: true,
@@ -717,8 +687,6 @@ export async function updateStudent(req, res) {
     }
 
     const studentJson = await getFullStudentById(pool, id);
-    emitRealtimeEvent("student:updated", { student: studentJson });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json(studentJson);
   } catch (error) {
@@ -743,11 +711,6 @@ export async function deleteStudent(req, res) {
 
     // Clean up and restore references in Bookings
     try {
-      const [linkedBookings] = await pool.execute(
-        "SELECT id FROM bookings WHERE enrolled_student_id = ? OR id = ?",
-        [deleted.id, deleted.enrolled_from_booking_id || 0]
-      );
-
       await pool.execute(
         `UPDATE bookings SET
           enrolled_student_id = NULL,
@@ -757,24 +720,12 @@ export async function deleteStudent(req, res) {
          WHERE enrolled_student_id = ? OR id = ?`,
         [deleted.id, deleted.enrolled_from_booking_id || 0]
       );
-
-      for (const b of linkedBookings) {
-        const [updatedB] = await pool.execute("SELECT * FROM bookings WHERE id = ?", [b.id]);
-        if (updatedB.length > 0) {
-          emitRealtimeEvent("booking:updated", { booking: formatBooking(updatedB[0]) });
-        }
-      }
     } catch (err) {
       console.error("Error unlinking booking on student delete:", err);
     }
 
     // Clean up and restore references in Enquiries
     try {
-      const [linkedEnquiries] = await pool.execute(
-        "SELECT id FROM enquiries WHERE converted_student_id = ? OR id = ?",
-        [deleted.id, deleted.enrolled_from_enquiry_id || 0]
-      );
-
       await pool.execute(
         `UPDATE enquiries SET
           converted_student_id = NULL,
@@ -782,22 +733,12 @@ export async function deleteStudent(req, res) {
          WHERE converted_student_id = ? OR id = ?`,
         [deleted.id, deleted.enrolled_from_enquiry_id || 0]
       );
-
-      for (const eq of linkedEnquiries) {
-        const [updatedEq] = await pool.execute("SELECT * FROM enquiries WHERE id = ?", [eq.id]);
-        if (updatedEq.length > 0) {
-          emitRealtimeEvent("enquiry:updated", { enquiry: formatEnquiry(updatedEq[0]) });
-        }
-      }
     } catch (err) {
       console.error("Error unlinking enquiry on student delete:", err);
     }
 
     // Delete student (attendance and payments cascade delete via foreign keys)
     await pool.execute("DELETE FROM students WHERE id = ?", [deleted.id]);
-
-    emitRealtimeEvent("student:deleted", { id: deleted.id });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json({
       success: true,
@@ -878,7 +819,6 @@ export async function resetStudentPassword(req, res) {
     );
 
     const studentJson = await getFullStudentById(pool, id);
-    emitRealtimeEvent("student:updated", { student: studentJson });
 
     let message = "Credentials updated successfully.";
     if (usernameUpdated && passwordUpdated) {
@@ -937,7 +877,6 @@ export async function changeStudentPassword(req, res) {
     await pool.execute("UPDATE students SET password = ? WHERE id = ?", [hashedPassword, id]);
 
     const studentJson = await getFullStudentById(pool, id);
-    emitRealtimeEvent("student:updated", { student: studentJson });
 
     return res.json({
       success: true,
@@ -978,7 +917,6 @@ export async function toggleAttendance(req, res) {
     }
 
     const studentJson = await getFullStudentById(pool, id);
-    emitRealtimeEvent("student:updated", { student: studentJson });
 
     return res.json(studentJson);
   } catch (error) {
@@ -1036,8 +974,6 @@ export async function recordPayment(req, res) {
     }
 
     const studentJson = await getFullStudentById(pool, id);
-    emitRealtimeEvent("student:updated", { student: studentJson });
-    emitRealtimeEvent("stats:updated", {});
 
     return res.json(studentJson);
   } catch (error) {

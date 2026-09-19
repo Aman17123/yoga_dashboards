@@ -1,5 +1,4 @@
 import { pool } from "../db/pool.js";
-import { emitRealtimeEvent } from "../index.js";
 
 const DEFAULT_INSTRUCTORS = [
   {
@@ -233,7 +232,6 @@ export async function createInstructor(req, res) {
     };
 
     memoryInstructors.unshift(created);
-    emitRealtimeEvent("instructor:created", { instructor: created });
 
     return res.status(201).json({
       message: `Instructor "${created.name}" created successfully.`,
@@ -298,7 +296,6 @@ export async function updateInstructor(req, res) {
     };
 
     memoryInstructors = memoryInstructors.map((i) => (i.id === id ? { ...i, ...updated } : i));
-    emitRealtimeEvent("instructor:updated", { instructor: updated });
 
     return res.json({
       message: `Instructor "${updated.name}" updated successfully.`,
@@ -320,7 +317,6 @@ export async function deleteInstructor(req, res) {
     }
 
     memoryInstructors = memoryInstructors.filter((i) => i.id !== id);
-    emitRealtimeEvent("instructor:deleted", { id });
 
     return res.json({ message: "Instructor deleted successfully.", id });
   } catch (error) {

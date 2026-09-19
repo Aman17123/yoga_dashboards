@@ -1,5 +1,4 @@
 import { pool } from "../db/pool.js";
-import { emitRealtimeEvent } from "../index.js";
 
 export function normalizeTimeSlot(slot) {
   if (!slot) return "6:00-7:00 am";
@@ -256,7 +255,6 @@ export async function createClass(req, res) {
     };
 
     memoryClasses.unshift(created);
-    emitRealtimeEvent("class:created", { classItem: created });
 
     return res.status(201).json({
       message: `Class "${title}" created successfully.`,
@@ -335,7 +333,6 @@ export async function updateClass(req, res) {
     };
 
     memoryClasses = memoryClasses.map((c) => (c.id === id ? { ...c, ...updated } : c));
-    emitRealtimeEvent("class:updated", { classItem: updated });
 
     return res.json({
       message: `Class "${title}" updated successfully.`,
@@ -357,7 +354,6 @@ export async function deleteClass(req, res) {
     }
 
     memoryClasses = memoryClasses.filter((c) => c.id !== id);
-    emitRealtimeEvent("class:deleted", { id });
 
     return res.json({ message: "Class entry deleted successfully.", id });
   } catch (error) {
